@@ -95,6 +95,26 @@ export const App: React.FC = () => {
   } | null>(null);
   const notificationTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Viewed history for pool fan preview (tracks last items opened/viewed)
+  const [viewedHistory, setViewedHistory] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('archive.viewedHistory');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Track viewed items whenever an entry is opened
+  useEffect(() => {
+    if (!openId) return;
+    setViewedHistory((prev) => {
+      const updated = [openId, ...prev.filter((id) => id !== openId)].slice(0, 200);
+      localStorage.setItem('archive.viewedHistory', JSON.stringify(updated));
+      return updated;
+    });
+  }, [openId]);
+
   const showFolderNotification = (folderName: string, count: number | string, folder?: WatchedFolder | null) => {
     if (notificationTimerRef.current) {
       clearTimeout(notificationTimerRef.current);
@@ -1026,6 +1046,9 @@ export const App: React.FC = () => {
         onOptimizeDb={handleOptimizeDb}
         onClearAll={handleClearAll}
         onOpenSettings={() => setSettingsOpen(true)}
+        entries={entries}
+        viewedHistory={viewedHistory}
+        onSelectEntry={setOpenId}
       />
 
       {/* Main Content Area */}

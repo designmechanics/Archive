@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useRef } from 'react';
-import { WatchedFolder, Pool } from '../types';
+import { WatchedFolder, Pool, AssetEntry } from '../types';
 
 interface RailProps {
   totalCount: number;
@@ -25,6 +25,9 @@ interface RailProps {
   onClearAll?: () => void;
   onOpenSettings?: () => void;
   pools?: Pool[];
+  entries?: AssetEntry[];
+  viewedHistory?: string[];
+  onSelectEntry?: (id: string) => void;
 }
 
 export const Rail: React.FC<RailProps> = ({
@@ -50,7 +53,10 @@ export const Rail: React.FC<RailProps> = ({
   onOptimizeDb,
   onClearAll,
   onOpenSettings,
-  pools = []
+  pools = [],
+  entries = [],
+  viewedHistory = [],
+  onSelectEntry
 }) => {
   const poolList = pools.length > 0
     ? pools
@@ -309,6 +315,36 @@ export const Rail: React.FC<RailProps> = ({
           const isFanOpen = fanPool === p;
           const count = poolCounts[p] || 0;
 
+          // Obtain last 5 items viewed in this pool (falling back to recent pool items if fewer than 5 viewed)
+          const poolItems: AssetEntry[] = (() => {
+            if (!entries || entries.length === 0) return [];
+            const viewedInPool: AssetEntry[] = [];
+            const seen = new Set<string>();
+
+            // 1. Pick items from viewedHistory belonging to this pool (most recently viewed first)
+            if (viewedHistory && viewedHistory.length > 0) {
+              for (const id of viewedHistory) {
+                const entry = entries.find((e) => e.id === id && e.cat === p);
+                if (entry && !seen.has(entry.id)) {
+                  seen.add(entry.id);
+                  viewedInPool.push(entry);
+                  if (viewedInPool.length >= 5) break;
+                }
+              }
+            }
+
+            // 2. If fewer than 5 viewed, fill with latest pool entries so fan always has up to 5 items if available
+            if (viewedInPool.length < 5) {
+              const poolAll = entries.filter((e) => e.cat === p && !seen.has(e.id));
+              for (const entry of poolAll) {
+                viewedInPool.push(entry);
+                if (viewedInPool.length >= 5) break;
+              }
+            }
+
+            return viewedInPool;
+          })();
+
           return (
             <div key={poolItem.id || p} data-pool={p} style={{ marginBottom: '3px' }}>
               <button
@@ -376,7 +412,7 @@ export const Rail: React.FC<RailProps> = ({
                     e.stopPropagation();
                     onToggleFan(p);
                   }}
-                  title="Fan preview"
+                  title="Fan preview: last viewed in pool"
                   style={{
                     width: '20px',
                     height: '20px',
@@ -406,39 +442,147 @@ export const Rail: React.FC<RailProps> = ({
               <div
                 data-fanwrap={p}
                 style={{
-                  height: isFanOpen ? '72px' : '0px',
+                  height: isFanOpen ? '92px' : '0px',
                   overflow: 'hidden',
                   opacity: isFanOpen ? 1 : 0,
                   transition: 'height 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s'
                 }}
               >
-                <div style={{ display: 'flex', padding: '10px 14px 14px', alignItems: 'flex-end' }}>
-                  {[0, 1, 2, 3, 4].map((i) => {
-                    const offset = i - 2;
-                    const rotate = isFanOpen ? offset * 13 : 0;
-                    const transY = isFanOpen ? -Math.abs(offset) * 5 : 0;
-                    const transX = isFanOpen ? offset * 7 : 0;
-                    return (
-                      <div
-                        key={i}
-                        data-mini="1"
-                        style={{
-                          width: '38px',
-                          height: '48px',
-                          marginLeft: i === 0 ? 0 : '-10px',
-                          flex: 'none',
-                          borderRadius: '7px',
-                          border: '1px solid rgba(181,217,253,.4)',
-                          background:
-                            'repeating-linear-gradient(135deg, rgba(148,188,227,.5) 0 3px, rgba(29,45,61,.1) 3px 7px)',
-                          boxShadow: '0 3px 10px rgba(0,0,0,.3)',
-                          transformOrigin: '50% 100%',
-                          transform: `translate(${transX}px, ${transY}px) rotate(${rotate}deg)`,
-                          transition: `transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${i * 0.03}s`
-                        }}
-                      />
-                    );
-                  })}
+                {/* Micro Header */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '4px 14px 2px',
+                    fontFamily: 'ui-monospace, Menlo, monospace',
+                    fontSize: '8.5px',
+                    letterSpacing: '.08em',
+                    textTransform: 'uppercase',
+                    color: 'rgba(148,188,227,.6)'
+                  }}
+                >
+                  <span>Last Viewed</span>
+                  <span>{poolItems.length} cards</span>
+                </div>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    padding: '6px 14px 14px',
+                    alignItems: 'flex-end',
+                    position: 'relative'
+                  }}
+                >
+                  {poolItems.length === 0 ? (
+                    <div
+                      style={{
+                        fontFamily: 'ui-monospace, Menlo, monospace',
+                        fontSize: '9.5px',
+                        color: 'rgba(233,237,242,.4)',
+                        fontStyle: 'italic',
+                        padding: '6px 0'
+                      }}
+                    >
+                      No items in this pool
+                    </div>
+                  ) : (
+                    poolItems.map((item, i) => {
+                      const n = poolItems.length;
+                      const offset = i - (n - 1) / 2;
+                      const rotate = isFanOpen ? offset * 13 : 0;
+                      const transY = isFanOpen ? -Math.abs(offset) * 5 : 0;
+                      const transX = isFanOpen ? offset * 8 : 0;
+                      const hasThumb = !!item.thumb;
+                      const isVideo =
+                        item.type === 'video' ||
+                        (item.exts && ['mp4', 'webm', 'mov', 'm4v'].some((x) => item.exts.includes(x)));
+
+                      return (
+                        <div
+                          key={item.id}
+                          data-mini="1"
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            if (onSelectEntry) onSelectEntry(item.id);
+                          }}
+                          title={`${item.title} (${item.type.toUpperCase()}) — Click to preview`}
+                          style={{
+                            width: '42px',
+                            height: '56px',
+                            marginLeft: i === 0 ? 0 : '-12px',
+                            flex: 'none',
+                            borderRadius: '8px',
+                            border: '1.5px solid rgba(181,217,253,.35)',
+                            background: hasThumb
+                              ? `url(${item.thumb}) center/cover no-repeat`
+                              : 'repeating-linear-gradient(135deg, rgba(148,188,227,.5) 0 3px, rgba(29,45,61,.1) 3px 7px)',
+                            boxShadow: '0 4px 12px rgba(0,0,0,.45)',
+                            transformOrigin: '50% 100%',
+                            transform: `translate(${transX}px, ${transY}px) rotate(${rotate}deg)`,
+                            transition: `transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${i * 0.03}s, box-shadow 0.2s, border-color 0.2s`,
+                            cursor: 'pointer',
+                            position: 'relative',
+                            overflow: 'hidden'
+                          }}
+                          onMouseEnter={(ev) => {
+                            ev.currentTarget.style.zIndex = '30';
+                            ev.currentTarget.style.borderColor = '#38ef7d';
+                            ev.currentTarget.style.boxShadow = '0 8px 24px rgba(56,239,125,.35)';
+                            ev.currentTarget.style.transform = `translate(${transX}px, ${transY - 8}px) scale(1.18) rotate(${rotate}deg)`;
+                          }}
+                          onMouseLeave={(ev) => {
+                            ev.currentTarget.style.zIndex = 'auto';
+                            ev.currentTarget.style.borderColor = 'rgba(181,217,253,.35)';
+                            ev.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,.45)';
+                            ev.currentTarget.style.transform = `translate(${transX}px, ${transY}px) rotate(${rotate}deg)`;
+                          }}
+                        >
+                          {/* Mini Video / Format indicator */}
+                          {isVideo && (
+                            <span
+                              style={{
+                                position: 'absolute',
+                                bottom: '2px',
+                                right: '2px',
+                                width: '12px',
+                                height: '12px',
+                                borderRadius: '50%',
+                                background: 'rgba(0,0,0,0.7)',
+                                color: '#ffffff',
+                                fontSize: '6px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                paddingLeft: '1px'
+                              }}
+                            >
+                              ▶
+                            </span>
+                          )}
+                          {!hasThumb && (
+                            <span
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontFamily: 'ui-monospace, monospace',
+                                fontSize: '8px',
+                                fontWeight: 700,
+                                color: '#b5d9fd',
+                                textTransform: 'uppercase',
+                                background: 'rgba(15,23,42,0.6)'
+                              }}
+                            >
+                              {item.exts?.[0] || item.type.slice(0, 3)}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </div>
