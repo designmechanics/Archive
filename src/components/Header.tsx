@@ -11,6 +11,8 @@ interface HeaderProps {
   theme: ThemeMode;
   onThemeChange: (t: ThemeMode) => void;
   onShuffle: () => void;
+  isShuffled?: boolean;
+  onRevertShuffle?: () => void;
   onOpenModal: () => void;
   onOpenSettings?: () => void;
   accent: string;
@@ -28,6 +30,8 @@ export const Header: React.FC<HeaderProps> = ({
   theme,
   onThemeChange,
   onShuffle,
+  isShuffled = false,
+  onRevertShuffle,
   onOpenModal,
   onOpenSettings,
   accent
@@ -255,45 +259,111 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
       )}
 
-      {/* Surprise Me Shuffle Button */}
-      <button
+      {/* Surprise Me Shuffle Button with Revert / Undo Mini Button */}
+      <div
         data-intro="1"
-        onClick={onShuffle}
-
-        title="Shuffle assets"
         style={{
-          padding: '10px 15px',
+          display: 'inline-flex',
+          alignItems: 'stretch',
           borderRadius: '12px',
-          cursor: 'pointer',
-          border: '1px solid rgba(var(--inkc, 29,31,32), .14)',
-          background: 'var(--surface, #ffffff)',
-          color: 'var(--ink, #1d1f20)',
-          fontFamily: "'Barlow Condensed', sans-serif",
-          fontSize: '14px',
-          fontWeight: 600,
-          letterSpacing: '.05em',
-          textTransform: 'uppercase',
-          whiteSpace: 'nowrap',
-          boxShadow: '0 1px 2px rgba(43,43,45,.14)',
-          transition: 'transform 0.15s, background 0.18s, border-color 0.18s'
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = 'var(--tint, #eef6ff)';
-          e.currentTarget.style.borderColor = '#94bce3';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'var(--surface, #ffffff)';
-          e.currentTarget.style.borderColor = 'rgba(var(--inkc, 29,31,32), .14)';
-        }}
-        onMouseDown={(e) => {
-          e.currentTarget.style.transform = 'translateY(1px)';
-        }}
-        onMouseUp={(e) => {
-          e.currentTarget.style.transform = 'translateY(0)';
+          border: `1px solid ${isShuffled ? '#94bce3' : 'rgba(var(--inkc, 29,31,32), .14)'}`,
+          background: isShuffled ? 'var(--tint, #eef6ff)' : 'var(--surface, #ffffff)',
+          boxShadow: isShuffled ? '0 1px 3px rgba(148,188,227,.25)' : '0 1px 2px rgba(43,43,45,.14)',
+          overflow: 'hidden',
+          transition: 'all 0.18s ease'
         }}
       >
-        Surprise me
-      </button>
+        {/* Main Shuffle Action */}
+        <button
+          onClick={onShuffle}
+          title={isShuffled ? 'Shuffle assets again' : 'Shuffle assets randomly'}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: isShuffled ? '10px 10px 10px 14px' : '10px 15px',
+            border: 0,
+            background: 'transparent',
+            color: 'var(--ink, #1d1f20)',
+            fontFamily: "'Barlow Condensed', sans-serif",
+            fontSize: '14px',
+            fontWeight: 600,
+            letterSpacing: '.05em',
+            textTransform: 'uppercase',
+            whiteSpace: 'nowrap',
+            cursor: 'pointer',
+            transition: 'background 0.15s, padding 0.18s'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(var(--inkc, 29,31,32), .06)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent';
+          }}
+          onMouseDown={(e) => {
+            e.currentTarget.style.transform = 'translateY(1px)';
+          }}
+          onMouseUp={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+          }}
+        >
+          <span style={{ fontSize: '13px' }}>🎲</span>
+          <span>Surprise me!</span>
+        </button>
+
+        {/* Revert / Undo Mini Button */}
+        {isShuffled && onRevertShuffle && (
+          <>
+            <span
+              style={{
+                width: '1px',
+                margin: '7px 0',
+                background: 'rgba(148,188,227,.4)'
+              }}
+            />
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onRevertShuffle();
+              }}
+              title="Undo shuffle · Revert to original order"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '0 11px 0 9px',
+                border: 0,
+                background: 'transparent',
+                color: 'var(--ink, #1d1f20)',
+                cursor: 'pointer',
+                fontFamily: "'Barlow Condensed', sans-serif",
+                fontSize: '12.5px',
+                fontWeight: 600,
+                letterSpacing: '.05em',
+                textTransform: 'uppercase',
+                transition: 'background 0.15s, color 0.15s, transform 0.1s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(148,188,227,.25)';
+                e.currentTarget.style.color = '#2c455d';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = 'var(--ink, #1d1f20)';
+              }}
+              onMouseDown={(e) => {
+                e.currentTarget.style.transform = 'scale(0.92)';
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+            >
+              <span style={{ fontSize: '13px', color: '#5980a6' }}>↺</span>
+              <span>Revert</span>
+            </button>
+          </>
+        )}
+      </div>
 
       {/* Primary Ingest Button */}
       <button

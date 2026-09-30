@@ -728,6 +728,11 @@ export const App: React.FC = () => {
             setSeed((s) => s + 1);
             setFocusIndex(0);
           }}
+          isShuffled={seed > 0}
+          onRevertShuffle={() => {
+            setSeed(0);
+            setFocusIndex(0);
+          }}
           onOpenModal={() => setModalOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
           accent={accent}
