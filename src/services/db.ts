@@ -282,6 +282,23 @@ export async function updateWatchedFolder(folder: WatchedFolder): Promise<void> 
   await db.put('folders', folder);
 }
 
+export async function toggleWatchedFolder(id: string, enabled: boolean): Promise<WatchedFolder[]> {
+  try {
+    const folders = await api.updateFolder(id, { enabled });
+    if (folders && folders.length > 0) return folders;
+  } catch (err) {
+    console.warn('Failed to toggle folder in SQLite:', err);
+  }
+
+  const db = await getDB();
+  const folder = await db.get('folders', id);
+  if (folder) {
+    folder.enabled = enabled;
+    await db.put('folders', folder);
+  }
+  return getWatchedFolders();
+}
+
 export async function getDatabaseStatus(): Promise<DatabaseStats | null> {
   return await api.getStats();
 }

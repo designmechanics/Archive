@@ -12,6 +12,7 @@ import {
   clearAllAssets,
   getWatchedFolders,
   addWatchedFolder,
+  updateWatchedFolder,
   removeWatchedFolder,
   getSetting,
   saveSetting,
@@ -244,10 +245,17 @@ export async function handleApiRequest(req, res, next) {
     }
 
     const folderIdMatch = pathname.match(/^\/api\/folders\/([^/]+)$/);
-    if (folderIdMatch && req.method === 'DELETE') {
+    if (folderIdMatch) {
       const id = decodeURIComponent(folderIdMatch[1]);
-      const folders = removeWatchedFolder(id);
-      return sendJson(res, { success: true, folders });
+      if (req.method === 'DELETE') {
+        const folders = removeWatchedFolder(id);
+        return sendJson(res, { success: true, folders });
+      }
+      if (req.method === 'PATCH' || req.method === 'PUT') {
+        const body = await parseBody(req);
+        const folders = updateWatchedFolder(id, body);
+        return sendJson(res, { success: true, folders });
+      }
     }
 
     // 6.5 Asset Pools Management

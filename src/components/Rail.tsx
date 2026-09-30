@@ -12,6 +12,10 @@ interface RailProps {
   folders: WatchedFolder[];
   onOpenModal: () => void;
   onRemoveFolder?: (id: string) => void;
+  selectedFolder?: WatchedFolder | null;
+  onSelectFolder?: (folder: WatchedFolder | null) => void;
+  onToggleFolderEnabled?: (id: string, enabled: boolean) => void;
+  folderCounts?: Record<string, number>;
   indexPct: number;
   indexFile: string;
   indexStatus?: 'idle' | 'scanning' | 'indexing' | 'complete' | 'error';
@@ -34,6 +38,10 @@ export const Rail: React.FC<RailProps> = ({
   folders,
   onOpenModal,
   onRemoveFolder,
+  selectedFolder = null,
+  onSelectFolder,
+  onToggleFolderEnabled,
+  folderCounts,
   indexPct,
   indexFile,
   indexStatus = 'idle',
@@ -384,6 +392,9 @@ export const Rail: React.FC<RailProps> = ({
         <div
           data-intro="1"
           style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
             padding: '18px 8px 8px',
             fontFamily: 'ui-monospace, Menlo, monospace',
             fontSize: '9.5px',
@@ -392,79 +403,208 @@ export const Rail: React.FC<RailProps> = ({
             textTransform: 'uppercase'
           }}
         >
-          Watched folders
+          <span>Watched folders ({folders.length})</span>
+          {selectedFolder && onSelectFolder && (
+            <button
+              onClick={() => onSelectFolder(null)}
+              style={{
+                background: 'transparent',
+                border: 0,
+                color: '#b5d9fd',
+                fontSize: '9.5px',
+                cursor: 'pointer',
+                padding: '0',
+                textTransform: 'uppercase',
+                textDecoration: 'underline'
+              }}
+              title="Clear folder filter"
+            >
+              Clear ✕
+            </button>
+          )}
         </div>
 
-        {folders.map((f) => (
-          <div
-            key={f.id}
-            data-intro="1"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '7px 10px',
-              borderRadius: '10px',
-              background: 'rgba(148,188,227,.06)',
-              marginBottom: '4px'
-            }}
-          >
-            <span
-              style={{
-                width: '6px',
-                height: '6px',
-                borderRadius: '99px',
-                background: '#94bce3',
-                flex: 'none',
-                animation: 'idxpulse 2.4s ease-in-out infinite'
+        {folders.map((f) => {
+          const isSelected = selectedFolder?.id === f.id;
+          const isEnabled = f.enabled !== false;
+          const folderCount = folderCounts?.[f.id] ?? f.count;
+
+          return (
+            <div
+              key={f.id}
+              data-intro="1"
+              data-folder={f.id}
+              onClick={() => {
+                if (onSelectFolder) {
+                  onSelectFolder(isSelected ? null : f);
+                }
               }}
-            />
-            <span
+              title={
+                isEnabled
+                  ? `Filter by ${f.path} (Click to toggle filter)`
+                  : `${f.path} is disabled (assets hidden)`
+              }
               style={{
-                flex: 1,
-                minWidth: 0,
-                fontFamily: 'ui-monospace, Menlo, monospace',
-                fontSize: '10px',
-                color: 'rgba(233,237,242,.72)',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis'
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '7px 10px',
+                borderRadius: '10px',
+                background: isSelected
+                  ? 'rgba(148,188,227,.24)'
+                  : isEnabled
+                  ? 'rgba(148,188,227,.06)'
+                  : 'rgba(255,255,255,.02)',
+                border: isSelected
+                  ? '1px solid rgba(148,188,227,.4)'
+                  : '1px solid transparent',
+                marginBottom: '4px',
+                cursor: 'pointer',
+                opacity: isEnabled ? 1 : 0.5,
+                transition: 'background 0.18s, border-color 0.18s, opacity 0.18s'
               }}
-              title={f.path}
+              onMouseEnter={(e) => {
+                if (!isSelected) e.currentTarget.style.background = 'rgba(148,188,227,.12)';
+              }}
+              onMouseLeave={(e) => {
+                if (!isSelected) {
+                  e.currentTarget.style.background = isEnabled ? 'rgba(148,188,227,.06)' : 'rgba(255,255,255,.02)';
+                }
+              }}
             >
-              {f.path}
-            </span>
-            <span
-              style={{
-                fontFamily: 'ui-monospace, Menlo, monospace',
-                fontSize: '9.5px',
-                color: '#94bce3'
-              }}
-            >
-              {f.count}
-            </span>
-            {onRemoveFolder && (
-              <span
+              {/* Enable / Disable toggle dot */}
+              <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onRemoveFolder(f.id);
+                  if (onToggleFolderEnabled) {
+                    onToggleFolderEnabled(f.id, !isEnabled);
+                  }
                 }}
-                title="Remove folder"
+                title={isEnabled ? 'Active: Click to disable folder' : 'Disabled: Click to enable folder'}
                 style={{
-                  fontFamily: 'ui-monospace, Menlo, monospace',
-                  fontSize: '11px',
-                  color: 'rgba(233,237,242,.4)',
+                  background: 'transparent',
+                  border: 0,
+                  padding: '2px',
                   cursor: 'pointer',
-                  padding: '2px 4px'
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = '#ff5566')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(233,237,242,.4)')}
               >
-                ✕
+                <span
+                  style={{
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    background: isEnabled ? '#38ef7d' : '#6b7280',
+                    boxShadow: isEnabled ? '0 0 6px rgba(56,239,125,.7)' : 'none',
+                    animation: isEnabled ? 'idxpulse 2.4s ease-in-out infinite' : 'none',
+                    transition: 'background 0.2s, box-shadow 0.2s'
+                  }}
+                />
+              </button>
+
+              {/* Folder name / path */}
+              <span
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  fontFamily: 'ui-monospace, Menlo, monospace',
+                  fontSize: '10px',
+                  color: isSelected ? '#ffffff' : isEnabled ? 'rgba(233,237,242,.85)' : 'rgba(233,237,242,.4)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  textDecoration: isEnabled ? 'none' : 'line-through'
+                }}
+              >
+                {f.path}
               </span>
-            )}
-          </div>
-        ))}
+
+              {/* Item count or OFF badge */}
+              {!isEnabled ? (
+                <span
+                  style={{
+                    fontFamily: 'ui-monospace, Menlo, monospace',
+                    fontSize: '8.5px',
+                    padding: '1px 5px',
+                    borderRadius: '4px',
+                    background: 'rgba(255,255,255,.08)',
+                    color: 'rgba(233,237,242,.45)',
+                    letterSpacing: '.05em'
+                  }}
+                >
+                  OFF
+                </span>
+              ) : (
+                <span
+                  style={{
+                    fontFamily: 'ui-monospace, Menlo, monospace',
+                    fontSize: '9.5px',
+                    color: isSelected ? '#b5d9fd' : '#94bce3'
+                  }}
+                >
+                  {folderCount}
+                </span>
+              )}
+
+              {/* Quick toggle switch */}
+              {onToggleFolderEnabled && (
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleFolderEnabled(f.id, !isEnabled);
+                  }}
+                  title={isEnabled ? 'Click to disable folder' : 'Click to enable folder'}
+                  style={{
+                    width: '24px',
+                    height: '13px',
+                    borderRadius: '10px',
+                    background: isEnabled ? '#38ef7d' : 'rgba(255,255,255,.18)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '1px 2px',
+                    justifyContent: isEnabled ? 'flex-end' : 'flex-start',
+                    cursor: 'pointer',
+                    transition: 'background 0.2s'
+                  }}
+                >
+                  <span
+                    style={{
+                      width: '9px',
+                      height: '9px',
+                      borderRadius: '50%',
+                      background: '#ffffff',
+                      boxShadow: '0 1px 2px rgba(0,0,0,.3)'
+                    }}
+                  />
+                </span>
+              )}
+
+              {/* Remove button */}
+              {onRemoveFolder && (
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveFolder(f.id);
+                  }}
+                  title="Remove folder"
+                  style={{
+                    fontFamily: 'ui-monospace, Menlo, monospace',
+                    fontSize: '11px',
+                    color: 'rgba(233,237,242,.4)',
+                    cursor: 'pointer',
+                    padding: '2px 4px'
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = '#ff5566')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(233,237,242,.4)')}
+                >
+                  ✕
+                </span>
+              )}
+            </div>
+          );
+        })}
 
         <button
           data-intro="1"

@@ -141,6 +141,38 @@ function initSchema(db) {
     console.warn('[SQLite] Pool seeding warning:', err.message);
   }
 
+  // Schema migrations for folder filtering & enable/disable
+  try {
+    db.exec(`ALTER TABLE watched_folders ADD COLUMN enabled INTEGER DEFAULT 1`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE assets ADD COLUMN folder_id TEXT`);
+  } catch {}
+
+  // Auto-associate existing assets with their watched folders and compute real counts
+  try {
+    const fLogo = db.prepare("SELECT id FROM watched_folders WHERE path = 'DM - logo videos'").get();
+    if (fLogo) {
+      db.prepare(`UPDATE assets SET folder_id = ?, file_path = coalesce(file_path, 'DM - logo videos/' || title) WHERE id LIKE 'pkg_1790788472%'`).run(fLogo.id);
+      const c = db.prepare("SELECT COUNT(*) as c FROM assets WHERE folder_id = ?").get(fLogo.id).c;
+      db.prepare("UPDATE watched_folders SET count = ? WHERE id = ?").run(c, fLogo.id);
+    }
+    const fPersona = db.prepare("SELECT id FROM watched_folders WHERE path = 'DM - Persona videos'").get();
+    if (fPersona) {
+      db.prepare(`UPDATE assets SET folder_id = ?, file_path = coalesce(file_path, 'DM - Persona videos/' || title) WHERE id LIKE 'pkg_179078869%'`).run(fPersona.id);
+      const c = db.prepare("SELECT COUNT(*) as c FROM assets WHERE folder_id = ?").get(fPersona.id).c;
+      db.prepare("UPDATE watched_folders SET count = ? WHERE id = ?").run(c, fPersona.id);
+    }
+    const fDesign = db.prepare("SELECT id FROM watched_folders WHERE path LIKE '%design_handoff%'").get();
+    if (fDesign) {
+      db.prepare(`UPDATE assets SET folder_id = ? WHERE file_path LIKE '%design_handoff%'`).run(fDesign.id);
+      const c = db.prepare("SELECT COUNT(*) as c FROM assets WHERE folder_id = ?").get(fDesign.id).c;
+      db.prepare("UPDATE watched_folders SET count = ? WHERE id = ?").run(c, fDesign.id);
+    }
+  } catch (e) {
+    console.warn('[SQLite] Folder auto-association warning:', e.message);
+  }
+
   // Initialize SQLite FTS5 Full-Text Search virtual table
   try {
     db.exec(`
@@ -201,6 +233,7 @@ function formatAssetRow(row) {
     thumb: row.thumb || null,
     packId: row.pack_id || null,
     filePath: row.file_path || null,
+    folderId: row.folder_id || null,
     search: row.search || '',
     demo: row.demo || '',
     isUserUploaded: Boolean(row.is_user_uploaded)
@@ -320,10 +353,10 @@ export function upsertAsset(asset, innerFiles = []) {
   const stmt = db.prepare(`
     INSERT INTO assets (
       id, title, cat, type, author, date, deps, size, file_count, exts,
-      thumb, pack_id, file_path, search, demo, is_user_uploaded, created_at, updated_at
+      thumb, pack_id, file_path, folder_id, search, demo, is_user_uploaded, created_at, updated_at
     ) VALUES (
       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-      ?, ?, ?, ?, ?, ?, ?, ?
+      ?, ?, ?, ?, ?, ?, ?, ?, ?
     )
     ON CONFLICT(id) DO UPDATE SET
       title = excluded.title,
@@ -338,6 +371,7 @@ export function upsertAsset(asset, innerFiles = []) {
       thumb = coalesce(excluded.thumb, assets.thumb),
       pack_id = excluded.pack_id,
       file_path = excluded.file_path,
+      folder_id = coalesce(excluded.folder_id, assets.folder_id),
       search = excluded.search,
       demo = excluded.demo,
       is_user_uploaded = excluded.is_user_uploaded,
@@ -369,6 +403,7 @@ export function upsertAsset(asset, innerFiles = []) {
       finalThumb,
       asset.packId || null,
       asset.filePath || null,
+      asset.folderId || null,
       asset.search || '',
       asset.demo || '',
       asset.isUserUploaded === false ? 0 : 1,
@@ -396,10 +431,10 @@ export function upsertAssetsBulk(assets) {
   const stmt = db.prepare(`
     INSERT INTO assets (
       id, title, cat, type, author, date, deps, size, file_count, exts,
-      thumb, pack_id, file_path, search, demo, is_user_uploaded, created_at, updated_at
+      thumb, pack_id, file_path, folder_id, search, demo, is_user_uploaded, created_at, updated_at
     ) VALUES (
       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-      ?, ?, ?, ?, ?, ?, ?, ?
+      ?, ?, ?, ?, ?, ?, ?, ?, ?
     )
     ON CONFLICT(id) DO UPDATE SET
       title = excluded.title,
@@ -414,6 +449,7 @@ export function upsertAssetsBulk(assets) {
       thumb = coalesce(excluded.thumb, assets.thumb),
       pack_id = excluded.pack_id,
       file_path = excluded.file_path,
+      folder_id = coalesce(excluded.folder_id, assets.folder_id),
       search = excluded.search,
       demo = excluded.demo,
       is_user_uploaded = excluded.is_user_uploaded,
@@ -445,6 +481,7 @@ export function upsertAssetsBulk(assets) {
         finalThumb,
         asset.packId || null,
         asset.filePath || null,
+        asset.folderId || null,
         asset.search || '',
         asset.demo || '',
         asset.isUserUploaded === false ? 0 : 1,
@@ -480,22 +517,36 @@ export function clearAllAssets() {
 
 export function getWatchedFolders() {
   const db = getDatabase();
-  const rows = db.prepare('SELECT id, path, count FROM watched_folders ORDER BY last_scanned DESC').all();
+  const rows = db.prepare('SELECT id, path, count, enabled, auto_watch FROM watched_folders ORDER BY last_scanned DESC').all();
   return rows.map((r) => ({
     id: r.id,
     path: r.path,
-    count: String(r.count || 0)
+    count: String(r.count || 0),
+    enabled: r.enabled === undefined ? Boolean(r.auto_watch !== 0) : Boolean(r.enabled !== 0)
   }));
 }
 
-export function addWatchedFolder(folderPath, count = 0) {
+export function addWatchedFolder(folderPath, count = 0, enabled = 1) {
   const db = getDatabase();
   const id = 'f_' + Date.now();
   db.prepare(`
-    INSERT INTO watched_folders (id, path, count, last_scanned)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO watched_folders (id, path, count, last_scanned, enabled, auto_watch)
+    VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT(path) DO UPDATE SET count = excluded.count, last_scanned = excluded.last_scanned
-  `).run(id, folderPath, count, Date.now());
+  `).run(id, folderPath, count, Date.now(), enabled ? 1 : 0, enabled ? 1 : 0);
+  return getWatchedFolders();
+}
+
+export function updateWatchedFolder(id, updates = {}) {
+  const db = getDatabase();
+  const current = db.prepare('SELECT * FROM watched_folders WHERE id = ?').get(id);
+  if (!current) return getWatchedFolders();
+
+  const enabledVal = updates.enabled !== undefined ? (updates.enabled ? 1 : 0) : (current.enabled ?? 1);
+  const countVal = updates.count !== undefined ? Number(updates.count) : current.count;
+
+  db.prepare('UPDATE watched_folders SET enabled = ?, auto_watch = ?, count = ? WHERE id = ?')
+    .run(enabledVal, enabledVal, countVal, id);
   return getWatchedFolders();
 }
 

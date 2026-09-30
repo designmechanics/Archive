@@ -27,6 +27,8 @@ export interface AssetEntry {
   search: string;
   demo: string;
   isUserUploaded?: boolean;
+  filePath?: string | null;
+  folderId?: string | null;
 }
 
 export type ViewMode =
@@ -62,6 +64,7 @@ export interface WatchedFolder {
   id: string;
   path: string;
   count: string;
+  enabled?: boolean;
 }
 
 export interface Pool {

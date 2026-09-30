@@ -17,8 +17,10 @@ import {
   loadPools,
   createPool,
   editPool,
-  removePool
+  removePool,
+  toggleWatchedFolder
 } from './services/db';
+import { isEntryInFolder } from './utils/folderUtils';
 import { api, DatabaseStats } from './services/api';
 
 import { indexingEngine } from './services/indexingEngine';
@@ -63,6 +65,7 @@ export const App: React.FC = () => {
   const [idxFile, setIdxFile] = useState('Archive ready · No background jobs');
   const [idxStatus, setIdxStatus] = useState<'idle' | 'scanning' | 'indexing' | 'complete' | 'error'>('idle');
   const [folders, setFolders] = useState<WatchedFolder[]>([]);
+  const [selectedFolder, setSelectedFolder] = useState<WatchedFolder | null>(null);
   const [pools, setPools] = useState<Pool[]>([]);
   const [accent, setAccent] = useState('#2c455d');
   const [motionMultiplier, setMotionMultiplier] = useState(1);
@@ -243,8 +246,22 @@ export const App: React.FC = () => {
   // Filtered and sorted entries
   const filteredEntries = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const disabledFolders = folders.filter((f) => f.enabled === false);
+
     let vis = entries.filter((e) => {
-      if (selectedPool && e.cat !== selectedPool) return false;
+      // Exclude assets belonging to disabled watched folders
+      if (disabledFolders.some((df) => isEntryInFolder(e, df))) {
+        return false;
+      }
+      // Filter by selectedFolder if one is chosen
+      if (selectedFolder && !isEntryInFolder(e, selectedFolder)) {
+        return false;
+      }
+      // Filter by selectedPool if one is chosen
+      if (selectedPool && e.cat !== selectedPool) {
+        return false;
+      }
+
       if (!q) return true;
       const haystack = (
         e.title +
@@ -269,7 +286,16 @@ export const App: React.FC = () => {
     }
 
     return vis;
-  }, [entries, query, selectedPool, seed]);
+  }, [entries, query, selectedPool, selectedFolder, folders, seed]);
+
+  // Per-watched-folder live asset counts
+  const folderCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    folders.forEach((f) => {
+      counts[f.id] = entries.filter((e) => isEntryInFolder(e, f)).length;
+    });
+    return counts;
+  }, [entries, folders]);
 
   // Per-pool counts
   const poolCounts = useMemo(() => {
@@ -424,19 +450,29 @@ export const App: React.FC = () => {
 
     // Auto-detect root directory name from webkitRelativePath if present
     const firstFile = files[0] as any;
+    let topDir: string | undefined;
+    let newFolderId: string | undefined;
     if (firstFile?.webkitRelativePath) {
-      const topDir = firstFile.webkitRelativePath.split('/')[0];
+      topDir = firstFile.webkitRelativePath.split('/')[0];
       if (topDir) {
-        handleAddFolder(topDir);
+        const updatedFolders = await addWatchedFolder(topDir, String(files.length));
+        setFolders(updatedFolders);
+        const match = updatedFolders.find((f) => f.path === topDir);
+        if (match) newFolderId = match.id;
       }
     }
 
-    const newEntries = await indexingEngine.ingestFileList(files, (entry) => {
-      setEntries((prev) => [entry, ...prev]);
-    });
+    const newEntries = await indexingEngine.ingestFileList(
+      files,
+      (entry) => {
+        setEntries((prev) => [entry, ...prev]);
+      },
+      { folderName: topDir, folderId: newFolderId }
+    );
 
     if (newEntries.length > 0) {
       setSelectedPool(null);
+      setSelectedFolder(null);
       setQuery('');
       setFocusIndex(0);
       setTimeout(() => {
@@ -454,7 +490,8 @@ export const App: React.FC = () => {
         const res = await indexingEngine.scanDirectoryPicker(dirHandle, (entry) => {
           setEntries((prev) => [entry, ...prev]);
         });
-        setFolders((prev) => [res.folder, ...prev]);
+        const updatedFolders = await addWatchedFolder(res.folder.path, res.folder.count);
+        setFolders(updatedFolders);
         return;
       } catch (err) {
         if ((err as Error).name === 'AbortError') return;
@@ -472,6 +509,22 @@ export const App: React.FC = () => {
   const handleAddFolder = async (folderPath: string) => {
     const updated = await addWatchedFolder(folderPath, '0');
     setFolders(updated);
+  };
+
+  // Select Watched Folder for Filtering
+  const handleSelectFolder = (folder: WatchedFolder | null) => {
+    setSelectedFolder(folder);
+    setFocusIndex(0);
+    setSeed(0);
+  };
+
+  // Toggle Watched Folder Enabled/Disabled
+  const handleToggleFolderEnabled = async (id: string, enabled: boolean) => {
+    const updated = await toggleWatchedFolder(id, enabled);
+    setFolders(updated);
+    if (!enabled && selectedFolder?.id === id) {
+      setSelectedFolder(null);
+    }
   };
 
   // Direct fast Node disk scan into SQLite archive.db
@@ -508,12 +561,16 @@ export const App: React.FC = () => {
   const handleClearAll = async () => {
     await clearAllEntries();
     setEntries([]);
+    setSelectedFolder(null);
     const stats = await getDatabaseStatus();
     setDbStats(stats);
   };
 
   // Remove Watched Folder
   const handleRemoveFolder = async (id: string) => {
+    if (selectedFolder?.id === id) {
+      setSelectedFolder(null);
+    }
     const updated = await removeWatchedFolder(id);
     setFolders(updated);
   };
@@ -590,6 +647,7 @@ export const App: React.FC = () => {
   const handleClearFilters = () => {
     setQuery('');
     setSelectedPool(null);
+    setSelectedFolder(null);
     setFocusIndex(0);
   };
 
@@ -624,6 +682,10 @@ export const App: React.FC = () => {
         fanPool={fanPool}
         onToggleFan={(p) => setFanPool((curr) => (curr === p ? null : p))}
         folders={folders}
+        selectedFolder={selectedFolder}
+        onSelectFolder={handleSelectFolder}
+        onToggleFolderEnabled={handleToggleFolderEnabled}
+        folderCounts={folderCounts}
         pools={pools}
         onOpenModal={() => setModalOpen(true)}
         onRemoveFolder={handleRemoveFolder}
@@ -658,6 +720,8 @@ export const App: React.FC = () => {
           totalCount={entries.length}
           filteredCount={filteredEntries.length}
           selectedPool={selectedPool}
+          selectedFolder={selectedFolder}
+          onClearFolder={() => setSelectedFolder(null)}
           theme={theme}
           onThemeChange={setTheme}
           onShuffle={() => {
@@ -705,6 +769,7 @@ export const App: React.FC = () => {
           onClearFilters={handleClearFilters}
           query={query}
           selectedPool={selectedPool}
+          selectedFolder={selectedFolder}
         />
 
         {/* Floating Selection Bar */}
@@ -755,6 +820,7 @@ export const App: React.FC = () => {
         folders={folders}
         onRemoveFolder={handleRemoveFolder}
         onAddFolder={handleAddFolder}
+        onToggleFolder={handleToggleFolderEnabled}
         pools={pools}
         onAddPool={handleAddPool}
         onEditPool={handleEditPool}

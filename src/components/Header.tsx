@@ -1,5 +1,4 @@
-import React from 'react';
-import { ThemeMode } from '../types';
+import { ThemeMode, WatchedFolder } from '../types';
 
 interface HeaderProps {
   query: string;
@@ -7,6 +6,8 @@ interface HeaderProps {
   totalCount: number;
   filteredCount: number;
   selectedPool: string | null;
+  selectedFolder?: WatchedFolder | null;
+  onClearFolder?: () => void;
   theme: ThemeMode;
   onThemeChange: (t: ThemeMode) => void;
   onShuffle: () => void;
@@ -22,6 +23,8 @@ export const Header: React.FC<HeaderProps> = ({
   totalCount,
   filteredCount,
   selectedPool,
+  selectedFolder = null,
+  onClearFolder,
   theme,
   onThemeChange,
   onShuffle,
@@ -117,8 +120,52 @@ export const Header: React.FC<HeaderProps> = ({
           whiteSpace: 'nowrap'
         }}
       >
-        {filteredCount} of {totalCount} shown{selectedPool ? ` · ${selectedPool}` : ''}
+        {filteredCount} of {totalCount} shown
+        {selectedPool ? ` · Pool: ${selectedPool}` : ''}
+        {selectedFolder ? ` · 📁 ${selectedFolder.path}` : ''}
       </div>
+
+      {/* Active Filter Chips */}
+      {(selectedPool || selectedFolder) && (
+        <div data-intro="1" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          {selectedFolder && (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '3px 8px',
+                borderRadius: '8px',
+                background: 'rgba(56,239,125,.12)',
+                border: '1px solid rgba(56,239,125,.3)',
+                color: '#38ef7d',
+                fontSize: '10px',
+                fontFamily: 'ui-monospace, Menlo, monospace',
+                textTransform: 'uppercase'
+              }}
+            >
+              📁 {selectedFolder.path}
+              {onClearFolder && (
+                <button
+                  onClick={onClearFolder}
+                  style={{
+                    background: 'transparent',
+                    border: 0,
+                    color: '#38ef7d',
+                    cursor: 'pointer',
+                    padding: '0 2px',
+                    fontSize: '10px',
+                    fontWeight: 700
+                  }}
+                  title="Remove folder filter"
+                >
+                  ✕
+                </button>
+              )}
+            </span>
+          )}
+        </div>
+      )}
 
       <div style={{ flex: 1 }} />
 

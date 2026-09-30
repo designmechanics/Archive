@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
-import { AssetEntry, Density, ViewMode } from '../types';
+import { AssetEntry, Density, ViewMode, WatchedFolder } from '../types';
 import { KINDS } from '../data/seedData';
 import { ListView } from './ListView';
 
@@ -25,6 +25,7 @@ interface StageProps {
   onClearFilters?: () => void;
   query?: string;
   selectedPool?: string | null;
+  selectedFolder?: WatchedFolder | null;
 }
 
 export const Stage: React.FC<StageProps> = ({
@@ -47,7 +48,8 @@ export const Stage: React.FC<StageProps> = ({
   onLoadDemoCatalog,
   onClearFilters,
   query,
-  selectedPool
+  selectedPool,
+  selectedFolder
 }) => {
   const wrapRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -687,7 +689,9 @@ export const Stage: React.FC<StageProps> = ({
             gap: '12px'
           }}
         >
-          <div>No assets match {query ? `query "${query}"` : ''} {selectedPool ? `in pool "${selectedPool}"` : ''}</div>
+          <div>
+            No assets match {query ? `query "${query}"` : ''}{selectedPool ? ` in pool "${selectedPool}"` : ''}{selectedFolder ? ` in folder "${selectedFolder.path}"` : ''}
+          </div>
           {onClearFilters && (
             <button
               onClick={onClearFilters}

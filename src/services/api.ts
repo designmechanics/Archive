@@ -204,6 +204,23 @@ export const api = {
   },
 
   /**
+   * Update watched folder (enable/disable, count)
+   */
+  async updateFolder(id: string, updates: { enabled?: boolean; count?: number }): Promise<WatchedFolder[]> {
+    try {
+      const res = await fetch(`${API_BASE}/folders/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      const data = await res.json();
+      return data.folders || [];
+    } catch {
+      return [];
+    }
+  },
+
+  /**
    * Trigger local disk scan
    */
   async scanFolder(folderPath: string): Promise<void> {

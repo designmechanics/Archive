@@ -15,6 +15,7 @@ interface SettingsModalProps {
   folders: WatchedFolder[];
   onRemoveFolder?: (id: string) => Promise<void> | void;
   onAddFolder?: (path: string) => Promise<void> | void;
+  onToggleFolder?: (id: string, enabled: boolean) => Promise<void> | void;
   pools?: Pool[];
   onAddPool?: (pool: { name: string; description?: string; color?: string; sortOrder?: number }) => Promise<void>;
   onEditPool?: (id: string, updates: Partial<Pool>) => Promise<void>;
@@ -55,6 +56,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   folders,
   onRemoveFolder,
   onAddFolder,
+  onToggleFolder,
   pools = [],
   onAddPool,
   onEditPool,
@@ -1040,71 +1042,130 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       overflow: 'hidden'
                     }}
                   >
-                    {folders.map((f) => (
-                      <div
-                        key={f.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '10px 14px',
-                          borderBottom: '1px solid rgba(148,188,227,.08)'
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                          <span
-                            style={{
-                              width: '6px',
-                              height: '6px',
-                              borderRadius: '50%',
-                              background: '#38ef7d',
-                              flex: 'none'
-                            }}
-                          />
-                          <span
-                            style={{
-                              fontFamily: 'ui-monospace, Menlo, monospace',
-                              fontSize: '11px',
-                              color: 'rgba(233,237,242,.85)',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap'
-                            }}
-                            title={f.path}
-                          >
-                            {f.path}
-                          </span>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span
-                            style={{
-                              fontFamily: 'ui-monospace, Menlo, monospace',
-                              fontSize: '10px',
-                              color: '#94bce3'
-                            }}
-                          >
-                            {f.count} items
-                          </span>
-                          {onRemoveFolder && (
-                            <button
-                              onClick={() => onRemoveFolder(f.id)}
+                    {folders.map((f) => {
+                      const isEnabled = f.enabled !== false;
+                      return (
+                        <div
+                          key={f.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '12px 14px',
+                            borderBottom: '1px solid rgba(148,188,227,.08)',
+                            opacity: isEnabled ? 1 : 0.65,
+                            background: isEnabled ? 'transparent' : 'rgba(0,0,0,0.15)',
+                            transition: 'opacity 0.2s, background 0.2s'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                            <span
                               style={{
-                                background: 'transparent',
-                                border: 0,
-                                color: '#ff6677',
-                                cursor: 'pointer',
-                                fontFamily: 'ui-monospace, Menlo, monospace',
-                                fontSize: '11px'
+                                width: '8px',
+                                height: '8px',
+                                borderRadius: '50%',
+                                background: isEnabled ? '#38ef7d' : '#6b7280',
+                                boxShadow: isEnabled ? '0 0 6px rgba(56,239,125,.7)' : 'none',
+                                flex: 'none'
                               }}
-                              title="Remove watched folder"
-                            >
-                              ✕
-                            </button>
-                          )}
+                            />
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div
+                                style={{
+                                  fontFamily: 'ui-monospace, Menlo, monospace',
+                                  fontSize: '11px',
+                                  color: isEnabled ? 'rgba(233,237,242,.95)' : 'rgba(233,237,242,.45)',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  textDecoration: isEnabled ? 'none' : 'line-through'
+                                }}
+                                title={f.path}
+                              >
+                                {f.path}
+                              </div>
+                              <div
+                                style={{
+                                  fontFamily: 'ui-monospace, Menlo, monospace',
+                                  fontSize: '9px',
+                                  color: isEnabled ? '#94bce3' : 'rgba(233,237,242,.35)',
+                                  marginTop: '2px'
+                                }}
+                              >
+                                {f.count} items {isEnabled ? '· Watching' : '· Disabled (hidden)'}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 'none' }}>
+                            {/* Enable/Disable Toggle button */}
+                            {onToggleFolder && (
+                              <button
+                                onClick={() => onToggleFolder(f.id, !isEnabled)}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '5px 12px',
+                                  borderRadius: '20px',
+                                  background: isEnabled ? 'rgba(56,239,125,.14)' : 'rgba(255,255,255,.06)',
+                                  border: isEnabled ? '1px solid rgba(56,239,125,.35)' : '1px solid rgba(255,255,255,.1)',
+                                  color: isEnabled ? '#38ef7d' : 'rgba(233,237,242,.45)',
+                                  cursor: 'pointer',
+                                  fontSize: '10px',
+                                  fontFamily: 'ui-monospace, Menlo, monospace',
+                                  fontWeight: 600,
+                                  letterSpacing: '.06em',
+                                  textTransform: 'uppercase',
+                                  transition: 'all 0.2s'
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    width: '18px',
+                                    height: '10px',
+                                    borderRadius: '6px',
+                                    background: isEnabled ? '#38ef7d' : 'rgba(255,255,255,.2)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    padding: '1px',
+                                    justifyContent: isEnabled ? 'flex-end' : 'flex-start'
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      width: '8px',
+                                      height: '8px',
+                                      borderRadius: '50%',
+                                      background: '#ffffff'
+                                    }}
+                                  />
+                                </span>
+                                {isEnabled ? 'Active' : 'Disabled'}
+                              </button>
+                            )}
+
+                            {onRemoveFolder && (
+                              <button
+                                onClick={() => onRemoveFolder(f.id)}
+                                style={{
+                                  background: 'transparent',
+                                  border: 0,
+                                  color: '#ff6677',
+                                  cursor: 'pointer',
+                                  fontFamily: 'ui-monospace, Menlo, monospace',
+                                  fontSize: '13px',
+                                  padding: '4px'
+                                }}
+                                title="Remove watched folder"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

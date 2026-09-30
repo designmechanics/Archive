@@ -161,6 +161,7 @@ class IndexingEngine {
     }
 
     const total = fileHandles.length;
+    const folderId = 'f_' + Date.now();
     this.setStatus({
       status: 'indexing',
       percentage: 10,
@@ -192,8 +193,10 @@ class IndexingEngine {
           : createPackFromSingleFile(item.file);
 
         const entry = await createEntryFromPack(pack, isZip);
-        // Tag with folder relative path
+        // Tag with folder relative path and folderId
         entry.author = `local · ${dirHandle.name}`;
+        entry.filePath = item.path;
+        entry.folderId = folderId;
         entry.search += ` ${item.path}`;
 
         createdEntries.push(entry);
@@ -206,9 +209,10 @@ class IndexingEngine {
 
     const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
     const watchedFolder: WatchedFolder = {
-      id: 'f_' + Date.now(),
+      id: folderId,
       path: dirHandle.name,
-      count: String(createdEntries.length)
+      count: String(createdEntries.length),
+      enabled: true
     };
 
     this.setStatus({
@@ -228,7 +232,8 @@ class IndexingEngine {
    */
   public async ingestFileList(
     files: FileList | File[],
-    onEntryCreated: (entry: AssetEntry) => void
+    onEntryCreated: (entry: AssetEntry) => void,
+    folderContext?: { folderName?: string; folderId?: string }
   ): Promise<AssetEntry[]> {
     const list = Array.from(files);
     const total = list.length;
@@ -266,6 +271,23 @@ class IndexingEngine {
           : createPackFromSingleFile(file);
 
         const entry = await createEntryFromPack(pack, isZip);
+
+        const relPath = (file as any).webkitRelativePath;
+        const topDir = relPath ? relPath.split('/')[0] : folderContext?.folderName;
+        if (topDir) {
+          entry.author = `local · ${topDir}`;
+        }
+        if (relPath) {
+          entry.filePath = relPath;
+          entry.search += ` ${relPath}`;
+        } else if (topDir) {
+          entry.filePath = `${topDir}/${file.name}`;
+          entry.search += ` ${entry.filePath}`;
+        }
+        if (folderContext?.folderId) {
+          entry.folderId = folderContext.folderId;
+        }
+
         results.push(entry);
         onEntryCreated(entry);
         await saveSingleEntry(entry);
