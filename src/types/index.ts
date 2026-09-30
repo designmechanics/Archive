@@ -33,6 +33,9 @@ export interface AssetEntry {
   zipParentId?: string;
   zipParentTitle?: string;
   zipInnerPath?: string;
+  dateCreated?: string;
+  dateModified?: string;
+  sizeBytes?: number;
 }
 
 export interface ActiveZipArchive {
@@ -52,6 +55,17 @@ export type ViewMode =
 export type ThemeMode = 'light' | 'mid' | 'dark';
 
 export type Density = 2 | 3 | 4 | 5 | 6 | 8;
+
+export type SortOption =
+  | 'name'
+  | 'number'
+  | 'date_mod'
+  | 'date_created'
+  | 'age'
+  | 'size'
+  | 'type';
+
+export type SortDirection = 'asc' | 'desc';
 
 export type MaxPerPage = 'ALL' | 256 | 128 | 64 | 48 | 32 | 24 | 16;
 export const MAX_PER_PAGE_OPTIONS: MaxPerPage[] = ['ALL', 256, 128, 64, 48, 32, 24, 16];

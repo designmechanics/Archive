@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import gsap from 'gsap';
-import { AssetEntry, Density, ThemeMode, ViewMode, WatchedFolder, Pool, MaxPerPage, ActiveZipArchive } from './types';
+import { AssetEntry, Density, ThemeMode, ViewMode, WatchedFolder, Pool, MaxPerPage, ActiveZipArchive, SortOption, SortDirection } from './types';
+import { sortEntries, SORT_CONFIGS } from './services/sortService';
 import { CATS, KINDS, THEMES } from './data/seedData';
 import {
   addWatchedFolder,
@@ -83,6 +84,33 @@ export const App: React.FC = () => {
     return 64;
   });
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [sortOption, setSortOption] = useState<SortOption>(() => {
+    const saved = localStorage.getItem('archive.sortOption');
+    return (saved as SortOption) || 'name';
+  });
+  const [sortDirection, setSortDirection] = useState<SortDirection>(() => {
+    const saved = localStorage.getItem('archive.sortDirection');
+    return (saved as SortDirection) || 'asc';
+  });
+
+  const handleSortChange = (opt: SortOption, dir?: SortDirection) => {
+    setSortOption(opt);
+    localStorage.setItem('archive.sortOption', opt);
+    if (dir) {
+      setSortDirection(dir);
+      localStorage.setItem('archive.sortDirection', dir);
+    } else {
+      const defaultDir = SORT_CONFIGS[opt]?.defaultDirection || 'asc';
+      setSortDirection(defaultDir);
+      localStorage.setItem('archive.sortDirection', defaultDir);
+    }
+  };
+
+  const handleToggleSortDirection = () => {
+    const nextDir = sortDirection === 'asc' ? 'desc' : 'asc';
+    setSortDirection(nextDir);
+    localStorage.setItem('archive.sortDirection', nextDir);
+  };
   const [deferFolderIngestion, setDeferFolderIngestion] = useState<boolean>(() => {
     const saved = localStorage.getItem('archive.deferFolderIngestion');
     return saved !== 'false';
@@ -423,6 +451,8 @@ export const App: React.FC = () => {
       }
       if (seed > 0) {
         vis = vis.slice().sort(() => Math.random() - 0.5);
+      } else {
+        vis = sortEntries(vis, sortOption, sortDirection);
       }
       return vis;
     }
@@ -465,14 +495,14 @@ export const App: React.FC = () => {
       return haystack.includes(q);
     });
 
-    vis.sort((a, b) => b.date.localeCompare(a.date));
-
     if (seed > 0) {
       vis = vis.slice().sort(() => Math.random() - 0.5);
+    } else {
+      vis = sortEntries(vis, sortOption, sortDirection);
     }
 
     return vis;
-  }, [entries, query, selectedPool, selectedFolder, folders, seed, deferFolderIngestion, activeZipArchive]);
+  }, [entries, query, selectedPool, selectedFolder, folders, seed, deferFolderIngestion, activeZipArchive, sortOption, sortDirection]);
 
   // Pagination & Max Per Page logic
   const totalPages = useMemo(() => {
@@ -1145,6 +1175,10 @@ export const App: React.FC = () => {
             setCurrentPage(p);
             setFocusIndex(0);
           }}
+          sortOption={sortOption}
+          sortDirection={sortDirection}
+          onSortChange={handleSortChange}
+          onToggleSortDirection={handleToggleSortDirection}
         />
 
         {/* Archive Contents Active Header / Exit Bar */}
@@ -1324,6 +1358,9 @@ export const App: React.FC = () => {
           query={query}
           selectedPool={selectedPool}
           selectedFolder={selectedFolder}
+          sortOption={sortOption}
+          sortDirection={sortDirection}
+          onSortChange={handleSortChange}
         />
 
         {/* Floating Selection Bar */}

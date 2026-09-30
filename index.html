@@ -6,7 +6,7 @@
     <title>Archive — Personal Asset & UI-Effects Library</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
       :root {
         --bg: #10161d;
@@ -79,6 +79,43 @@
           opacity: 1;
           transform: translateY(0);
         }
+      }
+      @keyframes watermarkFadeScale {
+        0% {
+          opacity: 0;
+          transform: scale(0.93);
+        }
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+      .watermark-backdrop {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        z-index: 0;
+        opacity: 0.10;
+        user-select: none;
+        overflow: hidden;
+      }
+      .watermark-glyph {
+        font-family: 'Barlow Condensed', sans-serif;
+        font-weight: 900;
+        line-height: 0.88;
+        color: var(--ink, #e9edf2);
+        text-align: center;
+        letter-spacing: -0.02em;
+        text-transform: uppercase;
+        max-width: 90vw;
+        max-height: 85vh;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        animation: watermarkFadeScale 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
     </style>
   </head>

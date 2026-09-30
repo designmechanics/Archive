@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
-import { AssetEntry, Density, ViewMode, WatchedFolder } from '../types';
+import { AssetEntry, Density, ViewMode, WatchedFolder, SortOption, SortDirection } from '../types';
 import { KINDS } from '../data/seedData';
 import { ListView } from './ListView';
 import { isZipArchive } from '../services/zipService';
+import { computeItemWatermark, getInitialGlyph } from '../services/sortService';
 
 interface StageProps {
   entries: AssetEntry[];
@@ -28,6 +29,9 @@ interface StageProps {
   selectedPool?: string | null;
   selectedFolder?: WatchedFolder | null;
   onOpenZipContents?: (entry: AssetEntry) => void;
+  sortOption?: SortOption;
+  sortDirection?: SortDirection;
+  onSortChange?: (option: SortOption, direction?: SortDirection) => void;
 }
 
 export const Stage: React.FC<StageProps> = ({
@@ -52,7 +56,10 @@ export const Stage: React.FC<StageProps> = ({
   query,
   selectedPool,
   selectedFolder,
-  onOpenZipContents
+  onOpenZipContents,
+  sortOption = 'name',
+  sortDirection = 'asc',
+  onSortChange
 }) => {
   const wrapRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -498,29 +505,242 @@ export const Stage: React.FC<StageProps> = ({
     });
   }, [hoverPool, allEntries, motionMultiplier]);
 
+  // Dynamic background watermark/glyph
+  const [watermark, setWatermark] = useState<string>('');
+
+  const updateWatermark = () => {
+    if (!entries || entries.length === 0) {
+      setWatermark('');
+      return;
+    }
+
+    const activeSort = sortOption || 'name';
+
+    // 1. Carousel views: use active/focused card
+    if (isCarousel) {
+      const activeItem = entries[focusIndex] || entries[0];
+      if (!activeItem) {
+        setWatermark('');
+        return;
+      }
+      setWatermark(computeItemWatermark(activeItem, activeSort));
+      return;
+    }
+
+    const wr = wrapRef.current;
+    if (!wr) return;
+
+    // 2. Grid view
+    if (view === 'grid') {
+      const st = stageRef.current;
+      const W = st?.clientWidth || wr.clientWidth || window.innerWidth;
+      const H = wr.clientHeight || window.innerHeight;
+      const cols = density;
+      const gap = 18;
+      const cw = Math.max(120, Math.floor((W - gap * (cols - 1)) / cols));
+      const ch = Math.round(cw * 0.74 + 132);
+      const rowH = ch + gap;
+
+      const scrollTop = wr.scrollTop;
+      const scrollBottom = scrollTop + H;
+      const centerY = scrollTop + H / 2;
+
+      if (activeSort === 'name' || activeSort === 'number') {
+        const tallies: Record<string, number> = {};
+        const startRow = Math.max(0, Math.floor(scrollTop / rowH));
+        const endRow = Math.min(Math.ceil(entries.length / cols) - 1, Math.floor(scrollBottom / rowH));
+
+        for (let r = startRow; r <= endRow; r++) {
+          const itemTop = r * rowH;
+          const itemBottom = itemTop + ch;
+          const visiblePixels = Math.max(0, Math.min(itemBottom, scrollBottom) - Math.max(itemTop, scrollTop));
+          if (visiblePixels > 0) {
+            const weight = visiblePixels / ch;
+            for (let c = 0; c < cols; c++) {
+              const idx = r * cols + c;
+              if (idx < entries.length) {
+                const glyph = getInitialGlyph(entries[idx].title, activeSort);
+                if (glyph) {
+                  tallies[glyph] = (tallies[glyph] || 0) + weight;
+                }
+              }
+            }
+          }
+        }
+
+        let maxTally = -1;
+        let dominantGlyph = '';
+        for (const [glyph, tally] of Object.entries(tallies)) {
+          if (tally > maxTally) {
+            maxTally = tally;
+            dominantGlyph = glyph;
+          }
+        }
+        setWatermark(dominantGlyph);
+      } else {
+        const centerRow = Math.max(0, Math.min(Math.ceil(entries.length / cols) - 1, Math.floor(centerY / rowH)));
+        const centerCol = Math.floor(cols / 2);
+        const centerIdx = Math.max(0, Math.min(entries.length - 1, centerRow * cols + centerCol));
+        const centerItem = entries[centerIdx];
+        if (centerItem) {
+          setWatermark(computeItemWatermark(centerItem, activeSort));
+        }
+      }
+      return;
+    }
+
+    // 3. List view
+    if (view === 'list') {
+      const H = wr.clientHeight || window.innerHeight;
+      const scrollTop = wr.scrollTop;
+      const scrollBottom = scrollTop + H;
+      const centerY = scrollTop + H / 2;
+
+      const rowElements = wr.querySelectorAll<HTMLElement>('[data-row]');
+      if (rowElements.length === 0) {
+        if (entries[0]) {
+          setWatermark(computeItemWatermark(entries[0], activeSort));
+        }
+        return;
+      }
+
+      if (activeSort === 'name' || activeSort === 'number') {
+        const tallies: Record<string, number> = {};
+        rowElements.forEach((el) => {
+          const top = el.offsetTop;
+          const h = el.offsetHeight;
+          const bottom = top + h;
+          const visH = Math.max(0, Math.min(bottom, scrollBottom) - Math.max(top, scrollTop));
+          if (visH > 0) {
+            const id = el.getAttribute('data-row');
+            const entry = entries.find((x) => x.id === id);
+            if (entry) {
+              const glyph = getInitialGlyph(entry.title, activeSort);
+              if (glyph) {
+                tallies[glyph] = (tallies[glyph] || 0) + (visH / h);
+              }
+            }
+          }
+        });
+
+        let maxTally = -1;
+        let dominantGlyph = '';
+        for (const [glyph, tally] of Object.entries(tallies)) {
+          if (tally > maxTally) {
+            maxTally = tally;
+            dominantGlyph = glyph;
+          }
+        }
+        setWatermark(dominantGlyph);
+      } else {
+        let closestDist = Infinity;
+        let centerEntry = entries[0];
+
+        rowElements.forEach((el) => {
+          const top = el.offsetTop;
+          const h = el.offsetHeight;
+          const mid = top + h / 2;
+          const dist = Math.abs(mid - centerY);
+          if (dist < closestDist) {
+            closestDist = dist;
+            const id = el.getAttribute('data-row');
+            const found = entries.find((x) => x.id === id);
+            if (found) centerEntry = found;
+          }
+        });
+
+        if (centerEntry) {
+          setWatermark(computeItemWatermark(centerEntry, activeSort));
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+    const wr = wrapRef.current;
+    if (!wr) return;
+
+    let rafId: number | null = null;
+    const handleScrollOrUpdate = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        updateWatermark();
+      });
+    };
+
+    updateWatermark();
+
+    if (view === 'grid' || view === 'list') {
+      wr.addEventListener('scroll', handleScrollOrUpdate, { passive: true });
+      window.addEventListener('resize', handleScrollOrUpdate, { passive: true });
+    }
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      wr.removeEventListener('scroll', handleScrollOrUpdate);
+      window.removeEventListener('resize', handleScrollOrUpdate);
+    };
+  }, [entries, view, density, focusIndex, sortOption, isCarousel]);
+
   return (
     <div
-      ref={wrapRef}
-      data-wrap="1"
-      data-scroll="1"
       style={{
         position: 'relative',
         flex: 1,
         minHeight: 0,
-        overflow: view === 'grid' || view === 'list' ? 'auto' : 'hidden',
-        padding: '6px 26px 120px'
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden'
       }}
     >
-      {view === 'list' ? (
-        <ListView
-          entries={entries}
-          stars={stars}
-          onToggleStar={onToggleStar}
-          onSelectEntry={onSelectEntry}
-          accent={accent}
-          onOpenZipContents={onOpenZipContents}
-        />
-      ) : allEntries.length === 0 ? (
+      {/* Background Watermark/Glyph at 10% opacity */}
+      {watermark && (
+        <div aria-hidden="true" className="watermark-backdrop">
+          <span
+            key={watermark}
+            className="watermark-glyph"
+            style={{
+              fontSize:
+                watermark.length <= 2
+                  ? 'min(38vw, 42vh)'
+                  : watermark.length <= 4
+                  ? 'min(22vw, 26vh)'
+                  : watermark.length <= 8
+                  ? 'min(14vw, 16vh)'
+                  : 'min(9vw, 11vh)'
+            }}
+          >
+            {watermark}
+          </span>
+        </div>
+      )}
+
+      <div
+        ref={wrapRef}
+        data-wrap="1"
+        data-scroll="1"
+        style={{
+          position: 'relative',
+          zIndex: 1,
+          flex: 1,
+          minHeight: 0,
+          overflow: view === 'grid' || view === 'list' ? 'auto' : 'hidden',
+          padding: '6px 26px 120px'
+        }}
+      >
+        {view === 'list' ? (
+          <ListView
+            entries={entries}
+            stars={stars}
+            onToggleStar={onToggleStar}
+            onSelectEntry={onSelectEntry}
+            accent={accent}
+            onOpenZipContents={onOpenZipContents}
+            sortOption={sortOption}
+            sortDirection={sortDirection}
+            onSortChange={onSortChange}
+          />
+        ) : allEntries.length === 0 ? (
         <div
           style={{
             height: '100%',
@@ -1076,6 +1296,7 @@ export const Stage: React.FC<StageProps> = ({
           })}
         </div>
       )}
+      </div>
     </div>
   );
 };

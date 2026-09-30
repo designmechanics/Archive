@@ -1,5 +1,5 @@
 import React from 'react';
-import { AssetEntry } from '../types';
+import { AssetEntry, SortOption, SortDirection } from '../types';
 import { KINDS } from '../data/seedData';
 import { isZipArchive } from '../services/zipService';
 
@@ -10,6 +10,9 @@ interface ListViewProps {
   onSelectEntry: (id: string) => void;
   accent: string;
   onOpenZipContents?: (entry: AssetEntry) => void;
+  sortOption?: SortOption;
+  sortDirection?: SortDirection;
+  onSortChange?: (option: SortOption, direction?: SortDirection) => void;
 }
 
 export const ListView: React.FC<ListViewProps> = ({
@@ -18,8 +21,20 @@ export const ListView: React.FC<ListViewProps> = ({
   onToggleStar,
   onSelectEntry,
   accent,
-  onOpenZipContents
+  onOpenZipContents,
+  sortOption,
+  sortDirection,
+  onSortChange
 }) => {
+  const handleHeaderSort = (opt: SortOption) => {
+    if (!onSortChange) return;
+    if (sortOption === opt) {
+      onSortChange(opt, sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      onSortChange(opt);
+    }
+  };
+
   return (
     <div
       data-list="1"
@@ -48,11 +63,48 @@ export const ListView: React.FC<ListViewProps> = ({
       >
         <span style={{ width: '40px', flex: 'none' }}>Prev</span>
         <span style={{ width: '22px', flex: 'none', textAlign: 'center' }}>★</span>
-        <span style={{ flex: '1.6', minWidth: 0 }}>Asset</span>
-        <span style={{ width: '96px', flex: 'none' }}>Format</span>
+        <span
+          onClick={() => handleHeaderSort('name')}
+          style={{
+            flex: '1.6',
+            minWidth: 0,
+            cursor: onSortChange ? 'pointer' : 'default',
+            color: sortOption === 'name' ? 'var(--ink, #1d1f20)' : 'inherit',
+            fontWeight: sortOption === 'name' ? 700 : 'normal'
+          }}
+          title="Sort by Name"
+        >
+          Asset {sortOption === 'name' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+        </span>
+        <span
+          onClick={() => handleHeaderSort('type')}
+          style={{
+            width: '96px',
+            flex: 'none',
+            cursor: onSortChange ? 'pointer' : 'default',
+            color: sortOption === 'type' ? 'var(--ink, #1d1f20)' : 'inherit',
+            fontWeight: sortOption === 'type' ? 700 : 'normal'
+          }}
+          title="Sort by Type"
+        >
+          Format {sortOption === 'type' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+        </span>
         <span style={{ flex: '1', minWidth: 0 }}>Pool</span>
         <span style={{ width: '120px', flex: 'none' }}>Source</span>
-        <span style={{ width: '78px', flex: 'none', textAlign: 'right' }}>Added</span>
+        <span
+          onClick={() => handleHeaderSort('date_created')}
+          style={{
+            width: '78px',
+            flex: 'none',
+            textAlign: 'right',
+            cursor: onSortChange ? 'pointer' : 'default',
+            color: sortOption === 'date_created' || sortOption === 'date_mod' ? 'var(--ink, #1d1f20)' : 'inherit',
+            fontWeight: sortOption === 'date_created' || sortOption === 'date_mod' ? 700 : 'normal'
+          }}
+          title="Sort by Date"
+        >
+          Added {sortOption === 'date_created' || sortOption === 'date_mod' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+        </span>
       </div>
 
       {/* Table Rows */}
