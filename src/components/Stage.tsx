@@ -269,7 +269,7 @@ export const Stage: React.FC<StageProps> = ({
     if (!st || !wr || view === 'list') return;
 
     const W = st.clientWidth;
-    const H = Math.max(320, wr.clientHeight - 120);
+    const displayH = wr.clientHeight || 800;
     const m = motionMultiplier;
     const focus = Math.max(0, Math.min(focusIndex, entries.length - 1));
 
@@ -290,7 +290,7 @@ export const Stage: React.FC<StageProps> = ({
       }
     > = {};
 
-    let stageH = H;
+    let stageH = displayH;
 
     if (view === 'grid') {
       wr.style.overflowY = 'scroll';
@@ -320,79 +320,154 @@ export const Stage: React.FC<StageProps> = ({
       stageH = Math.ceil(entries.length / cols) * (ch + gap) + 8;
     } else {
       wr.style.overflow = 'hidden';
-      const cw2 = Math.min(300, Math.max(200, W * 0.22));
-      const ch2 = Math.round(cw2 * 1.3);
-      const cx = W / 2 - cw2 / 2;
-      const cy = Math.max(6, (H - ch2) / 2);
 
-      entries.forEach((e, i) => {
-        const d = i - focus;
-        const ad = Math.abs(d);
-        const t = {
-          x: cx,
-          y: cy,
-          w: cw2,
-          h: ch2,
-          rY: 0,
-          rX: 0,
-          rZ: 0,
-          z: 0,
-          s: 1,
-          o: 1,
-          zi: 200 - ad * 2
-        };
+      if (view === 'filmstrip') {
+        // Filmstrip: related to display area vh; card centered vertically at cy; vertical strip at 33% width
+        const ch2 = Math.max(300, Math.min(680, Math.round(displayH * 0.48)));
+        const cw2 = Math.round(ch2 * 0.72);
+        const cxFilm = Math.round(W * 0.33 - cw2 / 2);
+        const cy = Math.round((displayH - ch2) / 2);
+        const vStep = Math.round(displayH * 0.28);
 
-        if (view === 'coverflow') {
-          t.x = cx + d * (cw2 * 0.52);
-          t.z = -ad * 190;
-          t.rY = -Math.max(-46, Math.min(46, d * 30));
-          t.s = 1 - Math.min(ad * 0.06, 0.4);
-          t.o = ad > 5 ? 0 : 1;
-          t.y = cy + ad * 10;
-        } else if (view === 'strip') {
-          t.x = cx + d * (cw2 + 26);
-          t.s = d === 0 ? 1.06 : 0.93;
-          t.o = ad > 4 ? 0 : 1;
-          t.y = cy + (d === 0 ? -10 : 8);
-        } else if (view === 'radial') {
-          const R = 1150;
-          const a = d * 0.115;
-          t.x = cx + R * Math.sin(a);
-          t.y = cy + R * (1 - Math.cos(a)) * 0.9 - 40;
-          t.rZ = d * 6.6;
-          t.z = -ad * 60;
-          t.s = 1 - Math.min(ad * 0.045, 0.35);
-          t.o = ad > 6 ? 0 : 1;
-        } else if (view === 'filmstrip') {
-          const cxFilm = Math.round(W * 0.33 - cw2 / 2);
-          t.y = cy + d * (ch2 * 0.34);
-          t.x = cxFilm + ad * 14;
-          t.rX = -Math.max(-40, Math.min(40, d * 13));
-          t.z = -ad * 120;
-          t.s = 1 - Math.min(ad * 0.05, 0.35);
-          t.o = ad > 4 ? 0 : 1;
-        } else if (view === 'peel') {
+        entries.forEach((e, i) => {
+          const d = i - focus;
+          const ad = Math.abs(d);
+          T[e.id] = {
+            x: cxFilm + ad * 14,
+            y: cy + d * vStep,
+            w: cw2,
+            h: ch2,
+            rY: 0,
+            rX: -Math.max(-38, Math.min(38, d * 14)),
+            rZ: 0,
+            z: -ad * 120,
+            s: 1 - Math.min(ad * 0.05, 0.35),
+            o: ad > 4 ? 0 : 1,
+            zi: 200 - ad * 2
+          };
+        });
+      } else if (view === 'coverflow') {
+        // Coverflow: card size related to display area vh; center card dead in center
+        const ch2 = Math.max(320, Math.min(660, Math.round(displayH * 0.56)));
+        const maxW = Math.round(W * 0.42);
+        const cw2 = Math.min(Math.round(ch2 * 0.74), maxW);
+        const cx = Math.round(W / 2 - cw2 / 2);
+        const cy = Math.round((displayH - ch2) / 2);
+
+        entries.forEach((e, i) => {
+          const d = i - focus;
+          const ad = Math.abs(d);
+          T[e.id] = {
+            x: cx + d * Math.round(cw2 * 0.52),
+            y: cy + ad * 8,
+            w: cw2,
+            h: ch2,
+            rY: -Math.max(-46, Math.min(46, d * 30)),
+            rX: 0,
+            rZ: 0,
+            z: -ad * 180,
+            s: 1 - Math.min(ad * 0.055, 0.38),
+            o: ad > 5 ? 0 : 1,
+            zi: 200 - ad * 2
+          };
+        });
+      } else if (view === 'peel') {
+        // Peel: scaled to display area vh; centered in center; alternating throw to the right for peeled cards
+        const ch2 = Math.max(320, Math.min(640, Math.round(displayH * 0.54)));
+        const cw2 = Math.round(ch2 * 0.74);
+        const cx = Math.round(W / 2 - cw2 / 2);
+        const cy = Math.round((displayH - ch2) / 2);
+
+        entries.forEach((e, i) => {
+          const d = i - focus;
           if (d < 0) {
-            const k = Math.min(3, -d);
-            t.y = cy - 460;
-            t.x = cx - 160 * k;
-            t.rZ = -16 * k;
-            t.o = 0;
-            t.s = 0.9;
+            // Discard pile: alternating throw to the right
+            const k = Math.min(6, -d);
+            const alt = (-d % 2 === 1) ? 1 : -1;
+            const spreadStep = Math.min(k, 4) * 16;
+            T[e.id] = {
+              x: cx + Math.round(cw2 * 0.84) + spreadStep + alt * 14,
+              y: cy + alt * 26 + Math.min(k, 4) * 8,
+              w: cw2,
+              h: ch2,
+              rY: alt * 10,
+              rX: 4,
+              rZ: alt * (12 + (k % 3) * 4),
+              z: -k * 30,
+              s: 0.94 - Math.min(k, 4) * 0.025,
+              o: k > 5 ? 0 : Math.max(0, 0.92 - k * 0.16),
+              zi: 100 - k
+            };
           } else {
-            t.y = cy + d * 13;
-            t.x = cx + d * 5;
-            t.s = 1 - d * 0.035;
-            t.o = d > 5 ? 0 : 1;
-            t.rZ = d * 1.4;
-            t.zi = 300 - d;
+            // Deck stack for active and future cards
+            T[e.id] = {
+              x: cx + d * 3,
+              y: cy + d * 7,
+              w: cw2,
+              h: ch2,
+              rY: 0,
+              rX: 0,
+              rZ: (d % 2 === 1 ? -1 : 1) * d * 0.8,
+              z: -d * 20,
+              s: 1 - d * 0.03,
+              o: d > 5 ? 0 : 1,
+              zi: 300 - d
+            };
           }
-        }
-        T[e.id] = t;
-      });
+        });
+      } else if (view === 'radial') {
+        const ch2 = Math.max(300, Math.min(620, Math.round(displayH * 0.52)));
+        const cw2 = Math.round(ch2 * 0.74);
+        const cx = Math.round(W / 2 - cw2 / 2);
+        const cy = Math.round((displayH - ch2) / 2);
+        const R = Math.max(900, Math.round(W * 0.88));
+
+        entries.forEach((e, i) => {
+          const d = i - focus;
+          const ad = Math.abs(d);
+          const a = d * 0.115;
+          T[e.id] = {
+            x: cx + R * Math.sin(a),
+            y: cy + R * (1 - Math.cos(a)) * 0.85,
+            w: cw2,
+            h: ch2,
+            rY: 0,
+            rX: 0,
+            rZ: d * 6.6,
+            z: -ad * 60,
+            s: 1 - Math.min(ad * 0.045, 0.35),
+            o: ad > 6 ? 0 : 1,
+            zi: 200 - ad * 2
+          };
+        });
+      } else {
+        // strip
+        const ch2 = Math.max(300, Math.min(620, Math.round(displayH * 0.52)));
+        const cw2 = Math.round(ch2 * 0.74);
+        const cx = Math.round(W / 2 - cw2 / 2);
+        const cy = Math.round((displayH - ch2) / 2);
+
+        entries.forEach((e, i) => {
+          const d = i - focus;
+          const ad = Math.abs(d);
+          T[e.id] = {
+            x: cx + d * (cw2 + 24),
+            y: cy + (d === 0 ? -10 : 8),
+            w: cw2,
+            h: ch2,
+            rY: 0,
+            rX: 0,
+            rZ: 0,
+            z: 0,
+            s: d === 0 ? 1.05 : 0.93,
+            o: ad > 4 ? 0 : 1,
+            zi: 200 - ad * 2
+          };
+        });
+      }
     }
 
-    st.style.height = `${view === 'grid' ? stageH : H}px`;
+    st.style.height = `${view === 'grid' ? stageH : displayH}px`;
 
     const dur = 0.72 * m;
     const ease = view === 'strip' ? 'elastic.out(0.55, 0.72)' : 'expo.out';
@@ -765,16 +840,16 @@ export const Stage: React.FC<StageProps> = ({
           }
         );
       } else if (view === 'peel') {
-        // Peel: card peels off to top-left (-x, -y, -rotateZ)
+        // Peel: card peels off with alternating throw to the right (+x, +rZ / -rZ)
         if (dir === 1) {
           gsap.fromTo(
             exitEl,
             { opacity: 1, x: 0, y: 0, rotateZ: 0, scale: 1 },
             {
               opacity: 0,
-              x: -150,
-              y: -190,
-              rotateZ: -18,
+              x: 180,
+              y: -50,
+              rotateZ: 16,
               scale: 0.92,
               duration: 0.46 * m,
               ease: 'power3.inOut',
@@ -790,9 +865,9 @@ export const Stage: React.FC<StageProps> = ({
             { opacity: 1, x: 0, y: 0, rotateZ: 0, scale: 1 },
             {
               opacity: 0,
-              x: 30,
-              y: 30,
-              rotateZ: 6,
+              x: -30,
+              y: 20,
+              rotateZ: -4,
               scale: 0.90,
               duration: 0.44 * m,
               ease: 'power3.inOut',
@@ -908,15 +983,15 @@ export const Stage: React.FC<StageProps> = ({
           }
         );
       } else if (view === 'peel') {
-        // Peel: incoming letter reveals from underneath the stack (dir=1) or peels back in (dir=-1)
+        // Peel: incoming letter reveals from underneath the deck (dir=1) or returns from the right (dir=-1)
         if (dir === 1) {
           gsap.fromTo(
             currentEl,
             {
               opacity: 0,
-              x: 30,
-              y: 30,
-              rotateZ: 6,
+              x: -30,
+              y: 20,
+              rotateZ: -4,
               scale: 0.90
             },
             {
@@ -935,9 +1010,9 @@ export const Stage: React.FC<StageProps> = ({
             currentEl,
             {
               opacity: 0,
-              x: -150,
-              y: -190,
-              rotateZ: -18,
+              x: 180,
+              y: -50,
+              rotateZ: 16,
               scale: 0.92
             },
             {
@@ -1168,7 +1243,7 @@ export const Stage: React.FC<StageProps> = ({
           flex: 1,
           minHeight: 0,
           overflow: view === 'grid' || view === 'list' ? 'auto' : 'hidden',
-          padding: '6px 26px 120px'
+          padding: view === 'grid' || view === 'list' ? '6px 26px 120px' : '0 26px'
         }}
       >
         {view === 'list' ? (
@@ -1391,7 +1466,7 @@ export const Stage: React.FC<StageProps> = ({
             position: 'relative',
             width: '100%',
             perspective: '1500px',
-            perspectiveOrigin: view === 'filmstrip' ? '33% 42%' : '50% 42%',
+            perspectiveOrigin: view === 'filmstrip' ? '33% 50%' : '50% 50%',
             transformStyle: 'preserve-3d',
             userSelect: 'none'
           }}
