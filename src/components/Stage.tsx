@@ -34,6 +34,49 @@ interface StageProps {
   onSortChange?: (option: SortOption, direction?: SortDirection) => void;
 }
 
+const getCardDepthStyling = (
+  ad: number,
+  isSelected: boolean,
+  isCarousel: boolean
+) => {
+  if (!isCarousel) {
+    return {
+      border: isSelected ? '2px solid #5980a6' : '1px solid rgba(233, 237, 242, 0.18)',
+      borderColor: isSelected ? '#5980a6' : 'rgba(233, 237, 242, 0.18)',
+      boxShadow: isSelected
+        ? '0 8px 24px rgba(89, 128, 166, 0.4), 0 2px 6px rgba(0, 0, 0, 0.25)'
+        : '0 4px 14px rgba(0, 0, 0, 0.26), 0 1px 3px rgba(0, 0, 0, 0.16)'
+    };
+  }
+
+  // Border: Strong high contrast in center, progressively weaker/dimmer further away
+  const borderAlpha = Math.max(0.02, Number((0.68 * Math.pow(0.46, ad)).toFixed(3)));
+  const borderColor = isSelected
+    ? (ad === 0 ? '#5980a6' : 'rgba(89, 128, 166, 0.85)')
+    : `rgba(255, 255, 255, ${borderAlpha})`;
+  const border = `${isSelected ? 2 : 1}px solid ${borderColor}`;
+
+  // Shadow: Slight in center, progressively larger and deeper further away
+  let boxShadow: string;
+  if (ad === 0) {
+    boxShadow = isSelected
+      ? '0 8px 28px rgba(89, 128, 166, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
+      : '0 6px 18px -2px rgba(0, 0, 0, 0.34), 0 2px 6px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.22)';
+  } else {
+    const blur = Math.round(18 + ad * 16);
+    const offsetY = Math.round(6 + ad * 7);
+    const spread = Math.round(ad * 2.8);
+    const opacity = Math.min(0.88, Number((0.34 + ad * 0.12).toFixed(2)));
+    const subOpacity = Number((opacity * 0.65).toFixed(2));
+
+    boxShadow = isSelected
+      ? `0 ${offsetY}px ${blur}px ${spread}px rgba(0, 0, 0, ${opacity}), 0 0 26px rgba(89, 128, 166, 0.45)`
+      : `0 ${offsetY}px ${blur}px ${spread}px rgba(0, 0, 0, ${opacity}), 0 ${Math.round(offsetY * 0.5)}px ${Math.round(blur * 0.4)}px rgba(0, 0, 0, ${subOpacity})`;
+  }
+
+  return { border, borderColor, boxShadow };
+};
+
 export const Stage: React.FC<StageProps> = ({
   entries,
   allEntries,
@@ -512,6 +555,14 @@ export const Stage: React.FC<StageProps> = ({
       el.style.zIndex = String(t.zi);
 
       const idxInVis = entries.findIndex((x) => x.id === entry.id);
+      const ad = isCarousel && idxInVis >= 0 ? Math.abs(idxInVis - focus) : 0;
+      const depth = getCardDepthStyling(ad, isSelected, isCarousel);
+
+      const innerSurface = el.querySelector('[data-reveal] > div') as HTMLElement | null;
+      if (innerSurface) {
+        innerSurface.style.border = depth.border;
+        innerSurface.style.boxShadow = depth.boxShadow;
+      }
 
       gsap.to(el, {
         x: t.x,
@@ -1491,6 +1542,10 @@ export const Stage: React.FC<StageProps> = ({
             const isStarred = !!stars[e.id];
             const isSelected = !!selectedIds[e.id];
             const isCopied = copiedKey === e.id;
+            const idxInEntries = entries.findIndex((x) => x.id === e.id);
+            const focus = Math.max(0, Math.min(focusIndex, entries.length - 1));
+            const ad = isCarousel && idxInEntries >= 0 ? Math.abs(idxInEntries - focus) : 0;
+            const depth = getCardDepthStyling(ad, isSelected, isCarousel);
 
             return (
               <div
@@ -1519,32 +1574,26 @@ export const Stage: React.FC<StageProps> = ({
                       width: '100%',
                       height: '100%',
                       borderRadius: '16px',
-                      background: 'var(--surface, #ffffff)',
-                      border: isSelected
-                        ? '2px solid #5980a6'
-                        : '1px solid rgba(var(--inkc, 29,31,32), .12)',
-                      boxShadow: isSelected
-                        ? '0 8px 24px rgba(89,128,166,.35)'
-                        : '0 1px 2px rgba(43,43,45,.14)',
+                      background: 'var(--surface, #1b242e)',
+                      border: depth.border,
+                      boxShadow: depth.boxShadow,
                       cursor: 'pointer',
                       overflow: 'hidden',
                       display: 'flex',
                       flexDirection: 'column',
                       transition:
-                        'box-shadow .28s cubic-bezier(.16,1,.3,1), border-color .2s, transform .28s cubic-bezier(.16,1,.3,1)'
+                        'box-shadow .32s cubic-bezier(.16,1,.3,1), border-color .24s, transform .28s cubic-bezier(.16,1,.3,1)'
                     }}
                     onMouseEnter={(el) => {
-                      el.currentTarget.style.boxShadow = '0 16px 34px rgba(43,43,45,.2)';
-                      el.currentTarget.style.borderColor = '#94bce3';
+                      el.currentTarget.style.boxShadow = isSelected
+                        ? '0 16px 36px rgba(89,128,166,.5), 0 0 20px rgba(89,128,166,.3)'
+                        : '0 20px 48px rgba(0,0,0,.65), 0 0 0 1px rgba(181,217,253,.6)';
+                      el.currentTarget.style.borderColor = '#b5d9fd';
                       el.currentTarget.style.transform = 'translateY(-3px)';
                     }}
                     onMouseLeave={(el) => {
-                      el.currentTarget.style.boxShadow = isSelected
-                        ? '0 8px 24px rgba(89,128,166,.35)'
-                        : '0 1px 2px rgba(43,43,45,.14)';
-                      el.currentTarget.style.borderColor = isSelected
-                        ? '#5980a6'
-                        : 'rgba(var(--inkc, 29,31,32), .12)';
+                      el.currentTarget.style.boxShadow = depth.boxShadow;
+                      el.currentTarget.style.borderColor = depth.borderColor;
                       el.currentTarget.style.transform = 'translateY(0)';
                     }}
                   >
