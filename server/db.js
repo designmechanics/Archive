@@ -517,6 +517,76 @@ export function optimizeDatabase() {
   return getDatabaseStats();
 }
 
+export const BACKUP_DIR = path.resolve(__dirname, '..', 'backups');
+
+export async function backupDatabase() {
+  const db = getDatabase();
+
+  if (!fs.existsSync(BACKUP_DIR)) {
+    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+  }
+
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const year = now.getFullYear();
+  const month = pad(now.getMonth() + 1);
+  const day = pad(now.getDate());
+  const hours = pad(now.getHours());
+  const mins = pad(now.getMinutes());
+  const secs = pad(now.getSeconds());
+
+  const fileName = `archive_${year}-${month}-${day}_${hours}-${mins}-${secs}.db`;
+  const destPath = path.join(BACKUP_DIR, fileName);
+
+  try {
+    db.pragma('wal_checkpoint(PASSIVE)');
+  } catch (err) {
+    // Ignore checkpoint failure
+  }
+
+  await db.backup(destPath);
+
+  const stat = fs.statSync(destPath);
+  return {
+    fileName,
+    filePath: destPath,
+    sizeBytes: stat.size,
+    sizeFormatted: formatBytes(stat.size),
+    createdAt: stat.mtimeMs,
+    dateFormatted: `${year}-${month}-${day} ${hours}:${mins}:${secs}`
+  };
+}
+
+export function listBackups() {
+  if (!fs.existsSync(BACKUP_DIR)) {
+    return [];
+  }
+
+  try {
+    const files = fs.readdirSync(BACKUP_DIR);
+    const dbFiles = files.filter((f) => f.endsWith('.db'));
+
+    const list = dbFiles.map((f) => {
+      const p = path.join(BACKUP_DIR, f);
+      const stat = fs.statSync(p);
+      return {
+        fileName: f,
+        filePath: p,
+        sizeBytes: stat.size,
+        sizeFormatted: formatBytes(stat.size),
+        createdAt: stat.mtimeMs,
+        dateFormatted: new Date(stat.mtimeMs).toLocaleString()
+      };
+    });
+
+    list.sort((a, b) => b.createdAt - a.createdAt);
+    return list;
+  } catch (err) {
+    console.error('Failed to list backups:', err);
+    return [];
+  }
+}
+
 function formatBytes(bytes) {
   if (bytes === 0) return '0 B';
   const k = 1024;
@@ -525,3 +595,4 @@ function formatBytes(bytes) {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
+

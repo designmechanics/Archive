@@ -11,8 +11,10 @@ interface HeaderProps {
   onThemeChange: (t: ThemeMode) => void;
   onShuffle: () => void;
   onOpenModal: () => void;
+  onOpenSettings?: () => void;
   accent: string;
 }
+
 
 export const Header: React.FC<HeaderProps> = ({
   query,
@@ -24,8 +26,10 @@ export const Header: React.FC<HeaderProps> = ({
   onThemeChange,
   onShuffle,
   onOpenModal,
+  onOpenSettings,
   accent
 }) => {
+
   const themes: { id: ThemeMode; label: string }[] = [
     { id: 'light', label: 'Light' },
     { id: 'mid', label: 'Mid' },
@@ -159,10 +163,56 @@ export const Header: React.FC<HeaderProps> = ({
         })}
       </div>
 
+      {/* Settings & Backups Button */}
+      {onOpenSettings && (
+        <button
+          data-intro="1"
+          onClick={onOpenSettings}
+          title="Open Settings & Database Backups"
+          style={{
+            padding: '10px 14px',
+            borderRadius: '12px',
+            cursor: 'pointer',
+            border: '1px solid rgba(var(--inkc, 29,31,32), .14)',
+            background: 'var(--surface, #ffffff)',
+            color: 'var(--ink, #1d1f20)',
+            fontFamily: "'Barlow Condensed', sans-serif",
+            fontSize: '14px',
+            fontWeight: 600,
+            letterSpacing: '.05em',
+            textTransform: 'uppercase',
+            whiteSpace: 'nowrap',
+            boxShadow: '0 1px 2px rgba(43,43,45,.14)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            transition: 'transform 0.15s, background 0.18s, border-color 0.18s'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--tint, #eef6ff)';
+            e.currentTarget.style.borderColor = '#94bce3';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'var(--surface, #ffffff)';
+            e.currentTarget.style.borderColor = 'rgba(var(--inkc, 29,31,32), .14)';
+          }}
+          onMouseDown={(e) => {
+            e.currentTarget.style.transform = 'translateY(1px)';
+          }}
+          onMouseUp={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+          }}
+        >
+          <span style={{ fontSize: '13px' }}>⚙</span>
+          Settings
+        </button>
+      )}
+
       {/* Surprise Me Shuffle Button */}
       <button
         data-intro="1"
         onClick={onShuffle}
+
         title="Shuffle assets"
         style={{
           padding: '10px 15px',

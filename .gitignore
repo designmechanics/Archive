@@ -11,11 +11,13 @@ build/
 archive.db
 archive.db-wal
 archive.db-shm
+backups/
 *.db
 *.db-wal
 *.db-shm
 *.sqlite
 *.sqlite3
+
 
 # Logs
 logs/

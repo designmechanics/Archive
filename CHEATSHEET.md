@@ -62,6 +62,9 @@ All searches use SQLite's built-in FTS5 engine with Unicode61 and Porter stemmer
 | `/api/scan/status` | `GET` | Live crawler progress (percentage, current file, elapsed time) |
 | `/api/file` | `GET` | Stream file directly from disk with HTTP 206 Range headers |
 | `/api/db/optimize` | `POST` | Run `PRAGMA optimize; VACUUM;` |
+| `/api/db/backup` | `POST` | Create point-in-time database snapshot in `backups/archive_YYYY-MM-DD_HH-mm-ss.db` |
+| `/api/db/backups` | `GET` | List all historical database snapshots in `backups/` |
+
 
 ---
 

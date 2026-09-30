@@ -15,7 +15,17 @@ export interface DatabaseStats {
   walMode: boolean;
 }
 
+export interface DatabaseBackup {
+  fileName: string;
+  filePath: string;
+  sizeBytes: number;
+  sizeFormatted: string;
+  createdAt: number;
+  dateFormatted: string;
+}
+
 export interface ScannerStatus {
+
   status: 'idle' | 'scanning' | 'indexing' | 'complete' | 'error';
   currentFolder: string;
   currentFile: string;
@@ -240,5 +250,34 @@ export const api = {
     } catch {
       return null;
     }
+  },
+
+  /**
+   * Create point-in-time SQLite database backup into backups/ folder
+   */
+  async createBackup(): Promise<DatabaseBackup | null> {
+    try {
+      const res = await fetch(`${API_BASE}/db/backup`, { method: 'POST' });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.backup || null;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * List all database backups in backups/ folder
+   */
+  async listBackups(): Promise<DatabaseBackup[]> {
+    try {
+      const res = await fetch(`${API_BASE}/db/backups`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.backups || [];
+    } catch {
+      return [];
+    }
   }
 };
+

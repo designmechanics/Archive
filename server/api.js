@@ -16,8 +16,12 @@ import {
   saveSetting,
   getDatabaseStats,
   optimizeDatabase,
+  backupDatabase,
+  listBackups,
+  BACKUP_DIR,
   DB_PATH
 } from './db.js';
+
 import { scanDirectoryOnDisk, scannerState } from './scanner.js';
 
 // MIME types lookup
@@ -288,7 +292,19 @@ export async function handleApiRequest(req, res, next) {
       return sendJson(res, { success: true, message: 'Database optimized and vacuumed', stats });
     }
 
+    // 11. Database Backup & List Backups
+    if (pathname === '/api/db/backup' && req.method === 'POST') {
+      const backup = await backupDatabase();
+      return sendJson(res, { success: true, message: 'Database backup created', backup });
+    }
+
+    if (pathname === '/api/db/backups' && req.method === 'GET') {
+      const backups = listBackups();
+      return sendJson(res, { success: true, backups, backupDir: BACKUP_DIR });
+    }
+
     // Unmatched API route
+
     return sendJson(res, { error: `Not found: ${req.method} ${pathname}` }, 404);
   } catch (err) {
     console.error('[API Error]', err);

@@ -30,7 +30,9 @@ import { Stage } from './components/Stage';
 import { SidePanel } from './components/SidePanel';
 import { SelectionBar } from './components/SelectionBar';
 import { IngestModal } from './components/IngestModal';
+import { SettingsModal } from './components/SettingsModal';
 import { DropOverlay } from './components/DropOverlay';
+
 
 export const App: React.FC = () => {
   // Primary State
@@ -46,6 +48,8 @@ export const App: React.FC = () => {
   const [stars, setStars] = useState<Record<string, boolean>>({});
   const [openId, setOpenId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   const [isDropVisible, setIsDropVisible] = useState(false);
   const [specimen, setSpecimen] = useState('Handgloves 1234');
   const [theme, setTheme] = useState<ThemeMode>('dark');
@@ -135,7 +139,9 @@ export const App: React.FC = () => {
       if (e.key === 'Escape') {
         if (openId) setOpenId(null);
         else if (modalOpen) setModalOpen(false);
+        else if (settingsOpen) setSettingsOpen(false);
       }
+
       const isCarousel = ['coverflow', 'strip', 'radial', 'filmstrip', 'peel'].includes(view);
       if (!isCarousel) return;
 
@@ -511,8 +517,8 @@ export const App: React.FC = () => {
         dbPath={dbStats?.dbPath}
         onOptimizeDb={handleOptimizeDb}
         onClearAll={handleClearAll}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
-
 
       {/* Main Content Area */}
       <section
@@ -542,8 +548,10 @@ export const App: React.FC = () => {
             setFocusIndex(0);
           }}
           onOpenModal={() => setModalOpen(true)}
+          onOpenSettings={() => setSettingsOpen(true)}
           accent={accent}
         />
+
 
         {/* Toolbar Row */}
         <Toolbar
@@ -614,6 +622,24 @@ export const App: React.FC = () => {
         onScanDiskFolder={handleScanDiskFolder}
       />
 
+      {/* Settings & Backups Modal */}
+      <SettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        dbStats={dbStats}
+        onOptimizeDb={handleOptimizeDb}
+        onClearAll={handleClearAll}
+        theme={theme}
+        onThemeChange={setTheme}
+        density={density}
+        onDensityChange={setDensity}
+        folders={folders}
+        onRemoveFolder={handleRemoveFolder}
+        onAddFolder={handleAddFolder}
+        motionMultiplier={motionMultiplier}
+        onMotionChange={setMotionMultiplier}
+      />
     </div>
   );
 };
+

@@ -86,9 +86,10 @@ d:/Archive/
 │       ├── Stage.tsx            # GSAP 3D perspective stage, layout math & pointer gesture bindings
 │       ├── ListView.tsx         # Dense tabular representation for 'list' view mode
 │       ├── SidePanel.tsx        # 470px drawer, sandbox iframe, font specimen, inner file tree, export
-│       ├── SelectionBar.tsx     # Floating multi-select pill & 3D "Throw into pool" animation
 │       ├── IngestModal.tsx      # Ingest dialog: native directory crawl, fast Node crawler, zip picker
+│       ├── SettingsModal.tsx    # Tabbed control center: one-click DB backup, snapshot list, theme & folders
 │       └── DropOverlay.tsx      # Full-window drag-and-drop backdrop overlay
+
 ```
 
 ---

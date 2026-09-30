@@ -19,8 +19,8 @@ interface RailProps {
   dbPath?: string;
   onOptimizeDb?: () => void;
   onClearAll?: () => void;
+  onOpenSettings?: () => void;
 }
-
 
 export const Rail: React.FC<RailProps> = ({
   totalCount,
@@ -39,8 +39,10 @@ export const Rail: React.FC<RailProps> = ({
   dbSize,
   dbPath,
   onOptimizeDb,
-  onClearAll
+  onClearAll,
+  onOpenSettings
 }) => {
+
 
   const pools = [
     'Effects',
@@ -555,6 +557,28 @@ export const Rail: React.FC<RailProps> = ({
           </div>
 
           <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+            {onOpenSettings && (
+              <button
+                onClick={onOpenSettings}
+                style={{
+                  padding: '5px 7px',
+                  borderRadius: '7px',
+                  border: '1px solid rgba(148,188,227,.2)',
+                  background: 'rgba(148,188,227,.1)',
+                  color: '#b5d9fd',
+                  fontFamily: 'ui-monospace, Menlo, monospace',
+                  fontSize: '9.5px',
+                  cursor: 'pointer',
+                  textTransform: 'uppercase',
+                  transition: 'background 0.2s'
+                }}
+                title="Open Settings & Database Backups"
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.2)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.1)')}
+              >
+                Backups
+              </button>
+            )}
             {onOptimizeDb && (
               <button
                 onClick={onOptimizeDb}
@@ -578,6 +602,7 @@ export const Rail: React.FC<RailProps> = ({
                 Optimize
               </button>
             )}
+
             {onClearAll && (
               <button
                 onClick={() => {
