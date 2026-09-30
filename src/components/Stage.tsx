@@ -55,6 +55,7 @@ export const Stage: React.FC<StageProps> = ({
   const ioRef = useRef<IntersectionObserver | null>(null);
 
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const isPointerDownRef = useRef(false);
   const isDraggingRef = useRef(false);
   const hasMovedRef = useRef(false);
   const dragStartXRef = useRef(0);
@@ -62,6 +63,19 @@ export const Stage: React.FC<StageProps> = ({
   const dragStartFocusRef = useRef(0);
   const capturedPointerIdRef = useRef<number | null>(null);
   const wheelAccRef = useRef(0);
+
+  // Keep live references to avoid re-binding listeners during continuous gestures
+  const focusIndexRef = useRef(focusIndex);
+  focusIndexRef.current = focusIndex;
+
+  const entriesRef = useRef(entries);
+  entriesRef.current = entries;
+
+  const viewRef = useRef(view);
+  viewRef.current = view;
+
+  const onFocusChangeRef = useRef(onFocusChange);
+  onFocusChangeRef.current = onFocusChange;
 
   const isCarousel = ['coverflow', 'strip', 'radial', 'filmstrip', 'peel'].includes(view);
 
@@ -81,7 +95,7 @@ export const Stage: React.FC<StageProps> = ({
 
   // Card click handler - opens preview in ALL views
   const handleCardClick = (e: AssetEntry, ev: React.MouseEvent) => {
-    if (hasMovedRef.current) return;
+    if (hasMovedRef.current || isDraggingRef.current) return;
     if (ev.metaKey || ev.ctrlKey || ev.shiftKey) {
       onToggleSelect(e.id, ev);
       return;
@@ -96,22 +110,36 @@ export const Stage: React.FC<StageProps> = ({
   // Drag handling on stage with movement threshold (so clicks are never eaten)
   useEffect(() => {
     const st = stageRef.current;
-    if (!st) return;
+    if (!st || !isCarousel) return;
 
     const onPointerDown = (e: PointerEvent) => {
-      if (!isCarousel) return;
+      // Only process primary mouse button (left button) or touch
+      if (e.button !== 0) return;
+      isPointerDownRef.current = true;
       isDraggingRef.current = false;
       hasMovedRef.current = false;
       dragStartXRef.current = e.clientX;
       dragStartYRef.current = e.clientY;
-      dragStartFocusRef.current = focusIndex;
+      dragStartFocusRef.current = focusIndexRef.current;
       capturedPointerIdRef.current = null;
     };
 
     const onPointerMove = (e: PointerEvent) => {
-      if (!isCarousel) return;
-      const dist = Math.hypot(e.clientX - dragStartXRef.current, e.clientY - dragStartYRef.current);
-      if (!isDraggingRef.current && dist > 7) {
+      // CRITICAL: If the mouse button is NOT currently pressed, hover movement MUST DO NOTHING!
+      if (!isPointerDownRef.current || e.buttons === 0) {
+        if (isPointerDownRef.current) {
+          isPointerDownRef.current = false;
+          isDraggingRef.current = false;
+        }
+        return;
+      }
+
+      const dx = e.clientX - dragStartXRef.current;
+      const dy = e.clientY - dragStartYRef.current;
+      const dist = Math.hypot(dx, dy);
+
+      // Deadzone threshold (8px) before treating movement as a drag gesture
+      if (!isDraggingRef.current && dist > 8) {
         isDraggingRef.current = true;
         hasMovedRef.current = true;
         try {
@@ -122,51 +150,92 @@ export const Stage: React.FC<StageProps> = ({
 
       if (!isDraggingRef.current) return;
 
-      const delta = (dragStartXRef.current - e.clientX) / 110;
-      const newFocus = Math.max(0, Math.min(entries.length - 1, Math.round(dragStartFocusRef.current + delta)));
-      if (newFocus !== focusIndex) {
-        onFocusChange(newFocus);
+      // Calculate delta based on view mode's movement axis
+      let delta = 0;
+      if (viewRef.current === 'filmstrip') {
+        // Filmstrip stacks vertically
+        delta = (dragStartYRef.current - e.clientY) / 80;
+      } else {
+        // Coverflow, Strip, Radial, Peel stack horizontally
+        delta = (dragStartXRef.current - e.clientX) / 100;
+      }
+
+      const maxIdx = entriesRef.current.length - 1;
+      if (maxIdx <= 0) return;
+      const newFocus = Math.max(0, Math.min(maxIdx, Math.round(dragStartFocusRef.current + delta)));
+      if (newFocus !== focusIndexRef.current) {
+        onFocusChangeRef.current(newFocus);
       }
     };
 
     const onPointerUp = (e: PointerEvent) => {
+      if (!isPointerDownRef.current) return;
+      isPointerDownRef.current = false;
+
       if (capturedPointerIdRef.current !== null) {
         try {
           st.releasePointerCapture(capturedPointerIdRef.current);
         } catch {}
         capturedPointerIdRef.current = null;
       }
+
       isDraggingRef.current = false;
+      // Delay resetting hasMovedRef slightly so click events know a drag gesture just completed
       setTimeout(() => {
         hasMovedRef.current = false;
-      }, 80);
+      }, 100);
+    };
+
+    const onWindowPointerUp = () => {
+      if (isPointerDownRef.current) {
+        isPointerDownRef.current = false;
+        isDraggingRef.current = false;
+        if (capturedPointerIdRef.current !== null) {
+          try {
+            st.releasePointerCapture(capturedPointerIdRef.current);
+          } catch {}
+          capturedPointerIdRef.current = null;
+        }
+        setTimeout(() => {
+          hasMovedRef.current = false;
+        }, 100);
+      }
     };
 
     st.addEventListener('pointerdown', onPointerDown);
     st.addEventListener('pointermove', onPointerMove);
     st.addEventListener('pointerup', onPointerUp);
     st.addEventListener('pointercancel', onPointerUp);
+    window.addEventListener('pointerup', onWindowPointerUp);
+    window.addEventListener('pointercancel', onWindowPointerUp);
 
     return () => {
       st.removeEventListener('pointerdown', onPointerDown);
       st.removeEventListener('pointermove', onPointerMove);
       st.removeEventListener('pointerup', onPointerUp);
       st.removeEventListener('pointercancel', onPointerUp);
+      window.removeEventListener('pointerup', onWindowPointerUp);
+      window.removeEventListener('pointercancel', onWindowPointerUp);
     };
-  }, [isCarousel, focusIndex, entries.length, onFocusChange]);
+  }, [isCarousel]);
 
   // Wheel handling on wrapper
   useEffect(() => {
     const wr = wrapRef.current;
-    if (!wr) return;
+    if (!wr || !isCarousel) return;
 
     const onWheel = (e: WheelEvent) => {
-      if (!isCarousel) return;
       e.preventDefault();
       wheelAccRef.current += e.deltaY + e.deltaX;
-      if (Math.abs(wheelAccRef.current) > 90) {
+      if (Math.abs(wheelAccRef.current) > 80) {
         const step = wheelAccRef.current > 0 ? 1 : -1;
-        onFocusChange(Math.max(0, Math.min(entries.length - 1, focusIndex + step)));
+        const maxIdx = entriesRef.current.length - 1;
+        if (maxIdx > 0) {
+          const nextIdx = Math.max(0, Math.min(maxIdx, focusIndexRef.current + step));
+          if (nextIdx !== focusIndexRef.current) {
+            onFocusChangeRef.current(nextIdx);
+          }
+        }
         wheelAccRef.current = 0;
       }
     };
@@ -175,7 +244,7 @@ export const Stage: React.FC<StageProps> = ({
     return () => {
       wr.removeEventListener('wheel', onWheel);
     };
-  }, [isCarousel, focusIndex, entries.length, onFocusChange]);
+  }, [isCarousel]);
 
   // Main Layout Choreography with GSAP
   useEffect(() => {
@@ -643,17 +712,6 @@ export const Stage: React.FC<StageProps> = ({
         <div
           ref={stageRef}
           data-stage="1"
-          onClick={(ev) => {
-            if (hasMovedRef.current) return;
-            const cardEl = (ev.target as HTMLElement).closest('[data-card]') as HTMLElement;
-            if (cardEl) {
-              const id = cardEl.getAttribute('data-card');
-              const entry = entries.find((x) => x.id === id) || allEntries.find((x) => x.id === id);
-              if (entry) {
-                handleCardClick(entry, ev);
-              }
-            }
-          }}
           style={{
             position: 'relative',
             width: '100%',
@@ -691,7 +749,6 @@ export const Stage: React.FC<StageProps> = ({
               >
                 <div data-reveal="1" style={{ width: '100%', height: '100%' }}>
                   <div
-                    onClick={(ev) => handleCardClick(e, ev)}
                     style={{
                       width: '100%',
                       height: '100%',
@@ -775,7 +832,10 @@ export const Stage: React.FC<StageProps> = ({
 
                       {/* Star Button */}
                       <span
-                        onClick={(ev) => onToggleStar(e.id, ev)}
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          onToggleStar(e.id, ev);
+                        }}
                         style={{
                           position: 'absolute',
                           right: '8px',
