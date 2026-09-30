@@ -505,12 +505,56 @@ export const Stage: React.FC<StageProps> = ({
     });
   }, [hoverPool, allEntries, motionMultiplier]);
 
-  // Dynamic background watermark/glyph
-  const [watermark, setWatermark] = useState<string>('');
+  // Direction and watermark transition state
+  const prevFocusRef = useRef(focusIndex);
+  const prevScrollTopRef = useRef(0);
+  const lastDirRef = useRef<number>(1);
+  const currentWatermarkRef = useRef<string>('');
+  const currentGroupRef = useRef<HTMLDivElement>(null);
+  const exitGroupRef = useRef<HTMLDivElement>(null);
+
+  const [watermarkState, setWatermarkState] = useState<{
+    current: string;
+    exiting: string | null;
+    dir: number;
+    axis: 'Y' | 'X';
+    animKey: number;
+  }>({
+    current: '',
+    exiting: null,
+    dir: 1,
+    axis: 'Y',
+    animKey: 0
+  });
+
+  // Track carousel focus direction changes
+  useEffect(() => {
+    if (focusIndex > prevFocusRef.current) {
+      lastDirRef.current = 1;
+    } else if (focusIndex < prevFocusRef.current) {
+      lastDirRef.current = -1;
+    }
+    prevFocusRef.current = focusIndex;
+  }, [focusIndex]);
+
+  const applyWatermark = (mark: string) => {
+    if (mark === currentWatermarkRef.current) return;
+    const oldMark = currentWatermarkRef.current;
+    currentWatermarkRef.current = mark;
+    const dir = lastDirRef.current;
+    const axis: 'Y' | 'X' = view === 'filmstrip' ? 'X' : 'Y';
+    setWatermarkState((prev) => ({
+      current: mark,
+      exiting: oldMark || null,
+      dir,
+      axis,
+      animKey: prev.animKey + 1
+    }));
+  };
 
   const updateWatermark = () => {
     if (!entries || entries.length === 0) {
-      setWatermark('');
+      applyWatermark('');
       return;
     }
 
@@ -520,10 +564,10 @@ export const Stage: React.FC<StageProps> = ({
     if (isCarousel) {
       const activeItem = entries[focusIndex] || entries[0];
       if (!activeItem) {
-        setWatermark('');
+        applyWatermark('');
         return;
       }
-      setWatermark(computeItemWatermark(activeItem, activeSort));
+      applyWatermark(computeItemWatermark(activeItem, activeSort));
       return;
     }
 
@@ -576,14 +620,14 @@ export const Stage: React.FC<StageProps> = ({
             dominantGlyph = glyph;
           }
         }
-        setWatermark(dominantGlyph);
+        applyWatermark(dominantGlyph);
       } else {
         const centerRow = Math.max(0, Math.min(Math.ceil(entries.length / cols) - 1, Math.floor(centerY / rowH)));
         const centerCol = Math.floor(cols / 2);
         const centerIdx = Math.max(0, Math.min(entries.length - 1, centerRow * cols + centerCol));
         const centerItem = entries[centerIdx];
         if (centerItem) {
-          setWatermark(computeItemWatermark(centerItem, activeSort));
+          applyWatermark(computeItemWatermark(centerItem, activeSort));
         }
       }
       return;
@@ -599,7 +643,7 @@ export const Stage: React.FC<StageProps> = ({
       const rowElements = wr.querySelectorAll<HTMLElement>('[data-row]');
       if (rowElements.length === 0) {
         if (entries[0]) {
-          setWatermark(computeItemWatermark(entries[0], activeSort));
+          applyWatermark(computeItemWatermark(entries[0], activeSort));
         }
         return;
       }
@@ -631,7 +675,7 @@ export const Stage: React.FC<StageProps> = ({
             dominantGlyph = glyph;
           }
         }
-        setWatermark(dominantGlyph);
+        applyWatermark(dominantGlyph);
       } else {
         let closestDist = Infinity;
         let centerEntry = entries[0];
@@ -650,7 +694,7 @@ export const Stage: React.FC<StageProps> = ({
         });
 
         if (centerEntry) {
-          setWatermark(computeItemWatermark(centerEntry, activeSort));
+          applyWatermark(computeItemWatermark(centerEntry, activeSort));
         }
       }
     }
@@ -662,6 +706,15 @@ export const Stage: React.FC<StageProps> = ({
 
     let rafId: number | null = null;
     const handleScrollOrUpdate = () => {
+      const scrollTop = wr.scrollTop;
+      const diff = scrollTop - prevScrollTopRef.current;
+      if (diff > 2) {
+        lastDirRef.current = 1;
+      } else if (diff < -2) {
+        lastDirRef.current = -1;
+      }
+      prevScrollTopRef.current = scrollTop;
+
       if (rafId) cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
         updateWatermark();
@@ -682,6 +735,104 @@ export const Stage: React.FC<StageProps> = ({
     };
   }, [entries, view, density, focusIndex, sortOption, isCarousel]);
 
+  // Animate entering & exiting watermark letters matching 3D rotation to center
+  useEffect(() => {
+    if (!watermarkState.animKey) return;
+    const currentEl = currentGroupRef.current;
+    const exitEl = exitGroupRef.current;
+    const m = motionMultiplier;
+    const dir = watermarkState.dir;
+    const axis = watermarkState.axis;
+    const animKey = watermarkState.animKey;
+
+    if (exitEl && watermarkState.exiting) {
+      if (axis === 'Y') {
+        gsap.fromTo(
+          exitEl,
+          { opacity: 1, x: 0, rotateY: 0, scale: 1 },
+          {
+            opacity: 0,
+            x: -dir * 140,
+            rotateY: dir * 38,
+            scale: 0.93,
+            duration: 0.44 * m,
+            ease: 'power3.inOut',
+            overwrite: true,
+            onComplete: () => {
+              setWatermarkState((prev) => (prev.animKey === animKey ? { ...prev, exiting: null } : prev));
+            }
+          }
+        );
+      } else {
+        gsap.fromTo(
+          exitEl,
+          { opacity: 1, y: 0, rotateX: 0, scale: 1 },
+          {
+            opacity: 0,
+            y: -dir * 120,
+            rotateX: dir * 32,
+            scale: 0.93,
+            duration: 0.44 * m,
+            ease: 'power3.inOut',
+            overwrite: true,
+            onComplete: () => {
+              setWatermarkState((prev) => (prev.animKey === animKey ? { ...prev, exiting: null } : prev));
+            }
+          }
+        );
+      }
+    }
+
+    if (currentEl && watermarkState.current) {
+      const isFirst = !watermarkState.exiting;
+      if (isFirst) {
+        gsap.fromTo(
+          currentEl,
+          { opacity: 0, scale: 0.94 },
+          { opacity: 1, scale: 1, duration: 0.5 * m, ease: 'power3.out', overwrite: true }
+        );
+      } else if (axis === 'Y') {
+        gsap.fromTo(
+          currentEl,
+          {
+            opacity: 0,
+            x: dir * 140,
+            rotateY: -dir * 38,
+            scale: 0.93
+          },
+          {
+            opacity: 1,
+            x: 0,
+            rotateY: 0,
+            scale: 1,
+            duration: 0.52 * m,
+            ease: 'power3.out',
+            overwrite: true
+          }
+        );
+      } else {
+        gsap.fromTo(
+          currentEl,
+          {
+            opacity: 0,
+            y: dir * 120,
+            rotateX: -dir * 32,
+            scale: 0.93
+          },
+          {
+            opacity: 1,
+            y: 0,
+            rotateX: 0,
+            scale: 1,
+            duration: 0.52 * m,
+            ease: 'power3.out',
+            overwrite: true
+          }
+        );
+      }
+    }
+  }, [watermarkState.animKey, motionMultiplier]);
+
   return (
     <div
       style={{
@@ -694,28 +845,79 @@ export const Stage: React.FC<StageProps> = ({
       }}
     >
       {/* Background Watermark/Glyph at 10% opacity with handwriting overlay at 50% opacity, 25vh */}
-      {watermark && (
+      {(watermarkState.current || watermarkState.exiting) && (
         <div aria-hidden="true" className="watermark-backdrop">
-          <span
-            key={`glyph-${watermark}`}
-            className="watermark-glyph"
-            style={{
-              fontSize: '128vh',
-              lineHeight: 0.78
-            }}
-          >
-            {watermark}
-          </span>
-          <span
-            key={`script-${watermark}`}
-            className="watermark-script"
-            style={{
-              fontSize: '25vh',
-              opacity: 0.50
-            }}
-          >
-            {watermark}
-          </span>
+          {/* Exiting Letter & Script Group */}
+          {watermarkState.exiting && (
+            <div
+              key={`exit-${watermarkState.animKey}`}
+              ref={exitGroupRef}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                pointerEvents: 'none',
+                transformStyle: 'preserve-3d',
+                willChange: 'transform, opacity'
+              }}
+            >
+              <span
+                className="watermark-glyph"
+                style={{
+                  fontSize: '128vh',
+                  lineHeight: 0.78
+                }}
+              >
+                {watermarkState.exiting}
+              </span>
+              <span
+                className="watermark-script"
+                style={{
+                  fontSize: '25vh'
+                }}
+              >
+                {watermarkState.exiting}
+              </span>
+            </div>
+          )}
+
+          {/* Current / Entering Letter & Script Group */}
+          {watermarkState.current && (
+            <div
+              key={`current-${watermarkState.animKey}`}
+              ref={currentGroupRef}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                pointerEvents: 'none',
+                transformStyle: 'preserve-3d',
+                willChange: 'transform, opacity'
+              }}
+            >
+              <span
+                className="watermark-glyph"
+                style={{
+                  fontSize: '128vh',
+                  lineHeight: 0.78
+                }}
+              >
+                {watermarkState.current}
+              </span>
+              <span
+                className="watermark-script"
+                style={{
+                  fontSize: '25vh'
+                }}
+              >
+                {watermarkState.current}
+              </span>
+            </div>
+          )}
         </div>
       )}
 
