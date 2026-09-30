@@ -364,8 +364,9 @@ export const Stage: React.FC<StageProps> = ({
           t.s = 1 - Math.min(ad * 0.045, 0.35);
           t.o = ad > 6 ? 0 : 1;
         } else if (view === 'filmstrip') {
+          const cxFilm = Math.round(W * 0.33 - cw2 / 2);
           t.y = cy + d * (ch2 * 0.34);
-          t.x = cx + ad * 14;
+          t.x = cxFilm + ad * 14;
           t.rX = -Math.max(-40, Math.min(40, d * 13));
           t.z = -ad * 120;
           t.s = 1 - Math.min(ad * 0.05, 0.35);
@@ -735,25 +736,102 @@ export const Stage: React.FC<StageProps> = ({
     };
   }, [entries, view, density, focusIndex, sortOption, isCarousel]);
 
-  // Animate entering & exiting watermark letters matching 3D rotation to center
+  // Animate entering & exiting watermark letters matching 3D rotation and direction to center for each view mode
   useEffect(() => {
     if (!watermarkState.animKey) return;
     const currentEl = currentGroupRef.current;
     const exitEl = exitGroupRef.current;
     const m = motionMultiplier;
     const dir = watermarkState.dir;
-    const axis = watermarkState.axis;
     const animKey = watermarkState.animKey;
 
     if (exitEl && watermarkState.exiting) {
-      if (axis === 'Y') {
+      if (view === 'filmstrip') {
+        // Filmstrip: cards move vertically and pitch along X axis
+        gsap.fromTo(
+          exitEl,
+          { opacity: 1, y: 0, rotateX: 0, scale: 1 },
+          {
+            opacity: 0,
+            y: -dir * 130,
+            rotateX: dir * 32,
+            scale: 0.94,
+            duration: 0.44 * m,
+            ease: 'power3.inOut',
+            overwrite: true,
+            onComplete: () => {
+              setWatermarkState((prev) => (prev.animKey === animKey ? { ...prev, exiting: null } : prev));
+            }
+          }
+        );
+      } else if (view === 'peel') {
+        // Peel: card peels off to top-left (-x, -y, -rotateZ)
+        if (dir === 1) {
+          gsap.fromTo(
+            exitEl,
+            { opacity: 1, x: 0, y: 0, rotateZ: 0, scale: 1 },
+            {
+              opacity: 0,
+              x: -150,
+              y: -190,
+              rotateZ: -18,
+              scale: 0.92,
+              duration: 0.46 * m,
+              ease: 'power3.inOut',
+              overwrite: true,
+              onComplete: () => {
+                setWatermarkState((prev) => (prev.animKey === animKey ? { ...prev, exiting: null } : prev));
+              }
+            }
+          );
+        } else {
+          gsap.fromTo(
+            exitEl,
+            { opacity: 1, x: 0, y: 0, rotateZ: 0, scale: 1 },
+            {
+              opacity: 0,
+              x: 30,
+              y: 30,
+              rotateZ: 6,
+              scale: 0.90,
+              duration: 0.44 * m,
+              ease: 'power3.inOut',
+              overwrite: true,
+              onComplete: () => {
+                setWatermarkState((prev) => (prev.animKey === animKey ? { ...prev, exiting: null } : prev));
+              }
+            }
+          );
+        }
+      } else if (view === 'radial') {
+        // Arc / Radial: cards sweep along curved circular arc (dipping Y, rotating Z and Y)
+        gsap.fromTo(
+          exitEl,
+          { opacity: 1, x: 0, y: 0, rotateZ: 0, rotateY: 0, scale: 1 },
+          {
+            opacity: 0,
+            x: -dir * 170,
+            y: 65,
+            rotateZ: -dir * 14,
+            rotateY: dir * 18,
+            scale: 0.92,
+            duration: 0.46 * m,
+            ease: 'power3.inOut',
+            overwrite: true,
+            onComplete: () => {
+              setWatermarkState((prev) => (prev.animKey === animKey ? { ...prev, exiting: null } : prev));
+            }
+          }
+        );
+      } else if (view === 'coverflow') {
+        // Coverflow: classic horizontal 3D card rotation along Y axis
         gsap.fromTo(
           exitEl,
           { opacity: 1, x: 0, rotateY: 0, scale: 1 },
           {
             opacity: 0,
-            x: -dir * 140,
-            rotateY: dir * 38,
+            x: -dir * 160,
+            rotateY: dir * 42,
             scale: 0.93,
             duration: 0.44 * m,
             ease: 'power3.inOut',
@@ -763,15 +841,33 @@ export const Stage: React.FC<StageProps> = ({
             }
           }
         );
+      } else if (view === 'strip') {
+        // Strip: linear horizontal slide
+        gsap.fromTo(
+          exitEl,
+          { opacity: 1, x: 0, scale: 1 },
+          {
+            opacity: 0,
+            x: -dir * 180,
+            scale: 0.93,
+            duration: 0.42 * m,
+            ease: 'power3.inOut',
+            overwrite: true,
+            onComplete: () => {
+              setWatermarkState((prev) => (prev.animKey === animKey ? { ...prev, exiting: null } : prev));
+            }
+          }
+        );
       } else {
+        // Grid & List: vertical scrolling
         gsap.fromTo(
           exitEl,
           { opacity: 1, y: 0, rotateX: 0, scale: 1 },
           {
             opacity: 0,
             y: -dir * 120,
-            rotateX: dir * 32,
-            scale: 0.93,
+            rotateX: dir * 28,
+            scale: 0.94,
             duration: 0.44 * m,
             ease: 'power3.inOut',
             overwrite: true,
@@ -791,13 +887,103 @@ export const Stage: React.FC<StageProps> = ({
           { opacity: 0, scale: 0.94 },
           { opacity: 1, scale: 1, duration: 0.5 * m, ease: 'power3.out', overwrite: true }
         );
-      } else if (axis === 'Y') {
+      } else if (view === 'filmstrip') {
+        // Filmstrip: incoming letter comes from below (dir=1) or above (dir=-1)
         gsap.fromTo(
           currentEl,
           {
             opacity: 0,
-            x: dir * 140,
-            rotateY: -dir * 38,
+            y: dir * 130,
+            rotateX: -dir * 32,
+            scale: 0.94
+          },
+          {
+            opacity: 1,
+            y: 0,
+            rotateX: 0,
+            scale: 1,
+            duration: 0.52 * m,
+            ease: 'power3.out',
+            overwrite: true
+          }
+        );
+      } else if (view === 'peel') {
+        // Peel: incoming letter reveals from underneath the stack (dir=1) or peels back in (dir=-1)
+        if (dir === 1) {
+          gsap.fromTo(
+            currentEl,
+            {
+              opacity: 0,
+              x: 30,
+              y: 30,
+              rotateZ: 6,
+              scale: 0.90
+            },
+            {
+              opacity: 1,
+              x: 0,
+              y: 0,
+              rotateZ: 0,
+              scale: 1,
+              duration: 0.52 * m,
+              ease: 'power3.out',
+              overwrite: true
+            }
+          );
+        } else {
+          gsap.fromTo(
+            currentEl,
+            {
+              opacity: 0,
+              x: -150,
+              y: -190,
+              rotateZ: -18,
+              scale: 0.92
+            },
+            {
+              opacity: 1,
+              x: 0,
+              y: 0,
+              rotateZ: 0,
+              scale: 1,
+              duration: 0.52 * m,
+              ease: 'power3.out',
+              overwrite: true
+            }
+          );
+        }
+      } else if (view === 'radial') {
+        // Arc / Radial: incoming letter sweeps along the arc
+        gsap.fromTo(
+          currentEl,
+          {
+            opacity: 0,
+            x: dir * 170,
+            y: 65,
+            rotateZ: dir * 14,
+            rotateY: -dir * 18,
+            scale: 0.92
+          },
+          {
+            opacity: 1,
+            x: 0,
+            y: 0,
+            rotateZ: 0,
+            rotateY: 0,
+            scale: 1,
+            duration: 0.52 * m,
+            ease: 'power3.out',
+            overwrite: true
+          }
+        );
+      } else if (view === 'coverflow') {
+        // Coverflow: horizontal 3D card rotation into center
+        gsap.fromTo(
+          currentEl,
+          {
+            opacity: 0,
+            x: dir * 160,
+            rotateY: -dir * 42,
             scale: 0.93
           },
           {
@@ -810,14 +996,33 @@ export const Stage: React.FC<StageProps> = ({
             overwrite: true
           }
         );
+      } else if (view === 'strip') {
+        // Strip: linear slide
+        gsap.fromTo(
+          currentEl,
+          {
+            opacity: 0,
+            x: dir * 180,
+            scale: 0.93
+          },
+          {
+            opacity: 1,
+            x: 0,
+            scale: 1,
+            duration: 0.5 * m,
+            ease: 'power3.out',
+            overwrite: true
+          }
+        );
       } else {
+        // Grid & List: vertical scrolling
         gsap.fromTo(
           currentEl,
           {
             opacity: 0,
             y: dir * 120,
-            rotateX: -dir * 32,
-            scale: 0.93
+            rotateX: -dir * 28,
+            scale: 0.94
           },
           {
             opacity: 1,
@@ -831,7 +1036,9 @@ export const Stage: React.FC<StageProps> = ({
         );
       }
     }
-  }, [watermarkState.animKey, motionMultiplier]);
+  }, [watermarkState.animKey, motionMultiplier, view]);
+
+  const isFilmstrip = view === 'filmstrip';
 
   return (
     <div
@@ -846,7 +1053,13 @@ export const Stage: React.FC<StageProps> = ({
     >
       {/* Background Watermark/Glyph at 10% opacity with handwriting overlay at 50% opacity, 25vh */}
       {(watermarkState.current || watermarkState.exiting) && (
-        <div aria-hidden="true" className="watermark-backdrop">
+        <div
+          aria-hidden="true"
+          className="watermark-backdrop"
+          style={{
+            perspectiveOrigin: isFilmstrip ? '67% 50%' : '50% 50%'
+          }}
+        >
           {/* Exiting Letter & Script Group */}
           {watermarkState.exiting && (
             <div
@@ -854,13 +1067,17 @@ export const Stage: React.FC<StageProps> = ({
               ref={exitGroupRef}
               style={{
                 position: 'absolute',
-                inset: 0,
+                top: 0,
+                bottom: 0,
+                left: isFilmstrip ? '67%' : '50%',
+                width: 0,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 pointerEvents: 'none',
                 transformStyle: 'preserve-3d',
-                willChange: 'transform, opacity'
+                willChange: 'transform, opacity',
+                transition: 'left 0.65s cubic-bezier(0.16, 1, 0.3, 1)'
               }}
             >
               <span
@@ -868,7 +1085,10 @@ export const Stage: React.FC<StageProps> = ({
                 style={{
                   fontSize: '128vh',
                   lineHeight: 1,
-                  marginTop: '-13.5vh'
+                  marginTop: '-13.5vh',
+                  position: 'absolute',
+                  left: 0,
+                  transform: 'translateX(-50%) translateZ(0)'
                 }}
               >
                 {watermarkState.exiting}
@@ -876,7 +1096,11 @@ export const Stage: React.FC<StageProps> = ({
               <span
                 className="watermark-script"
                 style={{
-                  fontSize: '25vh'
+                  fontSize: '25vh',
+                  position: 'absolute',
+                  bottom: '2vh',
+                  left: 0,
+                  transform: 'translateX(-50%) translateZ(20px)'
                 }}
               >
                 {watermarkState.exiting}
@@ -891,13 +1115,17 @@ export const Stage: React.FC<StageProps> = ({
               ref={currentGroupRef}
               style={{
                 position: 'absolute',
-                inset: 0,
+                top: 0,
+                bottom: 0,
+                left: isFilmstrip ? '67%' : '50%',
+                width: 0,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 pointerEvents: 'none',
                 transformStyle: 'preserve-3d',
-                willChange: 'transform, opacity'
+                willChange: 'transform, opacity',
+                transition: 'left 0.65s cubic-bezier(0.16, 1, 0.3, 1)'
               }}
             >
               <span
@@ -905,7 +1133,10 @@ export const Stage: React.FC<StageProps> = ({
                 style={{
                   fontSize: '128vh',
                   lineHeight: 1,
-                  marginTop: '-13.5vh'
+                  marginTop: '-13.5vh',
+                  position: 'absolute',
+                  left: 0,
+                  transform: 'translateX(-50%) translateZ(0)'
                 }}
               >
                 {watermarkState.current}
@@ -913,7 +1144,11 @@ export const Stage: React.FC<StageProps> = ({
               <span
                 className="watermark-script"
                 style={{
-                  fontSize: '25vh'
+                  fontSize: '25vh',
+                  position: 'absolute',
+                  bottom: '2vh',
+                  left: 0,
+                  transform: 'translateX(-50%) translateZ(20px)'
                 }}
               >
                 {watermarkState.current}
@@ -1156,7 +1391,7 @@ export const Stage: React.FC<StageProps> = ({
             position: 'relative',
             width: '100%',
             perspective: '1500px',
-            perspectiveOrigin: '50% 42%',
+            perspectiveOrigin: view === 'filmstrip' ? '33% 42%' : '50% 42%',
             transformStyle: 'preserve-3d',
             userSelect: 'none'
           }}
