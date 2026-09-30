@@ -443,7 +443,7 @@ export const Rail: React.FC<RailProps> = ({
                 data-fanwrap={p}
                 style={{
                   height: isFanOpen ? '92px' : '0px',
-                  overflow: 'hidden',
+                  overflow: isFanOpen ? 'visible' : 'hidden',
                   opacity: isFanOpen ? 1 : 0,
                   transition: 'height 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s'
                 }}
@@ -469,7 +469,7 @@ export const Rail: React.FC<RailProps> = ({
                 <div
                   style={{
                     display: 'flex',
-                    padding: '6px 14px 14px',
+                    padding: '6px 22px 14px',
                     alignItems: 'flex-end',
                     position: 'relative'
                   }}
@@ -523,16 +523,17 @@ export const Rail: React.FC<RailProps> = ({
                             transition: `transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${i * 0.03}s, box-shadow 0.2s, border-color 0.2s`,
                             cursor: 'pointer',
                             position: 'relative',
-                            overflow: 'hidden'
+                            overflow: 'hidden',
+                            zIndex: isFanOpen ? n - i : 1
                           }}
                           onMouseEnter={(ev) => {
-                            ev.currentTarget.style.zIndex = '30';
+                            ev.currentTarget.style.zIndex = '50';
                             ev.currentTarget.style.borderColor = '#38ef7d';
                             ev.currentTarget.style.boxShadow = '0 8px 24px rgba(56,239,125,.35)';
                             ev.currentTarget.style.transform = `translate(${transX}px, ${transY - 8}px) scale(1.18) rotate(${rotate}deg)`;
                           }}
                           onMouseLeave={(ev) => {
-                            ev.currentTarget.style.zIndex = 'auto';
+                            ev.currentTarget.style.zIndex = String(isFanOpen ? n - i : 1);
                             ev.currentTarget.style.borderColor = 'rgba(181,217,253,.35)';
                             ev.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,.45)';
                             ev.currentTarget.style.transform = `translate(${transX}px, ${transY}px) rotate(${rotate}deg)`;
