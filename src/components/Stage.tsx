@@ -867,7 +867,8 @@ export const Stage: React.FC<StageProps> = ({
                 className="watermark-glyph"
                 style={{
                   fontSize: '128vh',
-                  lineHeight: 0.78
+                  lineHeight: 1,
+                  marginTop: '-13.5vh'
                 }}
               >
                 {watermarkState.exiting}
@@ -903,7 +904,8 @@ export const Stage: React.FC<StageProps> = ({
                 className="watermark-glyph"
                 style={{
                   fontSize: '128vh',
-                  lineHeight: 0.78
+                  lineHeight: 1,
+                  marginTop: '-13.5vh'
                 }}
               >
                 {watermarkState.current}
