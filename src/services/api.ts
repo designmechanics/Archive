@@ -1,4 +1,4 @@
-import { AssetEntry, WatchedFolder } from '../types';
+import { AssetEntry, WatchedFolder, Pool } from '../types';
 
 export interface DatabaseStats {
   dbPath: string;
@@ -278,6 +278,106 @@ export const api = {
     } catch {
       return [];
     }
+  },
+
+  /**
+   * Get all pools/categories from database
+   */
+  async getPools(): Promise<Pool[]> {
+    try {
+      const res = await fetch(`${API_BASE}/pools`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.pools || []).map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description || '',
+        color: p.color || '#94bce3',
+        sortOrder: p.sort_order || 0,
+        createdAt: p.created_at || Date.now()
+      }));
+    } catch {
+      return [];
+    }
+  },
+
+  /**
+   * Add a new custom pool
+   */
+  async addPool(pool: { name: string; description?: string; color?: string; sortOrder?: number }): Promise<Pool | null> {
+    try {
+      const res = await fetch(`${API_BASE}/pools`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: pool.name,
+          description: pool.description || '',
+          color: pool.color || '#94bce3',
+          sort_order: pool.sortOrder || 0
+        })
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const p = data.pool;
+      return {
+        id: p.id,
+        name: p.name,
+        description: p.description || '',
+        color: p.color || '#94bce3',
+        sortOrder: p.sort_order || 0,
+        createdAt: p.created_at || Date.now()
+      };
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * Update an existing pool (renames cascade to assets)
+   */
+  async updatePool(id: string, updates: Partial<Pool>): Promise<Pool | null> {
+    try {
+      const res = await fetch(`${API_BASE}/pools/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: updates.name,
+          description: updates.description,
+          color: updates.color,
+          sort_order: updates.sortOrder
+        })
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const p = data.pool;
+      return {
+        id: p.id,
+        name: p.name,
+        description: p.description || '',
+        color: p.color || '#94bce3',
+        sortOrder: p.sort_order || 0,
+        createdAt: p.created_at || Date.now()
+      };
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * Delete a pool and optionally reassign its assets
+   */
+  async deletePool(id: string, reassignTo?: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_BASE}/pools/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reassignTo })
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
   }
 };
+
 

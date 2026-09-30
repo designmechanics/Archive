@@ -18,6 +18,10 @@ import {
   optimizeDatabase,
   backupDatabase,
   listBackups,
+  getPools,
+  addPool,
+  updatePool,
+  deletePool,
   BACKUP_DIR,
   DB_PATH
 } from './db.js';
@@ -235,6 +239,47 @@ export async function handleApiRequest(req, res, next) {
       const id = decodeURIComponent(folderIdMatch[1]);
       const folders = removeWatchedFolder(id);
       return sendJson(res, { success: true, folders });
+    }
+
+    // 6.5 Asset Pools Management
+    if (pathname === '/api/pools') {
+      if (req.method === 'GET') {
+        const pools = getPools();
+        return sendJson(res, { success: true, pools });
+      }
+      if (req.method === 'POST') {
+        const body = await parseBody(req);
+        if (!body.name || !body.name.trim()) {
+          return sendJson(res, { error: 'Pool name is required' }, 400);
+        }
+        try {
+          const pool = addPool(body);
+          return sendJson(res, { success: true, pool });
+        } catch (err) {
+          return sendJson(res, { error: err.message }, 400);
+        }
+      }
+    }
+
+    const poolIdMatch = pathname.match(/^\/api\/pools\/([^/]+)$/);
+    if (poolIdMatch) {
+      const id = decodeURIComponent(poolIdMatch[1]);
+      if (req.method === 'PUT' || req.method === 'PATCH') {
+        const body = await parseBody(req);
+        try {
+          const pool = updatePool(id, body);
+          if (!pool) return sendJson(res, { error: 'Pool not found' }, 404);
+          return sendJson(res, { success: true, pool });
+        } catch (err) {
+          return sendJson(res, { error: err.message }, 400);
+        }
+      }
+      if (req.method === 'DELETE') {
+        const body = await parseBody(req).catch(() => ({}));
+        const reassignTo = body.reassignTo || query.reassignTo || null;
+        const ok = deletePool(id, reassignTo);
+        return sendJson(res, { success: ok, id });
+      }
     }
 
     // 7. Disk Directory Scanner

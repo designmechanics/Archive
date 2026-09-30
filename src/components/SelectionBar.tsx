@@ -1,19 +1,22 @@
 import React, { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { CATS } from '../data/seedData';
+import { Pool } from '../types';
 
 interface SelectionBarProps {
   selectedCount: number;
   onClear: () => void;
   onThrowToPool: (cat: string) => void;
   motionMultiplier: number;
+  pools?: Pool[];
 }
 
 export const SelectionBar: React.FC<SelectionBarProps> = ({
   selectedCount,
   onClear,
   onThrowToPool,
-  motionMultiplier
+  motionMultiplier,
+  pools = []
 }) => {
   const barRef = useRef<HTMLDivElement>(null);
 
@@ -93,7 +96,7 @@ export const SelectionBar: React.FC<SelectionBarProps> = ({
           paddingBottom: '2px'
         }}
       >
-        {CATS.map((p) => (
+        {(pools.length > 0 ? pools.map((p) => p.name) : CATS).map((p) => (
           <button
             key={p}
             onClick={() => onThrowToPool(p)}

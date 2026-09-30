@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import gsap from 'gsap';
-import { AssetEntry, Density, ThemeMode, ViewMode, WatchedFolder } from './types';
+import { AssetEntry, Density, ThemeMode, ViewMode, WatchedFolder, Pool } from './types';
 import { CATS, KINDS, THEMES } from './data/seedData';
 import {
   addWatchedFolder,
@@ -13,7 +13,11 @@ import {
   saveSetting,
   updateEntryCategory,
   clearAllEntries,
-  getDatabaseStatus
+  getDatabaseStatus,
+  loadPools,
+  createPool,
+  editPool,
+  removePool
 } from './services/db';
 import { api, DatabaseStats } from './services/api';
 
@@ -58,6 +62,7 @@ export const App: React.FC = () => {
   const [idxFile, setIdxFile] = useState('Archive ready · No background jobs');
   const [idxStatus, setIdxStatus] = useState<'idle' | 'scanning' | 'indexing' | 'complete' | 'error'>('idle');
   const [folders, setFolders] = useState<WatchedFolder[]>([]);
+  const [pools, setPools] = useState<Pool[]>([]);
   const [accent, setAccent] = useState('#2c455d');
   const [motionMultiplier, setMotionMultiplier] = useState(1);
   const [dbStats, setDbStats] = useState<DatabaseStats | null>(null);
@@ -73,6 +78,8 @@ export const App: React.FC = () => {
       const stats = await getDatabaseStatus();
       setDbStats(stats);
 
+      const loadedPools = await loadPools();
+      setPools(loadedPools);
 
       const savedTheme = (localStorage.getItem('archive.theme') as ThemeMode) || 'dark';
       setTheme(savedTheme);
@@ -233,12 +240,16 @@ export const App: React.FC = () => {
   // Per-pool counts
   const poolCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    CATS.forEach((c) => (counts[c] = 0));
+    if (pools.length > 0) {
+      pools.forEach((p) => (counts[p.name] = 0));
+    } else {
+      CATS.forEach((c) => (counts[c] = 0));
+    }
     entries.forEach((e) => {
       counts[e.cat] = (counts[e.cat] || 0) + 1;
     });
     return counts;
-  }, [entries]);
+  }, [entries, pools]);
 
   // View switch handler with transition choreography
   const handleViewChange = (newView: ViewMode) => {
@@ -446,6 +457,38 @@ export const App: React.FC = () => {
     setFolders(updated);
   };
 
+  // Pools Management Handlers
+  const handleAddPool = async (newPool: { name: string; description?: string; color?: string; sortOrder?: number }) => {
+    const updated = await createPool(newPool);
+    setPools(updated);
+  };
+
+  const handleEditPool = async (id: string, updates: Partial<Pool>) => {
+    const target = pools.find((p) => p.id === id);
+    const oldName = target?.name;
+    const updated = await editPool(id, updates);
+    setPools(updated);
+
+    if (oldName && updates.name && oldName !== updates.name) {
+      setEntries((prev) => prev.map((e) => (e.cat === oldName ? { ...e, cat: updates.name! } : e)));
+      if (selectedPool === oldName) setSelectedPool(updates.name);
+    }
+  };
+
+  const handleDeletePool = async (id: string, reassignTo?: string) => {
+    const target = pools.find((p) => p.id === id);
+    const oldName = target?.name;
+    const fallback = reassignTo || 'Uncategorized';
+    const updated = await removePool(id, fallback);
+    setPools(updated);
+
+    if (oldName) {
+      setEntries((prev) => prev.map((e) => (e.cat === oldName ? { ...e, cat: fallback } : e)));
+      if (selectedPool === oldName) setSelectedPool(null);
+    }
+  };
+
+
 
   // Active open entry
   const openEntry = useMemo(() => {
@@ -508,6 +551,7 @@ export const App: React.FC = () => {
         fanPool={fanPool}
         onToggleFan={(p) => setFanPool((curr) => (curr === p ? null : p))}
         folders={folders}
+        pools={pools}
         onOpenModal={() => setModalOpen(true)}
         onRemoveFolder={handleRemoveFolder}
         indexPct={idxPct}
@@ -596,6 +640,7 @@ export const App: React.FC = () => {
           onClear={() => setSelectedIds({})}
           onThrowToPool={handleThrowToPool}
           motionMultiplier={motionMultiplier}
+          pools={pools}
         />
       </section>
 
@@ -636,6 +681,11 @@ export const App: React.FC = () => {
         folders={folders}
         onRemoveFolder={handleRemoveFolder}
         onAddFolder={handleAddFolder}
+        pools={pools}
+        onAddPool={handleAddPool}
+        onEditPool={handleEditPool}
+        onDeletePool={handleDeletePool}
+        poolCounts={poolCounts}
         motionMultiplier={motionMultiplier}
         onMotionChange={setMotionMultiplier}
       />

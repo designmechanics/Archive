@@ -63,3 +63,12 @@ export interface WatchedFolder {
   path: string;
   count: string;
 }
+
+export interface Pool {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  sortOrder?: number;
+  createdAt?: number;
+}

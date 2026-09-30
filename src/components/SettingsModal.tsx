@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { DatabaseStats, DatabaseBackup, api } from '../services/api';
-import { ThemeMode, Density, WatchedFolder } from '../types';
+import { ThemeMode, Density, WatchedFolder, Pool } from '../types';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -15,11 +15,32 @@ interface SettingsModalProps {
   folders: WatchedFolder[];
   onRemoveFolder?: (id: string) => Promise<void> | void;
   onAddFolder?: (path: string) => Promise<void> | void;
+  pools?: Pool[];
+  onAddPool?: (pool: { name: string; description?: string; color?: string; sortOrder?: number }) => Promise<void>;
+  onEditPool?: (id: string, updates: Partial<Pool>) => Promise<void>;
+  onDeletePool?: (id: string, reassignTo?: string) => Promise<void>;
+  poolCounts?: Record<string, number>;
   motionMultiplier?: number;
   onMotionChange?: (m: number) => void;
 }
 
-type SettingsTab = 'database' | 'interface' | 'folders';
+type SettingsTab = 'database' | 'interface' | 'pools' | 'folders';
+
+const POOL_PRESET_COLORS = [
+  '#94bce3', // Steel blue (Archive signature)
+  '#60a5fa', // Blue
+  '#38bdf8', // Sky
+  '#2dd4bf', // Teal
+  '#4ade80', // Mint / green
+  '#a3e635', // Lime
+  '#facc15', // Amber / gold
+  '#fb923c', // Orange
+  '#f87171', // Coral / red
+  '#f472b6', // Rose / pink
+  '#c084fc', // Purple
+  '#a78bfa', // Lavender
+  '#94a3b8'  // Slate
+];
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
@@ -33,7 +54,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onDensityChange,
   folders,
   onRemoveFolder,
-  onAddFolder
+  onAddFolder,
+  pools = [],
+  onAddPool,
+  onEditPool,
+  onDeletePool,
+  poolCounts = {}
 }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('database');
   const [backups, setBackups] = useState<DatabaseBackup[]>([]);
@@ -41,6 +67,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [lastBackupMsg, setLastBackupMsg] = useState<string | null>(null);
   const [optimizing, setOptimizing] = useState(false);
   const [newFolderPath, setNewFolderPath] = useState('');
+
+  // Pools Management State
+  const [isCreatingPool, setIsCreatingPool] = useState(false);
+  const [newPoolName, setNewPoolName] = useState('');
+  const [newPoolColor, setNewPoolColor] = useState('#94bce3');
+  const [newPoolDesc, setNewPoolDesc] = useState('');
+  const [poolError, setPoolError] = useState<string | null>(null);
+  const [poolSearch, setPoolSearch] = useState('');
+  const [poolSuccessMsg, setPoolSuccessMsg] = useState<string | null>(null);
+
+  // Edit Pool State
+  const [editingPoolId, setEditingPoolId] = useState<string | null>(null);
+  const [editPoolName, setEditPoolName] = useState('');
+  const [editPoolColor, setEditPoolColor] = useState('#94bce3');
+  const [editPoolDesc, setEditPoolDesc] = useState('');
+
+  // Delete Pool State
+  const [deletingPool, setDeletingPool] = useState<Pool | null>(null);
+  const [reassignTarget, setReassignTarget] = useState<string>('Uncategorized');
+  const [isProcessingPool, setIsProcessingPool] = useState(false);
+
 
   // Fetch backups whenever modal opens or database tab is selected
   useEffect(() => {
@@ -89,6 +136,101 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setNewFolderPath('');
     }
   };
+
+  const handleCreatePool = async () => {
+    if (!newPoolName.trim()) {
+      setPoolError('Pool name cannot be empty.');
+      return;
+    }
+    const cleanName = newPoolName.trim();
+    if (pools.some((p) => p.name.toLowerCase() === cleanName.toLowerCase())) {
+      setPoolError(`A pool named "${cleanName}" already exists.`);
+      return;
+    }
+
+    setPoolError(null);
+    setIsProcessingPool(true);
+    try {
+      if (onAddPool) {
+        await onAddPool({
+          name: cleanName,
+          color: newPoolColor,
+          description: newPoolDesc.trim()
+        });
+      }
+      setNewPoolName('');
+      setNewPoolDesc('');
+      setIsCreatingPool(false);
+      setPoolSuccessMsg(`✓ Created pool "${cleanName}"`);
+      setTimeout(() => setPoolSuccessMsg(null), 3000);
+    } catch (err: any) {
+      setPoolError(err.message || 'Failed to create pool.');
+    } finally {
+      setIsProcessingPool(false);
+    }
+  };
+
+  const startEditPool = (pool: Pool) => {
+    setEditingPoolId(pool.id);
+    setEditPoolName(pool.name);
+    setEditPoolColor(pool.color || '#94bce3');
+    setEditPoolDesc(pool.description || '');
+    setPoolError(null);
+  };
+
+  const handleSaveEditPool = async () => {
+    if (!editingPoolId) return;
+    if (!editPoolName.trim()) {
+      setPoolError('Pool name cannot be empty.');
+      return;
+    }
+    const cleanName = editPoolName.trim();
+    const isDuplicate = pools.some(
+      (p) => p.id !== editingPoolId && p.name.toLowerCase() === cleanName.toLowerCase()
+    );
+    if (isDuplicate) {
+      setPoolError(`Another pool named "${cleanName}" already exists.`);
+      return;
+    }
+
+    setPoolError(null);
+    setIsProcessingPool(true);
+    try {
+      if (onEditPool) {
+        await onEditPool(editingPoolId, {
+          name: cleanName,
+          color: editPoolColor,
+          description: editPoolDesc.trim()
+        });
+      }
+      setEditingPoolId(null);
+      setPoolSuccessMsg(`✓ Updated pool "${cleanName}"`);
+      setTimeout(() => setPoolSuccessMsg(null), 3000);
+    } catch (err: any) {
+      setPoolError(err.message || 'Failed to update pool.');
+    } finally {
+      setIsProcessingPool(false);
+    }
+  };
+
+  const handleDeletePoolConfirm = async () => {
+    if (!deletingPool) return;
+    setIsProcessingPool(true);
+    try {
+      if (onDeletePool) {
+        await onDeletePool(deletingPool.id, reassignTarget);
+      }
+      const deletedName = deletingPool.name;
+      setDeletingPool(null);
+      setPoolSuccessMsg(`✓ Deleted pool "${deletedName}"`);
+      setTimeout(() => setPoolSuccessMsg(null), 3000);
+    } catch (err: any) {
+      setPoolError(err.message || 'Failed to delete pool.');
+    } finally {
+      setIsProcessingPool(false);
+    }
+  };
+
 
   return (
     <div
@@ -225,6 +367,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             }}
           >
             ⚙️ Interface & Appearance
+          </button>
+
+          <button
+            onClick={() => setActiveTab('pools')}
+            style={{
+              padding: '10px 16px',
+              background: 'transparent',
+              border: 0,
+              borderBottom: activeTab === 'pools' ? '2px solid #5980a6' : '2px solid transparent',
+              color: activeTab === 'pools' ? '#b5d9fd' : 'rgba(233,237,242,.6)',
+              fontFamily: "'Barlow Condensed', sans-serif",
+              fontSize: '15px',
+              fontWeight: 600,
+              letterSpacing: '.04em',
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+              transition: 'color 0.15s, border-color 0.15s'
+            }}
+          >
+            🌊 Pools ({pools.length})
           </button>
 
           <button
@@ -945,6 +1107,757 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: POOLS MANAGER */}
+          {activeTab === 'pools' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              {/* Notifications */}
+              {poolSuccessMsg && (
+                <div
+                  style={{
+                    padding: '10px 16px',
+                    borderRadius: '12px',
+                    background: 'rgba(56,239,125,.12)',
+                    border: '1px solid rgba(56,239,125,.3)',
+                    color: '#4ade80',
+                    fontFamily: 'ui-monospace, Menlo, monospace',
+                    fontSize: '11.5px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <span>✓</span>
+                  <span>{poolSuccessMsg}</span>
+                </div>
+              )}
+
+              {poolError && (
+                <div
+                  style={{
+                    padding: '10px 16px',
+                    borderRadius: '12px',
+                    background: 'rgba(239,68,68,.14)',
+                    border: '1px solid rgba(239,68,68,.35)',
+                    color: '#f87171',
+                    fontFamily: 'ui-monospace, Menlo, monospace',
+                    fontSize: '11.5px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}
+                >
+                  <span>⚠️ {poolError}</span>
+                  <button
+                    onClick={() => setPoolError(null)}
+                    style={{ background: 'transparent', border: 0, color: '#f87171', cursor: 'pointer', fontSize: '13px' }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              {/* Pool Header Bar & Actions */}
+              <div
+                style={{
+                  padding: '16px 20px',
+                  borderRadius: '16px',
+                  background: 'rgba(148,188,227,.06)',
+                  border: '1px solid rgba(148,188,227,.2)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                  <div>
+                    <div
+                      style={{
+                        fontFamily: "'Barlow Condensed', sans-serif",
+                        fontSize: '19px',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        color: '#b5d9fd',
+                        letterSpacing: '.03em'
+                      }}
+                    >
+                      Asset Pools & Classification
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: 'ui-monospace, Menlo, monospace',
+                        fontSize: '10.5px',
+                        color: 'rgba(233,237,242,.6)',
+                        marginTop: '2px'
+                      }}
+                    >
+                      Organize, color-code, and rename your pools. Renaming automatically cascades across your database.
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setIsCreatingPool(!isCreatingPool);
+                      setEditingPoolId(null);
+                      setDeletingPool(null);
+                      setPoolError(null);
+                    }}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: '10px',
+                      border: 0,
+                      background: isCreatingPool ? 'rgba(148,188,227,.2)' : 'linear-gradient(180deg, #6b91b6, #5980a6)',
+                      color: '#ffffff',
+                      fontFamily: "'Barlow Condensed', sans-serif",
+                      fontSize: '13.5px',
+                      fontWeight: 600,
+                      letterSpacing: '.04em',
+                      textTransform: 'uppercase',
+                      cursor: 'pointer',
+                      boxShadow: isCreatingPool ? 'none' : '0 2px 0 #2c455d',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    {isCreatingPool ? '✕ Cancel' : '+ Add New Pool'}
+                  </button>
+                </div>
+
+                {/* Search / Filter input */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      background: 'rgba(16,22,29,.7)',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(148,188,227,.2)',
+                      padding: '4px 10px'
+                    }}
+                  >
+                    <span style={{ fontSize: '11px', color: '#94bce3', marginRight: '6px' }}>🔍</span>
+                    <input
+                      type="text"
+                      placeholder="Filter pools by name or description…"
+                      value={poolSearch}
+                      onChange={(e) => setPoolSearch(e.target.value)}
+                      style={{
+                        flex: 1,
+                        background: 'transparent',
+                        border: 0,
+                        outline: 'none',
+                        color: '#e9edf2',
+                        fontFamily: 'ui-monospace, Menlo, monospace',
+                        fontSize: '11.5px'
+                      }}
+                    />
+                    {poolSearch && (
+                      <button
+                        onClick={() => setPoolSearch('')}
+                        style={{
+                          background: 'transparent',
+                          border: 0,
+                          color: 'rgba(233,237,242,.5)',
+                          cursor: 'pointer',
+                          fontSize: '11px'
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  <span
+                    style={{
+                      fontFamily: 'ui-monospace, monospace',
+                      fontSize: '10px',
+                      color: 'rgba(233,237,242,.5)',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {pools.length} total pools
+                  </span>
+                </div>
+              </div>
+
+              {/* CREATE POOL EXPANDABLE FORM */}
+              {isCreatingPool && (
+                <div
+                  style={{
+                    padding: '16px 20px',
+                    borderRadius: '16px',
+                    background: 'rgba(148,188,227,.1)',
+                    border: '1px solid rgba(148,188,227,.35)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                    animation: 'fadeIn 0.2s ease'
+                  }}
+                >
+                  <div
+                    style={{
+                      fontFamily: "'Barlow Condensed', sans-serif",
+                      fontSize: '16px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      color: '#b5d9fd'
+                    }}
+                  >
+                    New Asset Pool
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontFamily: 'ui-monospace, monospace', fontSize: '10px', color: 'rgba(233,237,242,.6)', textTransform: 'uppercase' }}>
+                        Pool Name *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 3D Models, Vector Sets, Audio FX"
+                        value={newPoolName}
+                        onChange={(e) => setNewPoolName(e.target.value)}
+                        style={{
+                          padding: '9px 12px',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(148,188,227,.3)',
+                          background: '#0d141b',
+                          color: '#e9edf2',
+                          fontFamily: 'Barlow, sans-serif',
+                          fontSize: '14px',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ flex: '2 1 300px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontFamily: 'ui-monospace, monospace', fontSize: '10px', color: 'rgba(233,237,242,.6)', textTransform: 'uppercase' }}>
+                        Description (optional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. GLTF meshes, photogrammetry, character rigs"
+                        value={newPoolDesc}
+                        onChange={(e) => setNewPoolDesc(e.target.value)}
+                        style={{
+                          padding: '9px 12px',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(148,188,227,.3)',
+                          background: '#0d141b',
+                          color: '#e9edf2',
+                          fontFamily: 'Barlow, sans-serif',
+                          fontSize: '14px',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Color Swatch Picker */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontFamily: 'ui-monospace, monospace', fontSize: '10px', color: 'rgba(233,237,242,.6)', textTransform: 'uppercase' }}>
+                      Theme Accent Color
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      {POOL_PRESET_COLORS.map((c) => (
+                        <div
+                          key={c}
+                          onClick={() => setNewPoolColor(c)}
+                          style={{
+                            width: '24px',
+                            height: '24px',
+                            borderRadius: '50%',
+                            background: c,
+                            cursor: 'pointer',
+                            border: newPoolColor === c ? '2.5px solid #ffffff' : '1px solid rgba(0,0,0,.4)',
+                            boxShadow: newPoolColor === c ? `0 0 10px ${c}` : 'none',
+                            transform: newPoolColor === c ? 'scale(1.15)' : 'scale(1)',
+                            transition: 'all 0.15s'
+                          }}
+                        />
+                      ))}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '6px' }}>
+                        <input
+                          type="color"
+                          value={newPoolColor}
+                          onChange={(e) => setNewPoolColor(e.target.value)}
+                          style={{
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '6px',
+                            border: '1px solid rgba(148,188,227,.3)',
+                            background: 'transparent',
+                            cursor: 'pointer'
+                          }}
+                        />
+                        <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '11px', color: '#94bce3' }}>
+                          {newPoolColor}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Submit / Cancel Buttons */}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
+                    <button
+                      onClick={() => setIsCreatingPool(false)}
+                      style={{
+                        padding: '7px 14px',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(148,188,227,.2)',
+                        background: 'transparent',
+                        color: 'rgba(233,237,242,.7)',
+                        fontFamily: "'Barlow Condensed', sans-serif",
+                        fontSize: '13px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleCreatePool}
+                      disabled={isProcessingPool || !newPoolName.trim()}
+                      style={{
+                        padding: '7px 16px',
+                        borderRadius: '8px',
+                        border: 0,
+                        background: 'linear-gradient(180deg, #6b91b6, #5980a6)',
+                        color: '#ffffff',
+                        fontFamily: "'Barlow Condensed', sans-serif",
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        cursor: isProcessingPool || !newPoolName.trim() ? 'not-allowed' : 'pointer',
+                        opacity: isProcessingPool || !newPoolName.trim() ? 0.6 : 1
+                      }}
+                    >
+                      {isProcessingPool ? 'Creating…' : 'Create Pool'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* DELETE CONFIRMATION DIALOG */}
+              {deletingPool && (
+                <div
+                  style={{
+                    padding: '16px 20px',
+                    borderRadius: '16px',
+                    background: 'rgba(239,68,68,.12)',
+                    border: '1px solid rgba(239,68,68,.35)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                    animation: 'fadeIn 0.2s ease'
+                  }}
+                >
+                  <div
+                    style={{
+                      fontFamily: "'Barlow Condensed', sans-serif",
+                      fontSize: '17px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      color: '#f87171'
+                    }}
+                  >
+                    Delete Pool "{deletingPool.name}"?
+                  </div>
+
+                  <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '11px', color: 'rgba(233,237,242,.85)' }}>
+                    {(poolCounts[deletingPool.name] || 0) > 0 ? (
+                      <>
+                        This pool currently contains{' '}
+                        <strong style={{ color: '#b5d9fd' }}>{poolCounts[deletingPool.name]}</strong> assets. Choose a
+                        pool to reassign them to:
+                      </>
+                    ) : (
+                      'This pool has no assets and will be removed.'
+                    )}
+                  </div>
+
+                  {(poolCounts[deletingPool.name] || 0) > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '10px', color: 'rgba(233,237,242,.6)', textTransform: 'uppercase' }}>
+                        Reassign assets to:
+                      </span>
+                      <select
+                        value={reassignTarget}
+                        onChange={(e) => setReassignTarget(e.target.value)}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          background: '#0d141b',
+                          border: '1px solid rgba(148,188,227,.3)',
+                          color: '#e9edf2',
+                          fontFamily: 'Barlow, sans-serif',
+                          fontSize: '13px'
+                        }}
+                      >
+                        <option value="Uncategorized">Uncategorized</option>
+                        {pools
+                          .filter((p) => p.id !== deletingPool.id)
+                          .map((p) => (
+                            <option key={p.id} value={p.name}>
+                              {p.name} ({poolCounts[p.name] || 0} assets)
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                    <button
+                      onClick={() => setDeletingPool(null)}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(148,188,227,.2)',
+                        background: 'transparent',
+                        color: '#e9edf2',
+                        fontFamily: "'Barlow Condensed', sans-serif",
+                        fontSize: '13px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleDeletePoolConfirm}
+                      disabled={isProcessingPool}
+                      style={{
+                        padding: '6px 16px',
+                        borderRadius: '8px',
+                        border: 0,
+                        background: '#dc2626',
+                        color: '#ffffff',
+                        fontFamily: "'Barlow Condensed', sans-serif",
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        cursor: isProcessingPool ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      {isProcessingPool ? 'Deleting…' : 'Confirm Delete'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* POOLS LIST */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div
+                  style={{
+                    fontFamily: 'ui-monospace, Menlo, monospace',
+                    fontSize: '10px',
+                    letterSpacing: '.12em',
+                    textTransform: 'uppercase',
+                    color: 'rgba(233,237,242,.5)',
+                    paddingLeft: '4px'
+                  }}
+                >
+                  Configured Pools ({pools.length})
+                </div>
+
+                {pools
+                  .filter(
+                    (p) =>
+                      p.name.toLowerCase().includes(poolSearch.toLowerCase()) ||
+                      (p.description || '').toLowerCase().includes(poolSearch.toLowerCase())
+                  )
+                  .map((p) => {
+                    const isEditing = editingPoolId === p.id;
+                    const assetCount = poolCounts[p.name] || 0;
+
+                    if (isEditing) {
+                      return (
+                        <div
+                          key={p.id}
+                          style={{
+                            padding: '14px 16px',
+                            borderRadius: '12px',
+                            background: 'rgba(148,188,227,.12)',
+                            border: '1px solid rgba(148,188,227,.35)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '10px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span
+                              style={{
+                                width: '12px',
+                                height: '12px',
+                                borderRadius: '50%',
+                                background: editPoolColor,
+                                flex: 'none',
+                                boxShadow: `0 0 8px ${editPoolColor}`
+                              }}
+                            />
+                            <span
+                              style={{
+                                fontFamily: "'Barlow Condensed', sans-serif",
+                                fontSize: '16px',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                color: '#b5d9fd'
+                              }}
+                            >
+                              Edit Pool "{p.name}"
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                            <div style={{ flex: '1 1 200px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <label style={{ fontFamily: 'ui-monospace, monospace', fontSize: '9.5px', color: 'rgba(233,237,242,.6)', textTransform: 'uppercase' }}>
+                                Pool Name
+                              </label>
+                              <input
+                                type="text"
+                                value={editPoolName}
+                                onChange={(e) => setEditPoolName(e.target.value)}
+                                style={{
+                                  padding: '7px 10px',
+                                  borderRadius: '6px',
+                                  border: '1px solid rgba(148,188,227,.3)',
+                                  background: '#0d141b',
+                                  color: '#e9edf2',
+                                  fontFamily: 'Barlow, sans-serif',
+                                  fontSize: '13px'
+                                }}
+                              />
+                            </div>
+
+                            <div style={{ flex: '2 1 260px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <label style={{ fontFamily: 'ui-monospace, monospace', fontSize: '9.5px', color: 'rgba(233,237,242,.6)', textTransform: 'uppercase' }}>
+                                Description
+                              </label>
+                              <input
+                                type="text"
+                                value={editPoolDesc}
+                                onChange={(e) => setEditPoolDesc(e.target.value)}
+                                style={{
+                                  padding: '7px 10px',
+                                  borderRadius: '6px',
+                                  border: '1px solid rgba(148,188,227,.3)',
+                                  background: '#0d141b',
+                                  color: '#e9edf2',
+                                  fontFamily: 'Barlow, sans-serif',
+                                  fontSize: '13px'
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Color picker */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                            <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '9.5px', color: 'rgba(233,237,242,.6)', textTransform: 'uppercase', marginRight: '4px' }}>
+                              Color:
+                            </span>
+                            {POOL_PRESET_COLORS.map((c) => (
+                              <div
+                                key={c}
+                                onClick={() => setEditPoolColor(c)}
+                                style={{
+                                  width: '18px',
+                                  height: '18px',
+                                  borderRadius: '50%',
+                                  background: c,
+                                  cursor: 'pointer',
+                                  border: editPoolColor === c ? '2px solid #ffffff' : '1px solid rgba(0,0,0,.4)',
+                                  boxShadow: editPoolColor === c ? `0 0 8px ${c}` : 'none',
+                                  transform: editPoolColor === c ? 'scale(1.15)' : 'scale(1)',
+                                  transition: 'all 0.15s'
+                                }}
+                              />
+                            ))}
+                            <input
+                              type="color"
+                              value={editPoolColor}
+                              onChange={(e) => setEditPoolColor(e.target.value)}
+                              style={{
+                                width: '22px',
+                                height: '22px',
+                                borderRadius: '4px',
+                                border: '1px solid rgba(148,188,227,.3)',
+                                background: 'transparent',
+                                cursor: 'pointer',
+                                marginLeft: '4px'
+                              }}
+                            />
+                          </div>
+
+                          {assetCount > 0 && editPoolName.trim() !== p.name && (
+                            <div
+                              style={{
+                                fontFamily: 'ui-monospace, monospace',
+                                fontSize: '10.5px',
+                                color: '#94bce3',
+                                background: 'rgba(148,188,227,.08)',
+                                padding: '6px 10px',
+                                borderRadius: '6px'
+                              }}
+                            >
+                              ℹ️ Renaming will automatically update all {assetCount} assets currently assigned to "{p.name}".
+                            </div>
+                          )}
+
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                            <button
+                              onClick={() => setEditingPoolId(null)}
+                              style={{
+                                padding: '5px 12px',
+                                borderRadius: '6px',
+                                border: '1px solid rgba(148,188,227,.2)',
+                                background: 'transparent',
+                                color: '#e9edf2',
+                                fontFamily: "'Barlow Condensed', sans-serif",
+                                fontSize: '12.5px',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={handleSaveEditPool}
+                              disabled={isProcessingPool || !editPoolName.trim()}
+                              style={{
+                                padding: '5px 14px',
+                                borderRadius: '6px',
+                                border: 0,
+                                background: 'linear-gradient(180deg, #6b91b6, #5980a6)',
+                                color: '#ffffff',
+                                fontFamily: "'Barlow Condensed', sans-serif",
+                                fontSize: '12.5px',
+                                fontWeight: 600,
+                                cursor: isProcessingPool || !editPoolName.trim() ? 'not-allowed' : 'pointer'
+                              }}
+                            >
+                              {isProcessingPool ? 'Saving…' : 'Save Changes'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={p.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          background: 'var(--surface, #182636)',
+                          border: '1px solid rgba(148,188,227,.12)',
+                          transition: 'border-color 0.15s, background 0.15s'
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'rgba(148,188,227,.28)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'rgba(148,188,227,.12)')}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                          <span
+                            style={{
+                              width: '10px',
+                              height: '10px',
+                              borderRadius: '50%',
+                              background: p.color || '#94bce3',
+                              boxShadow: `0 0 8px ${p.color || '#94bce3'}`,
+                              flex: 'none'
+                            }}
+                          />
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span
+                                style={{
+                                  fontFamily: "'Barlow Condensed', sans-serif",
+                                  fontSize: '16.5px',
+                                  fontWeight: 700,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '.03em',
+                                  color: '#e9edf2'
+                                }}
+                              >
+                                {p.name}
+                              </span>
+                              <span
+                                style={{
+                                  padding: '2px 7px',
+                                  borderRadius: '99px',
+                                  fontFamily: 'ui-monospace, monospace',
+                                  fontSize: '9.5px',
+                                  color: assetCount > 0 ? '#b5d9fd' : 'rgba(233,237,242,.4)',
+                                  background: assetCount > 0 ? 'rgba(148,188,227,.18)' : 'rgba(148,188,227,.06)'
+                                }}
+                              >
+                                {assetCount} {assetCount === 1 ? 'asset' : 'assets'}
+                              </span>
+                            </div>
+                            {p.description && (
+                              <div
+                                style={{
+                                  fontFamily: 'ui-monospace, Menlo, monospace',
+                                  fontSize: '10.5px',
+                                  color: 'rgba(233,237,242,.55)',
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  maxWidth: '380px'
+                                }}
+                              >
+                                {p.description}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 'none' }}>
+                          <button
+                            onClick={() => startEditPool(p)}
+                            style={{
+                              padding: '4px 9px',
+                              borderRadius: '6px',
+                              border: '1px solid rgba(148,188,227,.2)',
+                              background: 'rgba(148,188,227,.08)',
+                              color: '#b5d9fd',
+                              fontFamily: 'ui-monospace, monospace',
+                              fontSize: '10.5px',
+                              cursor: 'pointer',
+                              transition: 'background 0.15s'
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.2)')}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.08)')}
+                            title="Edit pool name, color, and description"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              setDeletingPool(p);
+                              setReassignTarget('Uncategorized');
+                              setPoolError(null);
+                            }}
+                            style={{
+                              padding: '4px 8px',
+                              borderRadius: '6px',
+                              border: '1px solid rgba(239,68,68,.2)',
+                              background: 'rgba(239,68,68,.08)',
+                              color: '#f87171',
+                              fontFamily: 'ui-monospace, monospace',
+                              fontSize: '10.5px',
+                              cursor: 'pointer',
+                              transition: 'background 0.15s'
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(239,68,68,.22)')}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(239,68,68,.08)')}
+                            title="Delete pool"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
               </div>
             </div>
           )}

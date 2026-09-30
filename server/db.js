@@ -102,7 +102,44 @@ function initSchema(db) {
       list_json TEXT,
       created_at INTEGER
     );
+
+    -- Custom pools / categories table
+    CREATE TABLE IF NOT EXISTS pools (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      description TEXT,
+      color TEXT,
+      sort_order INTEGER DEFAULT 0,
+      created_at INTEGER
+    );
   `);
+
+  // Seed default pools if none exist
+  try {
+    const poolCount = db.prepare('SELECT COUNT(*) as c FROM pools').get().c;
+    if (poolCount === 0) {
+      const defaultPools = [
+        { name: 'Effects', color: '#94bce3', description: 'Visual effects, shaders, and display animations' },
+        { name: 'Buttons', color: '#60a5fa', description: 'Interactive button controls, micro-interactions' },
+        { name: 'Loaders', color: '#38bdf8', description: 'Progress bars, spinners, and skeleton loaders' },
+        { name: 'Backgrounds', color: '#a78bfa', description: 'Canvas backgrounds, gradients, and dynamic patterns' },
+        { name: 'Transitions', color: '#c084fc', description: 'Page transitions, view morphs, slide states' },
+        { name: 'Typography', color: '#f472b6', description: 'Type specimens, kinetic text, and font kits' },
+        { name: 'Layouts', color: '#fb7185', description: 'Responsive grids, hero sections, and card systems' },
+        { name: 'Scroll', color: '#fb923c', description: 'Scroll triggers, parallax, and sticky viewports' },
+        { name: 'Physics', color: '#facc15', description: 'Matter.js, collision, and particle dynamics' },
+        { name: 'Shaders', color: '#4ade80', description: 'WebGL fragments, GLSL rays, and lens distortion' },
+        { name: 'Routines/utils', color: '#2dd4bf', description: 'Helper functions, mathematical formulas, and hooks' },
+        { name: 'Experiments', color: '#e879f9', description: 'Experimental sandbox rigs and creative prototypes' }
+      ];
+      const insertStmt = db.prepare('INSERT INTO pools (id, name, color, description, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?)');
+      defaultPools.forEach((p, i) => {
+        insertStmt.run(`pool_${i + 1}`, p.name, p.color, p.description, i, Date.now());
+      });
+    }
+  } catch (err) {
+    console.warn('[SQLite] Pool seeding warning:', err.message);
+  }
 
   // Initialize SQLite FTS5 Full-Text Search virtual table
   try {
@@ -594,5 +631,61 @@ function formatBytes(bytes) {
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
+/**
+ * Custom Pools / Classification Management
+ */
+export function getPools() {
+  const db = getDatabase();
+  return db.prepare('SELECT * FROM pools ORDER BY sort_order ASC, name ASC').all();
+}
+
+export function addPool({ name, description = '', color = '#94bce3', sort_order = 0 }) {
+  const db = getDatabase();
+  const id = 'pool_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+  const trimmedName = name.trim();
+  
+  db.prepare(`
+    INSERT INTO pools (id, name, description, color, sort_order, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(id, trimmedName, description, color, Number(sort_order) || 0, Date.now());
+
+  return db.prepare('SELECT * FROM pools WHERE id = ?').get(id);
+}
+
+export function updatePool(id, updates) {
+  const db = getDatabase();
+  const existing = db.prepare('SELECT * FROM pools WHERE id = ?').get(id);
+  if (!existing) return null;
+
+  const newName = updates.name !== undefined ? updates.name.trim() : existing.name;
+  const newDesc = updates.description !== undefined ? updates.description : existing.description;
+  const newColor = updates.color !== undefined ? updates.color : existing.color;
+  const newSort = updates.sort_order !== undefined ? Number(updates.sort_order) : existing.sort_order;
+
+  // Cascade rename to assets table
+  if (newName && newName !== existing.name) {
+    db.prepare('UPDATE assets SET cat = ? WHERE cat = ?').run(newName, existing.name);
+  }
+
+  db.prepare(`
+    UPDATE pools
+    SET name = ?, description = ?, color = ?, sort_order = ?
+    WHERE id = ?
+  `).run(newName, newDesc, newColor, newSort, id);
+
+  return db.prepare('SELECT * FROM pools WHERE id = ?').get(id);
+}
+
+export function deletePool(id, reassignTo = null) {
+  const db = getDatabase();
+  const existing = db.prepare('SELECT * FROM pools WHERE id = ?').get(id);
+  if (!existing) return false;
+
+  const targetCat = reassignTo && reassignTo.trim() ? reassignTo.trim() : 'Uncategorized';
+  db.prepare('UPDATE assets SET cat = ? WHERE cat = ?').run(targetCat, existing.name);
+  db.prepare('DELETE FROM pools WHERE id = ?').run(id);
+  return true;
 }
 

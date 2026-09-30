@@ -1,5 +1,5 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import { AssetEntry, WatchedFolder } from '../types';
+import { AssetEntry, WatchedFolder, Pool } from '../types';
 import { getInitialSeedEntries } from '../data/seedData';
 import { api, DatabaseStats } from './api';
 
@@ -284,4 +284,112 @@ export async function updateWatchedFolder(folder: WatchedFolder): Promise<void> 
 
 export async function getDatabaseStatus(): Promise<DatabaseStats | null> {
   return await api.getStats();
+}
+
+const DEFAULT_POOLS: Pool[] = [
+  { id: 'pool_1', name: 'Effects', color: '#94bce3', description: 'Visual effects, shaders, and display animations' },
+  { id: 'pool_2', name: 'Buttons', color: '#60a5fa', description: 'Interactive button controls, micro-interactions' },
+  { id: 'pool_3', name: 'Loaders', color: '#38bdf8', description: 'Progress bars, spinners, and skeleton loaders' },
+  { id: 'pool_4', name: 'Backgrounds', color: '#a78bfa', description: 'Canvas backgrounds, gradients, and dynamic patterns' },
+  { id: 'pool_5', name: 'Transitions', color: '#c084fc', description: 'Page transitions, view morphs, slide states' },
+  { id: 'pool_6', name: 'Typography', color: '#f472b6', description: 'Type specimens, kinetic text, and font kits' },
+  { id: 'pool_7', name: 'Layouts', color: '#fb7185', description: 'Responsive grids, hero sections, and card systems' },
+  { id: 'pool_8', name: 'Scroll', color: '#fb923c', description: 'Scroll triggers, parallax, and sticky viewports' },
+  { id: 'pool_9', name: 'Physics', color: '#facc15', description: 'Matter.js, collision, and particle dynamics' },
+  { id: 'pool_10', name: 'Shaders', color: '#4ade80', description: 'WebGL fragments, GLSL rays, and lens distortion' },
+  { id: 'pool_11', name: 'Routines/utils', color: '#2dd4bf', description: 'Helper functions, mathematical formulas, and hooks' },
+  { id: 'pool_12', name: 'Experiments', color: '#e879f9', description: 'Experimental sandbox rigs and creative prototypes' }
+];
+
+export async function loadPools(): Promise<Pool[]> {
+  try {
+    const list = await api.getPools();
+    if (list && list.length > 0) return list;
+  } catch (err) {
+    console.warn('Failed to load pools from SQLite:', err);
+  }
+
+  // Fallback to IndexedDB settings
+  const saved = await getSetting<Pool[]>('custom_pools', DEFAULT_POOLS);
+  return saved && saved.length > 0 ? saved : DEFAULT_POOLS;
+}
+
+export async function createPool(pool: { name: string; description?: string; color?: string; sortOrder?: number }): Promise<Pool[]> {
+  try {
+    await api.addPool(pool);
+    return await loadPools();
+  } catch (err) {
+    console.warn('Failed to add pool via SQLite:', err);
+  }
+
+  const current = await loadPools();
+  const newPool: Pool = {
+    id: 'pool_' + Date.now(),
+    name: pool.name.trim(),
+    description: pool.description || '',
+    color: pool.color || '#94bce3',
+    sortOrder: current.length,
+    createdAt: Date.now()
+  };
+  const updated = [...current, newPool];
+  await saveSetting('custom_pools', updated);
+  return updated;
+}
+
+export async function editPool(id: string, updates: Partial<Pool>): Promise<Pool[]> {
+  try {
+    await api.updatePool(id, updates);
+    return await loadPools();
+  } catch (err) {
+    console.warn('Failed to update pool via SQLite:', err);
+  }
+
+  const current = await loadPools();
+  const existing = current.find((p) => p.id === id);
+  if (existing && updates.name && updates.name !== existing.name) {
+    // cascade update entries in IDB
+    const db = await getDB();
+    const entries = await db.getAll('entries');
+    const tx = db.transaction('entries', 'readwrite');
+    for (const e of entries) {
+      if (e.cat === existing.name) {
+        e.cat = updates.name;
+        await tx.store.put(e);
+      }
+    }
+    await tx.done;
+  }
+
+  const updated = current.map((p) => (p.id === id ? { ...p, ...updates } : p));
+  await saveSetting('custom_pools', updated);
+  return updated;
+}
+
+export async function removePool(id: string, reassignTo?: string): Promise<Pool[]> {
+  try {
+    await api.deletePool(id, reassignTo);
+    return await loadPools();
+  } catch (err) {
+    console.warn('Failed to delete pool via SQLite:', err);
+  }
+
+  const current = await loadPools();
+  const target = current.find((p) => p.id === id);
+  if (target) {
+    const fallback = reassignTo || 'Uncategorized';
+    const db = await getDB();
+    const entries = await db.getAll('entries');
+    const tx = db.transaction('entries', 'readwrite');
+    for (const e of entries) {
+      if (e.cat === target.name) {
+        e.cat = fallback;
+        await tx.store.put(e);
+      }
+    }
+    await tx.done;
+  }
+
+  const updated = current.filter((p) => p.id !== id);
+  await saveSetting('custom_pools', updated);
+  return updated;
 }

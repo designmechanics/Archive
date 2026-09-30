@@ -1,5 +1,5 @@
 import React from 'react';
-import { WatchedFolder } from '../types';
+import { WatchedFolder, Pool } from '../types';
 
 interface RailProps {
   totalCount: number;
@@ -20,6 +20,7 @@ interface RailProps {
   onOptimizeDb?: () => void;
   onClearAll?: () => void;
   onOpenSettings?: () => void;
+  pools?: Pool[];
 }
 
 export const Rail: React.FC<RailProps> = ({
@@ -40,24 +41,25 @@ export const Rail: React.FC<RailProps> = ({
   dbPath,
   onOptimizeDb,
   onClearAll,
-  onOpenSettings
+  onOpenSettings,
+  pools = []
 }) => {
-
-
-  const pools = [
-    'Effects',
-    'Buttons',
-    'Loaders',
-    'Backgrounds',
-    'Transitions',
-    'Typography',
-    'Layouts',
-    'Scroll',
-    'Physics',
-    'Shaders',
-    'Routines/utils',
-    'Experiments'
-  ];
+  const poolList = pools.length > 0
+    ? pools
+    : [
+        { id: 'p1', name: 'Effects', color: '#94bce3' },
+        { id: 'p2', name: 'Buttons', color: '#60a5fa' },
+        { id: 'p3', name: 'Loaders', color: '#38bdf8' },
+        { id: 'p4', name: 'Backgrounds', color: '#a78bfa' },
+        { id: 'p5', name: 'Transitions', color: '#c084fc' },
+        { id: 'p6', name: 'Typography', color: '#f472b6' },
+        { id: 'p7', name: 'Layouts', color: '#fb7185' },
+        { id: 'p8', name: 'Scroll', color: '#fb923c' },
+        { id: 'p9', name: 'Physics', color: '#facc15' },
+        { id: 'p10', name: 'Shaders', color: '#4ade80' },
+        { id: 'p11', name: 'Routines/utils', color: '#2dd4bf' },
+        { id: 'p12', name: 'Experiments', color: '#e879f9' }
+      ];
 
   return (
     <aside
@@ -100,7 +102,7 @@ export const Rail: React.FC<RailProps> = ({
             textTransform: 'uppercase'
           }}
         >
-          index · {totalCount.toLocaleString()} assets · 12 pools
+          index · {totalCount.toLocaleString()} assets · {poolList.length} pools
         </div>
       </div>
 
@@ -235,13 +237,15 @@ export const Rail: React.FC<RailProps> = ({
         </button>
 
         {/* Pool Rows */}
-        {pools.map((p) => {
+        {poolList.map((poolItem) => {
+          const p = poolItem.name;
+          const dotColor = poolItem.color || '#94bce3';
           const isSelected = selectedPool === p;
           const isFanOpen = fanPool === p;
           const count = poolCounts[p] || 0;
 
           return (
-            <div key={p} data-pool={p} style={{ marginBottom: '3px' }}>
+            <div key={poolItem.id || p} data-pool={p} style={{ marginBottom: '3px' }}>
               <button
                 onClick={() => onSelectPool(isSelected ? null : p)}
                 onMouseEnter={(e) => {
@@ -272,9 +276,10 @@ export const Rail: React.FC<RailProps> = ({
                     width: '7px',
                     height: '7px',
                     borderRadius: '3px',
-                    background: '#94bce3',
+                    background: dotColor,
                     flex: 'none',
-                    opacity: 0.75
+                    opacity: 0.85,
+                    boxShadow: `0 0 6px ${dotColor}`
                   }}
                 />
                 <span
