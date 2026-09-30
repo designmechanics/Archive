@@ -172,7 +172,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({
   }
 
   const isFont = entry.type === 'font' || (pack && isIn('font', packSel || ''));
-  const isZip = entry.type === 'zip' || (pack && pack.list.length > 1);
+  const isZip = isZipArchive(entry);
 
   // Copy handler
   const handleCopyOpen = async () => {

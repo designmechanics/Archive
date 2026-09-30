@@ -545,12 +545,24 @@ export function pickDefaultFile(pack: ZipPack): string | null {
 export function isZipArchive(entry?: AssetEntry | null): boolean {
   if (!entry) return false;
   if (entry.isZipInnerFile) return false;
+
+  // 1. Explicit zip type
   if (entry.type === 'zip') return true;
-  if (entry.packId) return true;
-  const t = (entry.title || '').toLowerCase();
-  const p = (entry.filePath || '').toLowerCase();
+
+  // 2. Direct filename or disk path ending in .zip
+  const t = (entry.title || '').toLowerCase().trim();
+  const p = (entry.filePath || '').toLowerCase().trim();
   if (t.endsWith('.zip') || p.endsWith('.zip')) return true;
-  if (entry.fileCount && entry.fileCount > 1) return true;
+
+  // 3. Exts includes 'zip' and it's not a standalone video, photo, audio, font, or code file
+  if (
+    entry.exts &&
+    entry.exts.includes('zip') &&
+    !['video', 'photo', 'font', 'code'].includes(entry.type)
+  ) {
+    return true;
+  }
+
   return false;
 }
 
