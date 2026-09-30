@@ -238,6 +238,66 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
 
+  const isLight = theme === 'light';
+  const isMid = theme === 'mid';
+  const isDark = !isLight && !isMid;
+
+  // Adaptive theme color tokens for razor-sharp legibility across Dark, Mid, and Light modes
+  const c = {
+    // Backdrop & Modal shell
+    backdropBg: isLight ? 'rgba(15, 23, 42, 0.45)' : isMid ? 'rgba(15, 27, 39, 0.55)' : 'rgba(8, 14, 22, 0.72)',
+    modalBg: isLight ? '#ffffff' : isMid ? '#6c8ea8' : '#121a24',
+    modalBorder: isLight ? '1px solid rgba(15, 23, 42, 0.12)' : isMid ? '1px solid rgba(15, 27, 39, 0.22)' : '1px solid rgba(148, 188, 227, 0.18)',
+    headerBg: isLight ? '#f8fafc' : isMid ? '#5e809e' : '#182636',
+    tabBarBg: isLight ? '#f1f5f9' : isMid ? '#537492' : '#15212f',
+    footerBg: isLight ? '#f8fafc' : isMid ? '#5e809e' : '#182636',
+    border: isLight ? 'rgba(15, 23, 42, 0.10)' : isMid ? 'rgba(15, 27, 39, 0.18)' : 'rgba(148, 188, 227, 0.16)',
+    borderSubtle: isLight ? 'rgba(15, 23, 42, 0.06)' : isMid ? 'rgba(15, 27, 39, 0.12)' : 'rgba(148, 188, 227, 0.10)',
+    borderFocus: isLight ? '#2563eb' : isMid ? '#102e4d' : '#5980a6',
+
+    // Cards & surfaces within tabs
+    cardBg: isLight ? '#f8fafc' : isMid ? 'rgba(255, 255, 255, 0.22)' : 'rgba(148, 188, 227, 0.06)',
+    cardBorder: isLight ? 'rgba(15, 23, 42, 0.09)' : isMid ? 'rgba(15, 27, 39, 0.18)' : 'rgba(148, 188, 227, 0.20)',
+    innerCardBg: isLight ? '#ffffff' : isMid ? 'rgba(255, 255, 255, 0.42)' : 'rgba(16, 26, 37, 0.85)',
+    innerCardBorder: isLight ? 'rgba(15, 23, 42, 0.08)' : isMid ? 'rgba(15, 27, 39, 0.15)' : 'rgba(148, 188, 227, 0.14)',
+
+    // Text colors
+    textPrimary: isLight ? '#0f172a' : isMid ? '#09131d' : '#e9edf2',
+    textSecondary: isLight ? '#334155' : isMid ? '#16293d' : 'rgba(233, 237, 242, 0.75)',
+    textMuted: isLight ? '#64748b' : isMid ? '#29435c' : 'rgba(233, 237, 242, 0.45)',
+    textAccent: isLight ? '#1d4ed8' : isMid ? '#0a2e58' : '#94bce3',
+    textHeaderHighlight: isLight ? '#1e40af' : isMid ? '#051d38' : '#b5d9fd',
+
+    // Inputs
+    inputBg: isLight ? '#ffffff' : isMid ? '#f0f5fa' : '#0d141b',
+    inputBorder: isLight ? 'rgba(15, 23, 42, 0.16)' : isMid ? 'rgba(11, 23, 36, 0.25)' : 'rgba(148, 188, 227, 0.25)',
+    inputText: isLight ? '#0f172a' : isMid ? '#0b1724' : '#e9edf2',
+    inputPlaceholder: isLight ? '#94a3b8' : isMid ? '#64748b' : 'rgba(233, 237, 242, 0.35)',
+
+    // Secondary buttons
+    btnSecBg: isLight ? 'rgba(15, 23, 42, 0.06)' : isMid ? 'rgba(11, 23, 36, 0.10)' : 'rgba(148, 188, 227, 0.10)',
+    btnSecBorder: isLight ? 'rgba(15, 23, 42, 0.12)' : isMid ? 'rgba(11, 23, 36, 0.20)' : 'rgba(148, 188, 227, 0.22)',
+    btnSecText: isLight ? '#0f172a' : isMid ? '#0b1724' : '#b5d9fd',
+
+    // Tabs
+    tabActiveText: isLight ? '#1d4ed8' : isMid ? '#051d38' : '#b5d9fd',
+    tabActiveBorder: isLight ? '#2563eb' : isMid ? '#051d38' : '#5980a6',
+    tabInactiveText: isLight ? '#64748b' : isMid ? '#29435c' : 'rgba(233, 237, 242, 0.60)',
+
+    // Primary action button style
+    btnPriBorder: isLight ? '1px solid #2563eb' : isMid ? '1px solid #1e3a5f' : '1px solid #416180',
+    btnPriBg: isLight
+      ? 'linear-gradient(180deg, #3b82f6, #2563eb)'
+      : isMid
+      ? 'linear-gradient(180deg, #2a4e76, #1d3958)'
+      : 'linear-gradient(180deg, #6b91b6, #5980a6)',
+    btnPriShadow: isLight
+      ? '0 2px 0 #1d4ed8, 0 4px 12px rgba(37,99,235,.25)'
+      : isMid
+      ? '0 2px 0 #13253b, 0 4px 12px rgba(15,27,39,.3)'
+      : '0 2px 0 #2c455d, 0 4px 12px rgba(65,97,128,.3)'
+  };
+
   return (
     <div
       data-modal="1"
@@ -245,7 +305,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         position: 'fixed',
         inset: 0,
         zIndex: 80,
-        background: 'rgba(29,45,61,.68)',
+        background: c.backdropBg,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -261,25 +321,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           maxWidth: '92vw',
           maxHeight: '88vh',
           borderRadius: '22px',
-          background: 'var(--bg, #10161d)',
-          color: 'var(--ink, #e9edf2)',
-          boxShadow: '0 32px 90px rgba(0,0,0,.6)',
+          background: c.modalBg,
+          color: c.textPrimary,
+          boxShadow: isLight
+            ? '0 24px 70px rgba(15, 23, 42, 0.18), 0 4px 14px rgba(15, 23, 42, 0.08)'
+            : isMid
+            ? '0 30px 80px rgba(15, 27, 39, 0.35), 0 4px 16px rgba(15, 27, 39, 0.2)'
+            : '0 32px 90px rgba(0, 0, 0, 0.65)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
           animation: 'cardPop 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
-          border: '1px solid rgba(148,188,227,.18)'
+          border: c.modalBorder
         }}
       >
         {/* Header */}
         <div
           style={{
             padding: '22px 26px 14px',
-            borderBottom: '1px solid rgba(148,188,227,.14)',
+            borderBottom: `1px solid ${c.border}`,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            background: 'var(--surface, #182636)'
+            background: c.headerBg
           }}
         >
           <div>
@@ -289,7 +353,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 fontSize: '9.5px',
                 letterSpacing: '.14em',
                 textTransform: 'uppercase',
-                color: '#94bce3'
+                color: c.textAccent
               }}
             >
               Control Center
@@ -300,7 +364,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 fontWeight: 700,
                 fontSize: '26px',
                 textTransform: 'uppercase',
-                letterSpacing: '.02em'
+                letterSpacing: '.02em',
+                color: c.textPrimary
               }}
             >
               Settings & Storage
@@ -313,10 +378,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               width: '32px',
               height: '32px',
               borderRadius: '10px',
-              border: 0,
+              border: `1px solid ${c.borderSubtle}`,
               cursor: 'pointer',
-              background: 'rgba(148,188,227,.12)',
-              color: 'var(--ink, #e9edf2)',
+              background: c.btnSecBg,
+              color: c.textPrimary,
               fontFamily: 'ui-monospace, Menlo, monospace',
               fontSize: '13px'
             }}
@@ -331,8 +396,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             display: 'flex',
             padding: '8px 26px 0',
             gap: '8px',
-            background: 'var(--surface, #182636)',
-            borderBottom: '1px solid rgba(148,188,227,.14)'
+            background: c.tabBarBg,
+            borderBottom: `1px solid ${c.border}`
           }}
         >
           <button
@@ -341,8 +406,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               padding: '10px 16px',
               background: 'transparent',
               border: 0,
-              borderBottom: activeTab === 'database' ? '2px solid #5980a6' : '2px solid transparent',
-              color: activeTab === 'database' ? '#b5d9fd' : 'rgba(233,237,242,.6)',
+              borderBottom: activeTab === 'database' ? `2px solid ${c.tabActiveBorder}` : '2px solid transparent',
+              color: activeTab === 'database' ? c.tabActiveText : c.tabInactiveText,
               fontFamily: "'Barlow Condensed', sans-serif",
               fontSize: '15px',
               fontWeight: 600,
@@ -361,8 +426,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               padding: '10px 16px',
               background: 'transparent',
               border: 0,
-              borderBottom: activeTab === 'interface' ? '2px solid #5980a6' : '2px solid transparent',
-              color: activeTab === 'interface' ? '#b5d9fd' : 'rgba(233,237,242,.6)',
+              borderBottom: activeTab === 'interface' ? `2px solid ${c.tabActiveBorder}` : '2px solid transparent',
+              color: activeTab === 'interface' ? c.tabActiveText : c.tabInactiveText,
               fontFamily: "'Barlow Condensed', sans-serif",
               fontSize: '15px',
               fontWeight: 600,
@@ -381,8 +446,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               padding: '10px 16px',
               background: 'transparent',
               border: 0,
-              borderBottom: activeTab === 'pools' ? '2px solid #5980a6' : '2px solid transparent',
-              color: activeTab === 'pools' ? '#b5d9fd' : 'rgba(233,237,242,.6)',
+              borderBottom: activeTab === 'pools' ? `2px solid ${c.tabActiveBorder}` : '2px solid transparent',
+              color: activeTab === 'pools' ? c.tabActiveText : c.tabInactiveText,
               fontFamily: "'Barlow Condensed', sans-serif",
               fontSize: '15px',
               fontWeight: 600,
@@ -401,8 +466,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               padding: '10px 16px',
               background: 'transparent',
               border: 0,
-              borderBottom: activeTab === 'folders' ? '2px solid #5980a6' : '2px solid transparent',
-              color: activeTab === 'folders' ? '#b5d9fd' : 'rgba(233,237,242,.6)',
+              borderBottom: activeTab === 'folders' ? `2px solid ${c.tabActiveBorder}` : '2px solid transparent',
+              color: activeTab === 'folders' ? c.tabActiveText : c.tabInactiveText,
               fontFamily: "'Barlow Condensed', sans-serif",
               fontSize: '15px',
               fontWeight: 600,
@@ -426,8 +491,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 style={{
                   padding: '16px 20px',
                   borderRadius: '16px',
-                  background: 'rgba(148,188,227,.06)',
-                  border: '1px solid rgba(148,188,227,.2)',
+                  background: c.cardBg,
+                  border: `1px solid ${c.cardBorder}`,
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '10px'
@@ -451,7 +516,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         fontWeight: 600,
                         textTransform: 'uppercase',
                         letterSpacing: '.03em',
-                        color: '#b5d9fd'
+                        color: c.textHeaderHighlight
                       }}
                     >
                       Active SQLite Storage Engine
@@ -461,7 +526,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     style={{
                       fontFamily: 'ui-monospace, Menlo, monospace',
                       fontSize: '10px',
-                      color: 'rgba(233,237,242,.6)'
+                      color: c.textMuted
                     }}
                   >
                     SQLite v{dbStats?.sqliteVersion || '3.53'} (WAL Mode)
@@ -480,14 +545,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     style={{
                       padding: '10px 12px',
                       borderRadius: '10px',
-                      background: 'var(--surface, #182636)'
+                      background: c.innerCardBg,
+                      border: `1px solid ${c.innerCardBorder}`
                     }}
                   >
                     <div
                       style={{
                         fontFamily: 'ui-monospace, Menlo, monospace',
                         fontSize: '9px',
-                        color: 'rgba(233,237,242,.4)',
+                        color: c.textMuted,
                         textTransform: 'uppercase'
                       }}
                     >
@@ -498,7 +564,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         fontFamily: 'ui-monospace, Menlo, monospace',
                         fontSize: '14px',
                         fontWeight: 700,
-                        color: '#94bce3',
+                        color: c.textAccent,
                         marginTop: '2px'
                       }}
                     >
@@ -510,14 +576,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     style={{
                       padding: '10px 12px',
                       borderRadius: '10px',
-                      background: 'var(--surface, #182636)'
+                      background: c.innerCardBg,
+                      border: `1px solid ${c.innerCardBorder}`
                     }}
                   >
                     <div
                       style={{
                         fontFamily: 'ui-monospace, Menlo, monospace',
                         fontSize: '9px',
-                        color: 'rgba(233,237,242,.4)',
+                        color: c.textMuted,
                         textTransform: 'uppercase'
                       }}
                     >
@@ -528,7 +595,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         fontFamily: 'ui-monospace, Menlo, monospace',
                         fontSize: '14px',
                         fontWeight: 700,
-                        color: '#94bce3',
+                        color: c.textAccent,
                         marginTop: '2px'
                       }}
                     >
@@ -540,14 +607,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     style={{
                       padding: '10px 12px',
                       borderRadius: '10px',
-                      background: 'var(--surface, #182636)'
+                      background: c.innerCardBg,
+                      border: `1px solid ${c.innerCardBorder}`
                     }}
                   >
                     <div
                       style={{
                         fontFamily: 'ui-monospace, Menlo, monospace',
                         fontSize: '9px',
-                        color: 'rgba(233,237,242,.4)',
+                        color: c.textMuted,
                         textTransform: 'uppercase'
                       }}
                     >
@@ -558,7 +626,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         fontFamily: 'ui-monospace, Menlo, monospace',
                         fontSize: '14px',
                         fontWeight: 700,
-                        color: '#94bce3',
+                        color: c.textAccent,
                         marginTop: '2px'
                       }}
                     >
@@ -570,14 +638,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     style={{
                       padding: '10px 12px',
                       borderRadius: '10px',
-                      background: 'var(--surface, #182636)'
+                      background: c.innerCardBg,
+                      border: `1px solid ${c.innerCardBorder}`
                     }}
                   >
                     <div
                       style={{
                         fontFamily: 'ui-monospace, Menlo, monospace',
                         fontSize: '9px',
-                        color: 'rgba(233,237,242,.4)',
+                        color: c.textMuted,
                         textTransform: 'uppercase'
                       }}
                     >
@@ -588,7 +657,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         fontFamily: 'ui-monospace, Menlo, monospace',
                         fontSize: '13px',
                         fontWeight: 700,
-                        color: '#38ef7d',
+                        color: isLight ? '#16a34a' : isMid ? '#104528' : '#38ef7d',
                         marginTop: '2px'
                       }}
                     >
@@ -601,7 +670,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   style={{
                     fontFamily: 'ui-monospace, Menlo, monospace',
                     fontSize: '10.5px',
-                    color: 'rgba(233,237,242,.55)',
+                    color: c.textMuted,
                     marginTop: '2px'
                   }}
                 >
@@ -614,14 +683,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 style={{
                   padding: '18px 20px',
                   borderRadius: '16px',
-                  border: '1px solid rgba(148,188,227,.25)',
-                  background: 'var(--surface, #182636)',
+                  border: `1px solid ${c.cardBorder}`,
+                  background: c.cardBg,
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '12px'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
                   <div>
                     <div
                       style={{
@@ -629,7 +698,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         fontWeight: 700,
                         fontSize: '19px',
                         textTransform: 'uppercase',
-                        color: '#b5d9fd'
+                        color: c.textHeaderHighlight
                       }}
                     >
                       Snapshot & Backup Database
@@ -638,11 +707,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       style={{
                         fontFamily: 'ui-monospace, Menlo, monospace',
                         fontSize: '10.5px',
-                        color: 'rgba(233,237,242,.6)',
+                        color: c.textSecondary,
                         marginTop: '2px'
                       }}
                     >
-                      Copies current database into <code style={{ color: '#94bce3' }}>backups/archive_YYYY-MM-DD_HH-mm-ss.db</code>
+                      Copies current database into <code style={{ color: c.textAccent, background: isLight ? 'rgba(15,23,42,0.06)' : isMid ? 'rgba(11,23,36,0.12)' : 'rgba(0,0,0,0.3)', padding: '2px 5px', borderRadius: '4px' }}>backups/archive_YYYY-MM-DD_HH-mm-ss.db</code>
                     </div>
                   </div>
 
@@ -652,8 +721,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     style={{
                       padding: '10px 18px',
                       borderRadius: '12px',
-                      border: '1px solid #416180',
-                      background: 'linear-gradient(180deg, #6b91b6, #5980a6)',
+                      border: c.btnPriBorder,
+                      background: c.btnPriBg,
                       color: '#ffffff',
                       fontFamily: "'Barlow Condensed', sans-serif",
                       fontSize: '14.5px',
@@ -661,7 +730,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       letterSpacing: '.05em',
                       textTransform: 'uppercase',
                       cursor: backingUp ? 'wait' : 'pointer',
-                      boxShadow: '0 2px 0 #2c455d, 0 4px 12px rgba(65,97,128,.3)',
+                      boxShadow: c.btnPriShadow,
                       whiteSpace: 'nowrap'
                     }}
                   >
@@ -674,9 +743,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     style={{
                       padding: '8px 12px',
                       borderRadius: '8px',
-                      background: lastBackupMsg.startsWith('✓') ? 'rgba(56,239,125,.12)' : 'rgba(255,100,100,.12)',
-                      border: lastBackupMsg.startsWith('✓') ? '1px solid rgba(56,239,125,.3)' : '1px solid rgba(255,100,100,.3)',
-                      color: lastBackupMsg.startsWith('✓') ? '#38ef7d' : '#ff8899',
+                      background: lastBackupMsg.startsWith('✓')
+                        ? (isLight ? 'rgba(34,197,94,0.12)' : isMid ? 'rgba(34,197,94,0.18)' : 'rgba(56,239,125,.12)')
+                        : (isLight ? 'rgba(239,68,68,0.12)' : isMid ? 'rgba(239,68,68,0.18)' : 'rgba(255,100,100,.12)'),
+                      border: lastBackupMsg.startsWith('✓')
+                        ? `1px solid ${isLight ? 'rgba(34,197,94,0.3)' : isMid ? 'rgba(34,197,94,0.4)' : 'rgba(56,239,125,.3)'}`
+                        : `1px solid ${isLight ? 'rgba(239,68,68,0.3)' : isMid ? 'rgba(239,68,68,0.4)' : 'rgba(255,100,100,.3)'}`,
+                      color: lastBackupMsg.startsWith('✓')
+                        ? (isLight ? '#15803d' : isMid ? '#052e16' : '#38ef7d')
+                        : (isLight ? '#dc2626' : isMid ? '#7f1d1d' : '#ff8899'),
                       fontFamily: 'ui-monospace, Menlo, monospace',
                       fontSize: '11px'
                     }}
@@ -695,7 +770,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       fontSize: '10.5px',
                       letterSpacing: '.1em',
                       textTransform: 'uppercase',
-                      color: 'rgba(233,237,242,.55)'
+                      color: c.textMuted
                     }}
                   >
                     Stored Backups in /backups ({backups.length})
@@ -708,7 +783,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       cursor: 'pointer',
                       fontFamily: 'ui-monospace, Menlo, monospace',
                       fontSize: '10px',
-                      color: '#94bce3'
+                      color: c.textAccent
                     }}
                   >
                     ↻ Refresh
@@ -720,12 +795,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     style={{
                       padding: '16px',
                       borderRadius: '12px',
-                      background: 'rgba(148,188,227,.04)',
-                      border: '1px dashed rgba(148,188,227,.18)',
+                      background: c.cardBg,
+                      border: `1px dashed ${c.cardBorder}`,
                       textAlign: 'center',
                       fontFamily: 'ui-monospace, Menlo, monospace',
                       fontSize: '11px',
-                      color: 'rgba(233,237,242,.4)'
+                      color: c.textMuted
                     }}
                   >
                     No backups created yet. Click "+ Backup Database Now" to create your first snapshot.
@@ -736,8 +811,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       maxHeight: '190px',
                       overflowY: 'auto',
                       borderRadius: '12px',
-                      border: '1px solid rgba(148,188,227,.14)',
-                      background: 'var(--surface, #182636)'
+                      border: `1px solid ${c.innerCardBorder}`,
+                      background: c.innerCardBg
                     }}
                   >
                     {backups.map((b) => (
@@ -748,7 +823,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           alignItems: 'center',
                           justifyContent: 'space-between',
                           padding: '9px 14px',
-                          borderBottom: '1px solid rgba(148,188,227,.08)'
+                          borderBottom: `1px solid ${c.borderSubtle}`
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -758,7 +833,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               style={{
                                 fontFamily: 'ui-monospace, Menlo, monospace',
                                 fontSize: '11px',
-                                color: 'rgba(233,237,242,.85)'
+                                color: c.textPrimary
                               }}
                             >
                               {b.fileName}
@@ -767,7 +842,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               style={{
                                 fontFamily: 'ui-monospace, Menlo, monospace',
                                 fontSize: '9px',
-                                color: 'rgba(233,237,242,.4)'
+                                color: c.textMuted
                               }}
                             >
                               {b.dateFormatted}
@@ -779,7 +854,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           style={{
                             fontFamily: 'ui-monospace, Menlo, monospace',
                             fontSize: '10.5px',
-                            color: '#94bce3',
+                            color: c.textAccent,
                             fontWeight: 600
                           }}
                         >
@@ -796,7 +871,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 style={{
                   display: 'flex',
                   gap: '10px',
-                  borderTop: '1px solid rgba(148,188,227,.12)',
+                  borderTop: `1px solid ${c.border}`,
                   paddingTop: '14px'
                 }}
               >
@@ -807,9 +882,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     flex: 1,
                     padding: '10px 14px',
                     borderRadius: '10px',
-                    border: '1px solid rgba(148,188,227,.25)',
-                    background: 'rgba(148,188,227,.1)',
-                    color: '#b5d9fd',
+                    border: `1px solid ${c.btnSecBorder}`,
+                    background: c.btnSecBg,
+                    color: c.btnSecText,
                     fontFamily: "'Barlow Condensed', sans-serif",
                     fontSize: '13.5px',
                     fontWeight: 600,
@@ -829,9 +904,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   style={{
                     padding: '10px 16px',
                     borderRadius: '10px',
-                    border: '1px solid rgba(255,100,100,.3)',
-                    background: 'rgba(255,80,80,.1)',
-                    color: '#ff8899',
+                    border: `1px solid ${isLight ? 'rgba(239,68,68,0.25)' : isMid ? 'rgba(239,68,68,0.35)' : 'rgba(255,100,100,.3)'}`,
+                    background: isLight ? 'rgba(239,68,68,0.08)' : isMid ? 'rgba(239,68,68,0.14)' : 'rgba(255,80,80,.1)',
+                    color: isLight ? '#dc2626' : isMid ? '#7f1d1d' : '#ff8899',
                     fontFamily: "'Barlow Condensed', sans-serif",
                     fontSize: '13.5px',
                     fontWeight: 600,
@@ -855,7 +930,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     fontSize: '18px',
                     fontWeight: 600,
                     textTransform: 'uppercase',
-                    color: '#b5d9fd',
+                    color: c.textHeaderHighlight,
                     marginBottom: '8px'
                   }}
                 >
@@ -870,9 +945,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         flex: 1,
                         padding: '12px',
                         borderRadius: '12px',
-                        border: theme === t ? '2px solid #5980a6' : '1px solid rgba(148,188,227,.2)',
-                        background: theme === t ? 'rgba(89,128,166,.25)' : 'var(--surface, #182636)',
-                        color: theme === t ? '#ffffff' : 'var(--ink, #e9edf2)',
+                        border: theme === t ? `2px solid ${c.borderFocus}` : `1px solid ${c.cardBorder}`,
+                        background: theme === t ? (isLight ? '#eff6ff' : isMid ? 'rgba(11,23,36,0.22)' : 'rgba(89,128,166,.25)') : c.innerCardBg,
+                        color: theme === t ? (isLight ? '#1d4ed8' : isMid ? '#09131d' : '#ffffff') : c.textPrimary,
                         fontFamily: "'Barlow Condensed', sans-serif",
                         fontSize: '15px',
                         fontWeight: 600,
@@ -893,7 +968,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     fontSize: '18px',
                     fontWeight: 600,
                     textTransform: 'uppercase',
-                    color: '#b5d9fd',
+                    color: c.textHeaderHighlight,
                     marginBottom: '8px'
                   }}
                 >
@@ -908,9 +983,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         flex: 1,
                         padding: '10px',
                         borderRadius: '10px',
-                        border: density === d ? '2px solid #5980a6' : '1px solid rgba(148,188,227,.2)',
-                        background: density === d ? 'rgba(89,128,166,.25)' : 'var(--surface, #182636)',
-                        color: density === d ? '#ffffff' : 'var(--ink, #e9edf2)',
+                        border: density === d ? `2px solid ${c.borderFocus}` : `1px solid ${c.cardBorder}`,
+                        background: density === d ? (isLight ? '#eff6ff' : isMid ? 'rgba(11,23,36,0.22)' : 'rgba(89,128,166,.25)') : c.innerCardBg,
+                        color: density === d ? (isLight ? '#1d4ed8' : isMid ? '#09131d' : '#ffffff') : c.textPrimary,
                         fontFamily: 'ui-monospace, Menlo, monospace',
                         fontSize: '14px',
                         fontWeight: 700,
@@ -927,8 +1002,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 style={{
                   padding: '14px 16px',
                   borderRadius: '12px',
-                  background: 'rgba(148,188,227,.06)',
-                  border: '1px solid rgba(148,188,227,.14)'
+                  background: c.cardBg,
+                  border: `1px solid ${c.cardBorder}`
                 }}
               >
                 <div
@@ -937,7 +1012,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     fontSize: '10px',
                     letterSpacing: '.1em',
                     textTransform: 'uppercase',
-                    color: '#94bce3'
+                    color: c.textAccent
                   }}
                 >
                   Local Server Endpoint
@@ -946,7 +1021,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   style={{
                     fontFamily: 'ui-monospace, Menlo, monospace',
                     fontSize: '12px',
-                    color: 'rgba(233,237,242,.85)',
+                    color: c.textPrimary,
                     marginTop: '4px'
                   }}
                 >
@@ -964,8 +1039,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 style={{
                   padding: '14px 16px',
                   borderRadius: '12px',
-                  background: 'rgba(148,188,227,.07)',
-                  border: '1px solid rgba(148,188,227,.22)',
+                  background: c.cardBg,
+                  border: `1px solid ${c.cardBorder}`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
@@ -979,7 +1054,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       fontSize: '16px',
                       fontWeight: 600,
                       textTransform: 'uppercase',
-                      color: '#b5d9fd',
+                      color: c.textHeaderHighlight,
                       marginBottom: '3px',
                       display: 'flex',
                       alignItems: 'center',
@@ -993,9 +1068,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         fontSize: '9px',
                         padding: '1px 6px',
                         borderRadius: '4px',
-                        background: deferFolderIngestion ? 'rgba(56,239,125,.18)' : 'rgba(255,255,255,.08)',
-                        color: deferFolderIngestion ? '#38ef7d' : 'rgba(233,237,242,.5)',
-                        border: `1px solid ${deferFolderIngestion ? 'rgba(56,239,125,.4)' : 'rgba(255,255,255,.1)'}`,
+                        background: deferFolderIngestion
+                          ? (isLight ? 'rgba(34,197,94,0.12)' : isMid ? 'rgba(34,197,94,0.18)' : 'rgba(56,239,125,.18)')
+                          : (isLight ? 'rgba(15,23,42,0.06)' : isMid ? 'rgba(11,23,36,0.12)' : 'rgba(255,255,255,.08)'),
+                        color: deferFolderIngestion
+                          ? (isLight ? '#15803d' : isMid ? '#052e16' : '#38ef7d')
+                          : c.textMuted,
+                        border: deferFolderIngestion
+                          ? `1px solid ${isLight ? 'rgba(34,197,94,0.35)' : isMid ? 'rgba(34,197,94,0.45)' : 'rgba(56,239,125,.4)'}`
+                          : `1px solid ${c.border}`,
                         letterSpacing: '.06em'
                       }}
                     >
@@ -1006,7 +1087,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     style={{
                       fontFamily: 'Barlow, sans-serif',
                       fontSize: '12px',
-                      color: 'rgba(233,237,242,.65)',
+                      color: c.textSecondary,
                       lineHeight: 1.4
                     }}
                   >
@@ -1024,7 +1105,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       width: '42px',
                       height: '24px',
                       borderRadius: '12px',
-                      background: deferFolderIngestion ? '#38ef7d' : 'rgba(255,255,255,.18)',
+                      background: deferFolderIngestion
+                        ? (isLight ? '#16a34a' : isMid ? '#103322' : '#38ef7d')
+                        : (isLight ? 'rgba(15,23,42,0.18)' : isMid ? 'rgba(11,23,36,0.25)' : 'rgba(255,255,255,.18)'),
                       border: 0,
                       display: 'flex',
                       alignItems: 'center',
@@ -1057,7 +1140,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     fontSize: '18px',
                     fontWeight: 600,
                     textTransform: 'uppercase',
-                    color: '#b5d9fd',
+                    color: c.textHeaderHighlight,
                     marginBottom: '4px'
                   }}
                 >
@@ -1072,11 +1155,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       flex: 1,
                       padding: '10px 14px',
                       borderRadius: '10px',
-                      border: '1px solid rgba(148,188,227,.25)',
-                      background: 'var(--surface, #182636)',
+                      border: `1px solid ${c.inputBorder}`,
+                      background: c.inputBg,
                       fontFamily: 'ui-monospace, Menlo, monospace',
                       fontSize: '11.5px',
-                      color: 'var(--ink, #e9edf2)'
+                      color: c.inputText
                     }}
                   />
                   <button
@@ -1084,14 +1167,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     style={{
                       padding: '10px 16px',
                       borderRadius: '10px',
-                      border: '1px solid #416180',
-                      background: 'linear-gradient(180deg, #6b91b6, #5980a6)',
+                      border: c.btnPriBorder,
+                      background: c.btnPriBg,
                       color: '#ffffff',
                       fontFamily: "'Barlow Condensed', sans-serif",
                       fontSize: '14px',
                       fontWeight: 600,
                       textTransform: 'uppercase',
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      boxShadow: c.btnPriShadow
                     }}
                   >
                     Add Folder
@@ -1106,7 +1190,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     fontSize: '10px',
                     letterSpacing: '.1em',
                     textTransform: 'uppercase',
-                    color: 'rgba(233,237,242,.5)',
+                    color: c.textMuted,
                     marginBottom: '8px'
                   }}
                 >
@@ -1118,12 +1202,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     style={{
                       padding: '16px',
                       borderRadius: '12px',
-                      background: 'rgba(148,188,227,.04)',
-                      border: '1px dashed rgba(148,188,227,.18)',
+                      background: c.cardBg,
+                      border: `1px dashed ${c.cardBorder}`,
                       textAlign: 'center',
                       fontFamily: 'ui-monospace, Menlo, monospace',
                       fontSize: '11px',
-                      color: 'rgba(233,237,242,.4)'
+                      color: c.textMuted
                     }}
                   >
                     No watched folders configured yet.
@@ -1132,8 +1216,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div
                     style={{
                       borderRadius: '12px',
-                      border: '1px solid rgba(148,188,227,.14)',
-                      background: 'var(--surface, #182636)',
+                      border: `1px solid ${c.innerCardBorder}`,
+                      background: c.innerCardBg,
                       overflow: 'hidden'
                     }}
                   >
@@ -1148,13 +1232,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             alignItems: 'center',
                             justifyContent: 'space-between',
                             padding: '12px 14px',
-                            borderBottom: '1px solid rgba(148,188,227,.08)',
+                            borderBottom: `1px solid ${c.borderSubtle}`,
                             opacity: isIngesting ? 0.6 : isEnabled ? 1 : 0.45,
                             background: isIngesting
-                              ? 'rgba(250,204,21,.05)'
+                              ? (isLight ? 'rgba(234,179,8,0.08)' : isMid ? 'rgba(234,179,8,0.12)' : 'rgba(250,204,21,.05)')
                               : isEnabled
                               ? 'transparent'
-                              : 'rgba(0,0,0,0.15)',
+                              : (isLight ? 'rgba(15,23,42,0.03)' : isMid ? 'rgba(11,23,36,0.08)' : 'rgba(0,0,0,0.15)'),
                             animation: isIngesting ? 'idxpulse 1.6s ease-in-out infinite' : 'none',
                             transition: 'opacity 0.2s, background 0.2s'
                           }}
@@ -1185,10 +1269,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                   fontFamily: 'ui-monospace, Menlo, monospace',
                                   fontSize: '11px',
                                   color: isIngesting
-                                    ? '#facc15'
+                                    ? (isLight ? '#b45309' : '#facc15')
                                     : isEnabled
-                                    ? 'rgba(233,237,242,.95)'
-                                    : 'rgba(233,237,242,.45)',
+                                    ? c.textPrimary
+                                    : c.textMuted,
                                   overflow: 'hidden',
                                   textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap',
@@ -1203,10 +1287,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                   fontFamily: 'ui-monospace, Menlo, monospace',
                                   fontSize: '9px',
                                   color: isIngesting
-                                    ? '#facc15'
+                                    ? (isLight ? '#b45309' : '#facc15')
                                     : isEnabled
-                                    ? '#94bce3'
-                                    : 'rgba(233,237,242,.35)',
+                                    ? c.textAccent
+                                    : c.textMuted,
                                   marginTop: '2px'
                                 }}
                               >
@@ -1225,9 +1309,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                   fontSize: '9px',
                                   padding: '3px 8px',
                                   borderRadius: '6px',
-                                  background: 'rgba(250,204,21,.16)',
-                                  border: '1px solid rgba(250,204,21,.35)',
-                                  color: '#facc15',
+                                  background: isLight ? 'rgba(234,179,8,0.14)' : 'rgba(250,204,21,.16)',
+                                  border: `1px solid ${isLight ? 'rgba(234,179,8,0.35)' : 'rgba(250,204,21,.35)'}`,
+                                  color: isLight ? '#b45309' : '#facc15',
                                   fontWeight: 700,
                                   textTransform: 'uppercase'
                                 }}
@@ -1246,9 +1330,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                       gap: '6px',
                                       padding: '5px 12px',
                                       borderRadius: '20px',
-                                      background: isEnabled ? 'rgba(56,239,125,.14)' : 'rgba(255,255,255,.06)',
-                                      border: isEnabled ? '1px solid rgba(56,239,125,.35)' : '1px solid rgba(255,255,255,.1)',
-                                      color: isEnabled ? '#38ef7d' : 'rgba(233,237,242,.45)',
+                                      background: isEnabled
+                                        ? (isLight ? 'rgba(34,197,94,0.12)' : isMid ? 'rgba(34,197,94,0.18)' : 'rgba(56,239,125,.14)')
+                                        : (isLight ? 'rgba(15,23,42,0.06)' : isMid ? 'rgba(11,23,36,0.12)' : 'rgba(255,255,255,.06)'),
+                                      border: isEnabled
+                                        ? `1px solid ${isLight ? 'rgba(34,197,94,0.35)' : isMid ? 'rgba(34,197,94,0.45)' : 'rgba(56,239,125,.35)'}`
+                                        : `1px solid ${c.border}`,
+                                      color: isEnabled
+                                        ? (isLight ? '#15803d' : isMid ? '#052e16' : '#38ef7d')
+                                        : c.textMuted,
                                       cursor: 'pointer',
                                       fontSize: '10px',
                                       fontFamily: 'ui-monospace, Menlo, monospace',
@@ -1263,7 +1353,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                         width: '18px',
                                         height: '10px',
                                         borderRadius: '6px',
-                                        background: isEnabled ? '#38ef7d' : 'rgba(255,255,255,.2)',
+                                        background: isEnabled ? '#38ef7d' : (isLight ? 'rgba(15,23,42,0.25)' : 'rgba(255,255,255,.2)'),
                                         display: 'flex',
                                         alignItems: 'center',
                                         padding: '1px',
@@ -1289,7 +1379,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                     style={{
                                       background: 'transparent',
                                       border: 0,
-                                      color: '#ff6677',
+                                      color: isLight ? '#dc2626' : isMid ? '#7f1d1d' : '#ff6677',
                                       cursor: 'pointer',
                                       fontFamily: 'ui-monospace, Menlo, monospace',
                                       fontSize: '13px',
@@ -1366,8 +1456,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 style={{
                   padding: '16px 20px',
                   borderRadius: '16px',
-                  background: 'rgba(148,188,227,.06)',
-                  border: '1px solid rgba(148,188,227,.2)',
+                  background: c.cardBg,
+                  border: `1px solid ${c.cardBorder}`,
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '12px'
@@ -1381,7 +1471,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         fontSize: '19px',
                         fontWeight: 700,
                         textTransform: 'uppercase',
-                        color: '#b5d9fd',
+                        color: c.textHeaderHighlight,
                         letterSpacing: '.03em'
                       }}
                     >
@@ -1391,7 +1481,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       style={{
                         fontFamily: 'ui-monospace, Menlo, monospace',
                         fontSize: '10.5px',
-                        color: 'rgba(233,237,242,.6)',
+                        color: c.textSecondary,
                         marginTop: '2px'
                       }}
                     >
@@ -1409,16 +1499,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     style={{
                       padding: '8px 16px',
                       borderRadius: '10px',
-                      border: 0,
-                      background: isCreatingPool ? 'rgba(148,188,227,.2)' : 'linear-gradient(180deg, #6b91b6, #5980a6)',
-                      color: '#ffffff',
+                      border: isCreatingPool ? `1px solid ${c.border}` : c.btnPriBorder,
+                      background: isCreatingPool ? c.btnSecBg : c.btnPriBg,
+                      color: isCreatingPool ? c.textPrimary : '#ffffff',
                       fontFamily: "'Barlow Condensed', sans-serif",
                       fontSize: '13.5px',
                       fontWeight: 600,
                       letterSpacing: '.04em',
                       textTransform: 'uppercase',
                       cursor: 'pointer',
-                      boxShadow: isCreatingPool ? 'none' : '0 2px 0 #2c455d',
+                      boxShadow: isCreatingPool ? 'none' : c.btnPriShadow,
                       transition: 'all 0.15s'
                     }}
                   >
@@ -1433,13 +1523,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       flex: 1,
                       display: 'flex',
                       alignItems: 'center',
-                      background: 'rgba(16,22,29,.7)',
+                      background: c.inputBg,
                       borderRadius: '8px',
-                      border: '1px solid rgba(148,188,227,.2)',
+                      border: `1px solid ${c.inputBorder}`,
                       padding: '4px 10px'
                     }}
                   >
-                    <span style={{ fontSize: '11px', color: '#94bce3', marginRight: '6px' }}>🔍</span>
+                    <span style={{ fontSize: '11px', color: c.textAccent, marginRight: '6px' }}>🔍</span>
                     <input
                       type="text"
                       placeholder="Filter pools by name or description…"
@@ -1450,7 +1540,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         background: 'transparent',
                         border: 0,
                         outline: 'none',
-                        color: '#e9edf2',
+                        color: c.inputText,
                         fontFamily: 'ui-monospace, Menlo, monospace',
                         fontSize: '11.5px'
                       }}
@@ -1461,7 +1551,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         style={{
                           background: 'transparent',
                           border: 0,
-                          color: 'rgba(233,237,242,.5)',
+                          color: c.textMuted,
                           cursor: 'pointer',
                           fontSize: '11px'
                         }}
@@ -1474,7 +1564,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     style={{
                       fontFamily: 'ui-monospace, monospace',
                       fontSize: '10px',
-                      color: 'rgba(233,237,242,.5)',
+                      color: c.textMuted,
                       whiteSpace: 'nowrap'
                     }}
                   >
@@ -1489,8 +1579,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   style={{
                     padding: '16px 20px',
                     borderRadius: '16px',
-                    background: 'rgba(148,188,227,.1)',
-                    border: '1px solid rgba(148,188,227,.35)',
+                    background: c.cardBg,
+                    border: `1px solid ${c.cardBorder}`,
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '12px',
@@ -1503,7 +1593,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       fontSize: '16px',
                       fontWeight: 700,
                       textTransform: 'uppercase',
-                      color: '#b5d9fd'
+                      color: c.textHeaderHighlight
                     }}
                   >
                     New Asset Pool
@@ -1511,7 +1601,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                     <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <label style={{ fontFamily: 'ui-monospace, monospace', fontSize: '10px', color: 'rgba(233,237,242,.6)', textTransform: 'uppercase' }}>
+                      <label style={{ fontFamily: 'ui-monospace, monospace', fontSize: '10px', color: c.textMuted, textTransform: 'uppercase' }}>
                         Pool Name *
                       </label>
                       <input
@@ -1522,9 +1612,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         style={{
                           padding: '9px 12px',
                           borderRadius: '8px',
-                          border: '1px solid rgba(148,188,227,.3)',
-                          background: '#0d141b',
-                          color: '#e9edf2',
+                          border: `1px solid ${c.inputBorder}`,
+                          background: c.inputBg,
+                          color: c.inputText,
                           fontFamily: 'Barlow, sans-serif',
                           fontSize: '14px',
                           outline: 'none'
@@ -1533,7 +1623,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
 
                     <div style={{ flex: '2 1 300px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <label style={{ fontFamily: 'ui-monospace, monospace', fontSize: '10px', color: 'rgba(233,237,242,.6)', textTransform: 'uppercase' }}>
+                      <label style={{ fontFamily: 'ui-monospace, monospace', fontSize: '10px', color: c.textMuted, textTransform: 'uppercase' }}>
                         Description (optional)
                       </label>
                       <input
@@ -1544,9 +1634,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         style={{
                           padding: '9px 12px',
                           borderRadius: '8px',
-                          border: '1px solid rgba(148,188,227,.3)',
-                          background: '#0d141b',
-                          color: '#e9edf2',
+                          border: `1px solid ${c.inputBorder}`,
+                          background: c.inputBg,
+                          color: c.inputText,
                           fontFamily: 'Barlow, sans-serif',
                           fontSize: '14px',
                           outline: 'none'
@@ -1557,23 +1647,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   {/* Color Swatch Picker */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontFamily: 'ui-monospace, monospace', fontSize: '10px', color: 'rgba(233,237,242,.6)', textTransform: 'uppercase' }}>
+                    <label style={{ fontFamily: 'ui-monospace, monospace', fontSize: '10px', color: c.textMuted, textTransform: 'uppercase' }}>
                       Theme Accent Color
                     </label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      {POOL_PRESET_COLORS.map((c) => (
+                      {POOL_PRESET_COLORS.map((colorVal) => (
                         <div
-                          key={c}
-                          onClick={() => setNewPoolColor(c)}
+                          key={colorVal}
+                          onClick={() => setNewPoolColor(colorVal)}
                           style={{
                             width: '24px',
                             height: '24px',
                             borderRadius: '50%',
-                            background: c,
+                            background: colorVal,
                             cursor: 'pointer',
-                            border: newPoolColor === c ? '2.5px solid #ffffff' : '1px solid rgba(0,0,0,.4)',
-                            boxShadow: newPoolColor === c ? `0 0 10px ${c}` : 'none',
-                            transform: newPoolColor === c ? 'scale(1.15)' : 'scale(1)',
+                            border: newPoolColor === colorVal ? `2.5px solid ${isLight ? '#0f172a' : '#ffffff'}` : '1px solid rgba(0,0,0,.3)',
+                            boxShadow: newPoolColor === colorVal ? `0 0 10px ${colorVal}` : 'none',
+                            transform: newPoolColor === colorVal ? 'scale(1.15)' : 'scale(1)',
                             transition: 'all 0.15s'
                           }}
                         />
@@ -1587,12 +1677,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             width: '28px',
                             height: '28px',
                             borderRadius: '6px',
-                            border: '1px solid rgba(148,188,227,.3)',
+                            border: `1px solid ${c.inputBorder}`,
                             background: 'transparent',
                             cursor: 'pointer'
                           }}
                         />
-                        <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '11px', color: '#94bce3' }}>
+                        <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '11px', color: c.textAccent }}>
                           {newPoolColor}
                         </span>
                       </div>
@@ -1606,9 +1696,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       style={{
                         padding: '7px 14px',
                         borderRadius: '8px',
-                        border: '1px solid rgba(148,188,227,.2)',
+                        border: `1px solid ${c.border}`,
                         background: 'transparent',
-                        color: 'rgba(233,237,242,.7)',
+                        color: c.textSecondary,
                         fontFamily: "'Barlow Condensed', sans-serif",
                         fontSize: '13px',
                         cursor: 'pointer'
@@ -1622,14 +1712,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       style={{
                         padding: '7px 16px',
                         borderRadius: '8px',
-                        border: 0,
-                        background: 'linear-gradient(180deg, #6b91b6, #5980a6)',
+                        border: c.btnPriBorder,
+                        background: c.btnPriBg,
                         color: '#ffffff',
                         fontFamily: "'Barlow Condensed', sans-serif",
                         fontSize: '13px',
                         fontWeight: 600,
                         cursor: isProcessingPool || !newPoolName.trim() ? 'not-allowed' : 'pointer',
-                        opacity: isProcessingPool || !newPoolName.trim() ? 0.6 : 1
+                        opacity: isProcessingPool || !newPoolName.trim() ? 0.6 : 1,
+                        boxShadow: c.btnPriShadow
                       }}
                     >
                       {isProcessingPool ? 'Creating…' : 'Create Pool'}
@@ -1644,8 +1735,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   style={{
                     padding: '16px 20px',
                     borderRadius: '16px',
-                    background: 'rgba(239,68,68,.12)',
-                    border: '1px solid rgba(239,68,68,.35)',
+                    background: isLight ? 'rgba(239,68,68,0.08)' : isMid ? 'rgba(239,68,68,0.14)' : 'rgba(239,68,68,.12)',
+                    border: `1px solid ${isLight ? 'rgba(239,68,68,0.3)' : isMid ? 'rgba(239,68,68,0.4)' : 'rgba(239,68,68,.35)'}`,
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '12px',
@@ -1658,17 +1749,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       fontSize: '17px',
                       fontWeight: 700,
                       textTransform: 'uppercase',
-                      color: '#f87171'
+                      color: isLight ? '#dc2626' : isMid ? '#7f1d1d' : '#f87171'
                     }}
                   >
                     Delete Pool "{deletingPool.name}"?
                   </div>
 
-                  <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '11px', color: 'rgba(233,237,242,.85)' }}>
+                  <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '11px', color: c.textPrimary }}>
                     {(poolCounts[deletingPool.name] || 0) > 0 ? (
                       <>
                         This pool currently contains{' '}
-                        <strong style={{ color: '#b5d9fd' }}>{poolCounts[deletingPool.name]}</strong> assets. Choose a
+                        <strong style={{ color: c.textAccent }}>{poolCounts[deletingPool.name]}</strong> assets. Choose a
                         pool to reassign them to:
                       </>
                     ) : (
@@ -1678,7 +1769,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   {(poolCounts[deletingPool.name] || 0) > 0 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '10px', color: 'rgba(233,237,242,.6)', textTransform: 'uppercase' }}>
+                      <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '10px', color: c.textMuted, textTransform: 'uppercase' }}>
                         Reassign assets to:
                       </span>
                       <select
@@ -1687,9 +1778,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         style={{
                           padding: '6px 12px',
                           borderRadius: '8px',
-                          background: '#0d141b',
-                          border: '1px solid rgba(148,188,227,.3)',
-                          color: '#e9edf2',
+                          background: c.inputBg,
+                          border: `1px solid ${c.inputBorder}`,
+                          color: c.inputText,
                           fontFamily: 'Barlow, sans-serif',
                           fontSize: '13px'
                         }}
@@ -1712,9 +1803,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       style={{
                         padding: '6px 14px',
                         borderRadius: '8px',
-                        border: '1px solid rgba(148,188,227,.2)',
+                        border: `1px solid ${c.border}`,
                         background: 'transparent',
-                        color: '#e9edf2',
+                        color: c.textPrimary,
                         fontFamily: "'Barlow Condensed', sans-serif",
                         fontSize: '13px',
                         cursor: 'pointer'
@@ -1751,7 +1842,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     fontSize: '10px',
                     letterSpacing: '.12em',
                     textTransform: 'uppercase',
-                    color: 'rgba(233,237,242,.5)',
+                    color: c.textMuted,
                     paddingLeft: '4px'
                   }}
                 >
@@ -1775,8 +1866,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           style={{
                             padding: '14px 16px',
                             borderRadius: '12px',
-                            background: 'rgba(148,188,227,.12)',
-                            border: '1px solid rgba(148,188,227,.35)',
+                            background: c.cardBg,
+                            border: `1px solid ${c.cardBorder}`,
                             display: 'flex',
                             flexDirection: 'column',
                             gap: '10px'
@@ -1799,7 +1890,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 fontSize: '16px',
                                 fontWeight: 700,
                                 textTransform: 'uppercase',
-                                color: '#b5d9fd'
+                                color: c.textHeaderHighlight
                               }}
                             >
                               Edit Pool "{p.name}"
@@ -1808,7 +1899,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                             <div style={{ flex: '1 1 200px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                              <label style={{ fontFamily: 'ui-monospace, monospace', fontSize: '9.5px', color: 'rgba(233,237,242,.6)', textTransform: 'uppercase' }}>
+                              <label style={{ fontFamily: 'ui-monospace, monospace', fontSize: '9.5px', color: c.textMuted, textTransform: 'uppercase' }}>
                                 Pool Name
                               </label>
                               <input
@@ -1818,9 +1909,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 style={{
                                   padding: '7px 10px',
                                   borderRadius: '6px',
-                                  border: '1px solid rgba(148,188,227,.3)',
-                                  background: '#0d141b',
-                                  color: '#e9edf2',
+                                  border: `1px solid ${c.inputBorder}`,
+                                  background: c.inputBg,
+                                  color: c.inputText,
                                   fontFamily: 'Barlow, sans-serif',
                                   fontSize: '13px'
                                 }}
@@ -1828,7 +1919,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             </div>
 
                             <div style={{ flex: '2 1 260px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                              <label style={{ fontFamily: 'ui-monospace, monospace', fontSize: '9.5px', color: 'rgba(233,237,242,.6)', textTransform: 'uppercase' }}>
+                              <label style={{ fontFamily: 'ui-monospace, monospace', fontSize: '9.5px', color: c.textMuted, textTransform: 'uppercase' }}>
                                 Description
                               </label>
                               <input
@@ -1838,9 +1929,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 style={{
                                   padding: '7px 10px',
                                   borderRadius: '6px',
-                                  border: '1px solid rgba(148,188,227,.3)',
-                                  background: '#0d141b',
-                                  color: '#e9edf2',
+                                  border: `1px solid ${c.inputBorder}`,
+                                  background: c.inputBg,
+                                  color: c.inputText,
                                   fontFamily: 'Barlow, sans-serif',
                                   fontSize: '13px'
                                 }}
@@ -1850,22 +1941,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                           {/* Color picker */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                            <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '9.5px', color: 'rgba(233,237,242,.6)', textTransform: 'uppercase', marginRight: '4px' }}>
+                            <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '9.5px', color: c.textMuted, textTransform: 'uppercase', marginRight: '4px' }}>
                               Color:
                             </span>
-                            {POOL_PRESET_COLORS.map((c) => (
+                            {POOL_PRESET_COLORS.map((colorVal) => (
                               <div
-                                key={c}
-                                onClick={() => setEditPoolColor(c)}
+                                key={colorVal}
+                                onClick={() => setEditPoolColor(colorVal)}
                                 style={{
                                   width: '18px',
                                   height: '18px',
                                   borderRadius: '50%',
-                                  background: c,
+                                  background: colorVal,
                                   cursor: 'pointer',
-                                  border: editPoolColor === c ? '2px solid #ffffff' : '1px solid rgba(0,0,0,.4)',
-                                  boxShadow: editPoolColor === c ? `0 0 8px ${c}` : 'none',
-                                  transform: editPoolColor === c ? 'scale(1.15)' : 'scale(1)',
+                                  border: editPoolColor === colorVal ? `2px solid ${isLight ? '#0f172a' : '#ffffff'}` : '1px solid rgba(0,0,0,.4)',
+                                  boxShadow: editPoolColor === colorVal ? `0 0 8px ${colorVal}` : 'none',
+                                  transform: editPoolColor === colorVal ? 'scale(1.15)' : 'scale(1)',
                                   transition: 'all 0.15s'
                                 }}
                               />
@@ -1878,7 +1969,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 width: '22px',
                                 height: '22px',
                                 borderRadius: '4px',
-                                border: '1px solid rgba(148,188,227,.3)',
+                                border: `1px solid ${c.inputBorder}`,
                                 background: 'transparent',
                                 cursor: 'pointer',
                                 marginLeft: '4px'
@@ -1891,8 +1982,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               style={{
                                 fontFamily: 'ui-monospace, monospace',
                                 fontSize: '10.5px',
-                                color: '#94bce3',
-                                background: 'rgba(148,188,227,.08)',
+                                color: c.textAccent,
+                                background: isLight ? 'rgba(37,99,235,0.08)' : isMid ? 'rgba(11,23,36,0.12)' : 'rgba(148,188,227,.08)',
                                 padding: '6px 10px',
                                 borderRadius: '6px'
                               }}
@@ -1907,9 +1998,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               style={{
                                 padding: '5px 12px',
                                 borderRadius: '6px',
-                                border: '1px solid rgba(148,188,227,.2)',
+                                border: `1px solid ${c.border}`,
                                 background: 'transparent',
-                                color: '#e9edf2',
+                                color: c.textPrimary,
                                 fontFamily: "'Barlow Condensed', sans-serif",
                                 fontSize: '12.5px',
                                 cursor: 'pointer'
@@ -1923,13 +2014,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               style={{
                                 padding: '5px 14px',
                                 borderRadius: '6px',
-                                border: 0,
-                                background: 'linear-gradient(180deg, #6b91b6, #5980a6)',
+                                border: c.btnPriBorder,
+                                background: c.btnPriBg,
                                 color: '#ffffff',
                                 fontFamily: "'Barlow Condensed', sans-serif",
                                 fontSize: '12.5px',
                                 fontWeight: 600,
-                                cursor: isProcessingPool || !editPoolName.trim() ? 'not-allowed' : 'pointer'
+                                cursor: isProcessingPool || !editPoolName.trim() ? 'not-allowed' : 'pointer',
+                                boxShadow: c.btnPriShadow
                               }}
                             >
                               {isProcessingPool ? 'Saving…' : 'Save Changes'}
@@ -1948,12 +2040,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           justifyContent: 'space-between',
                           padding: '10px 14px',
                           borderRadius: '10px',
-                          background: 'var(--surface, #182636)',
-                          border: '1px solid rgba(148,188,227,.12)',
+                          background: c.innerCardBg,
+                          border: `1px solid ${c.innerCardBorder}`,
                           transition: 'border-color 0.15s, background 0.15s'
                         }}
-                        onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'rgba(148,188,227,.28)')}
-                        onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'rgba(148,188,227,.12)')}
+                        onMouseEnter={(e) => (e.currentTarget.style.borderColor = c.borderFocus)}
+                        onMouseLeave={(e) => (e.currentTarget.style.borderColor = c.innerCardBorder)}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
                           <span
@@ -1975,7 +2067,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                   fontWeight: 700,
                                   textTransform: 'uppercase',
                                   letterSpacing: '.03em',
-                                  color: '#e9edf2'
+                                  color: c.textPrimary
                                 }}
                               >
                                 {p.name}
@@ -1986,8 +2078,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                   borderRadius: '99px',
                                   fontFamily: 'ui-monospace, monospace',
                                   fontSize: '9.5px',
-                                  color: assetCount > 0 ? '#b5d9fd' : 'rgba(233,237,242,.4)',
-                                  background: assetCount > 0 ? 'rgba(148,188,227,.18)' : 'rgba(148,188,227,.06)'
+                                  color: assetCount > 0 ? c.textAccent : c.textMuted,
+                                  background: assetCount > 0
+                                    ? (isLight ? 'rgba(37,99,235,0.10)' : isMid ? 'rgba(11,23,36,0.15)' : 'rgba(148,188,227,.18)')
+                                    : (isLight ? 'rgba(15,23,42,0.05)' : isMid ? 'rgba(11,23,36,0.08)' : 'rgba(148,188,227,.06)')
                                 }}
                               >
                                 {assetCount} {assetCount === 1 ? 'asset' : 'assets'}
@@ -1998,7 +2092,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 style={{
                                   fontFamily: 'ui-monospace, Menlo, monospace',
                                   fontSize: '10.5px',
-                                  color: 'rgba(233,237,242,.55)',
+                                  color: c.textSecondary,
                                   whiteSpace: 'nowrap',
                                   overflow: 'hidden',
                                   textOverflow: 'ellipsis',
@@ -2018,16 +2112,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             style={{
                               padding: '4px 9px',
                               borderRadius: '6px',
-                              border: '1px solid rgba(148,188,227,.2)',
-                              background: 'rgba(148,188,227,.08)',
-                              color: '#b5d9fd',
+                              border: `1px solid ${c.btnSecBorder}`,
+                              background: c.btnSecBg,
+                              color: c.btnSecText,
                               fontFamily: 'ui-monospace, monospace',
                               fontSize: '10.5px',
                               cursor: 'pointer',
                               transition: 'background 0.15s'
                             }}
-                            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.2)')}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.08)')}
                             title="Edit pool name, color, and description"
                           >
                             Edit
@@ -2041,16 +2133,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             style={{
                               padding: '4px 8px',
                               borderRadius: '6px',
-                              border: '1px solid rgba(239,68,68,.2)',
-                              background: 'rgba(239,68,68,.08)',
-                              color: '#f87171',
+                              border: `1px solid ${isLight ? 'rgba(239,68,68,0.2)' : isMid ? 'rgba(239,68,68,0.3)' : 'rgba(239,68,68,.2)'}`,
+                              background: isLight ? 'rgba(239,68,68,0.06)' : isMid ? 'rgba(239,68,68,0.12)' : 'rgba(239,68,68,.08)',
+                              color: isLight ? '#dc2626' : isMid ? '#7f1d1d' : '#f87171',
                               fontFamily: 'ui-monospace, monospace',
                               fontSize: '10.5px',
                               cursor: 'pointer',
                               transition: 'background 0.15s'
                             }}
-                            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(239,68,68,.22)')}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(239,68,68,.08)')}
                             title="Delete pool"
                           >
                             ✕
@@ -2068,8 +2158,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div
           style={{
             padding: '14px 26px',
-            borderTop: '1px solid rgba(148,188,227,.14)',
-            background: 'var(--surface, #182636)',
+            borderTop: `1px solid ${c.border}`,
+            background: c.footerBg,
             display: 'flex',
             justifyContent: 'flex-end'
           }}
@@ -2079,9 +2169,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             style={{
               padding: '9px 18px',
               borderRadius: '10px',
-              border: '1px solid rgba(148,188,227,.2)',
-              background: 'transparent',
-              color: 'var(--ink, #e9edf2)',
+              border: `1px solid ${c.btnSecBorder}`,
+              background: c.btnSecBg,
+              color: c.textPrimary,
               fontFamily: "'Barlow Condensed', sans-serif",
               fontSize: '14px',
               fontWeight: 600,

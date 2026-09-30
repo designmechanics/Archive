@@ -7,6 +7,7 @@ interface IngestModalProps {
   onAddFolder: (folderPath: string) => void;
   onScanNativeFolder?: () => Promise<void>;
   onScanDiskFolder?: (folderPath: string) => void;
+  theme?: 'dark' | 'mid' | 'light';
 }
 
 export const IngestModal: React.FC<IngestModalProps> = ({
@@ -15,8 +16,48 @@ export const IngestModal: React.FC<IngestModalProps> = ({
   onIngestFiles,
   onAddFolder,
   onScanNativeFolder,
-  onScanDiskFolder
+  onScanDiskFolder,
+  theme = 'dark'
 }) => {
+  const isLight = theme === 'light';
+  const isMid = theme === 'mid';
+  const isDark = !isLight && !isMid;
+
+  const c = {
+    backdropBg: isLight ? 'rgba(15, 23, 42, 0.45)' : isMid ? 'rgba(15, 27, 39, 0.55)' : 'rgba(29,45,61,.62)',
+    modalBg: isLight ? '#ffffff' : isMid ? '#6c8ea8' : 'var(--bg, #10161d)',
+    modalBorder: isLight ? '1px solid rgba(15, 23, 42, 0.12)' : isMid ? '1px solid rgba(15, 27, 39, 0.22)' : '1px solid rgba(148, 188, 227, 0.18)',
+    textPrimary: isLight ? '#0f172a' : isMid ? '#09131d' : 'var(--ink, #e9edf2)',
+    textSecondary: isLight ? '#334155' : isMid ? '#16293d' : 'rgba(233,237,242,.75)',
+    textMuted: isLight ? '#64748b' : isMid ? '#29435c' : 'rgba(233,237,242,.45)',
+    accentBadge: isLight ? '#1d4ed8' : isMid ? '#0a2e58' : '#94bce3',
+    sectionTitle: isLight ? '#1e40af' : isMid ? '#051d38' : '#b5d9fd',
+    cardBg: isLight ? '#f8fafc' : isMid ? 'rgba(255, 255, 255, 0.25)' : 'rgba(148,188,227,.06)',
+    cardBorder: isLight ? 'rgba(15, 23, 42, 0.12)' : isMid ? 'rgba(15, 27, 39, 0.22)' : 'rgba(148,188,227,.28)',
+    actionCardBg: isLight ? '#ffffff' : isMid ? 'rgba(255, 255, 255, 0.4)' : 'var(--surface, #182636)',
+    actionCardBorder: isLight ? 'rgba(15, 23, 42, 0.12)' : isMid ? 'rgba(15, 27, 39, 0.20)' : 'rgba(148,188,227,.2)',
+    actionCardHoverBorder: isLight ? '#2563eb' : isMid ? '#0a2e58' : '#94bce3',
+    actionCardHoverBg: isLight ? 'rgba(37,99,235,0.06)' : isMid ? 'rgba(255,255,255,0.55)' : 'rgba(148,188,227,.12)',
+    inputBg: isLight ? '#ffffff' : isMid ? '#f0f5fa' : 'var(--surface, #182636)',
+    inputBorder: isLight ? 'rgba(15, 23, 42, 0.16)' : isMid ? 'rgba(11, 23, 36, 0.25)' : 'rgba(148,188,227,.25)',
+    inputText: isLight ? '#0f172a' : isMid ? '#0b1724' : 'var(--ink, #e9edf2)',
+    btnSecBg: isLight ? 'rgba(15, 23, 42, 0.06)' : isMid ? 'rgba(11, 23, 36, 0.12)' : 'rgba(148,188,227,.12)',
+    btnSecBorder: isLight ? 'rgba(15, 23, 42, 0.12)' : isMid ? 'rgba(11, 23, 36, 0.22)' : 'rgba(148,188,227,.2)',
+    btnSecText: isLight ? '#0f172a' : isMid ? '#0b1724' : '#94bce3',
+    btnPriBg: isLight
+      ? 'linear-gradient(180deg, #3b82f6, #2563eb)'
+      : isMid
+      ? 'linear-gradient(180deg, #2a4e76, #1d3958)'
+      : 'linear-gradient(180deg, #6b91b6, #5980a6)',
+    btnPriBorder: isLight ? '#2563eb' : isMid ? '#1e3a5f' : '#416180',
+    btnPriShadow: isLight
+      ? '0 2px 0 #1d4ed8'
+      : isMid
+      ? '0 2px 0 #13253b'
+      : '0 2px 0 #2c455d',
+    closeBg: isLight ? 'rgba(15, 23, 42, 0.06)' : isMid ? 'rgba(11, 23, 36, 0.12)' : 'var(--well, #1d2d3d)',
+    closeText: isLight ? '#0f172a' : isMid ? '#0b1724' : 'var(--ink, #e9edf2)'
+  };
   const [folderInput, setFolderInput] = useState('D:\\Archive');
   const [scanning, setScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -79,7 +120,7 @@ export const IngestModal: React.FC<IngestModalProps> = ({
         position: 'fixed',
         inset: 0,
         zIndex: 70,
-        background: 'rgba(29,45,61,.62)',
+        background: c.backdropBg,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -96,9 +137,14 @@ export const IngestModal: React.FC<IngestModalProps> = ({
           maxWidth: '92vw',
           padding: '26px',
           borderRadius: '20px',
-          background: 'var(--bg, #10161d)',
-          color: 'var(--ink, #e9edf2)',
-          boxShadow: '0 30px 80px rgba(29,45,61,.5)',
+          background: c.modalBg,
+          color: c.textPrimary,
+          border: c.modalBorder,
+          boxShadow: isLight
+            ? '0 20px 60px rgba(15, 23, 42, 0.15)'
+            : isMid
+            ? '0 20px 60px rgba(11, 23, 36, 0.35)'
+            : '0 30px 80px rgba(29,45,61,.5)',
           display: 'flex',
           flexDirection: 'column',
           gap: '16px',
@@ -115,7 +161,8 @@ export const IngestModal: React.FC<IngestModalProps> = ({
                 fontSize: '9.5px',
                 letterSpacing: '.14em',
                 textTransform: 'uppercase',
-                color: '#94bce3'
+                color: c.accentBadge,
+                fontWeight: 700
               }}
             >
               Ingest & SQLite Indexer
@@ -126,7 +173,8 @@ export const IngestModal: React.FC<IngestModalProps> = ({
                 fontWeight: 700,
                 fontSize: '30px',
                 lineHeight: 1.05,
-                textTransform: 'uppercase'
+                textTransform: 'uppercase',
+                color: c.textPrimary
               }}
             >
               Add to the archive
@@ -140,8 +188,8 @@ export const IngestModal: React.FC<IngestModalProps> = ({
               border: 0,
               borderRadius: '11px',
               cursor: 'pointer',
-              background: 'var(--well, #1d2d3d)',
-              color: 'var(--ink, #e9edf2)',
+              background: c.closeBg,
+              color: c.closeText,
               fontFamily: 'ui-monospace, Menlo, monospace',
               fontSize: '13px'
             }}
@@ -155,8 +203,8 @@ export const IngestModal: React.FC<IngestModalProps> = ({
           style={{
             padding: '16px',
             borderRadius: '14px',
-            border: '1px solid rgba(148,188,227,.28)',
-            background: 'rgba(148,188,227,.06)',
+            border: c.cardBorder,
+            background: c.cardBg,
             display: 'flex',
             flexDirection: 'column',
             gap: '10px'
@@ -170,7 +218,7 @@ export const IngestModal: React.FC<IngestModalProps> = ({
                 fontSize: '17px',
                 letterSpacing: '.03em',
                 textTransform: 'uppercase',
-                color: '#b5d9fd'
+                color: c.sectionTitle
               }}
             >
               ⚡ Fast Node Disk Crawler (Direct to SQLite archive.db)
@@ -181,8 +229,8 @@ export const IngestModal: React.FC<IngestModalProps> = ({
                 fontSize: '9px',
                 padding: '2px 6px',
                 borderRadius: '5px',
-                background: '#38ef7d',
-                color: '#0d151c',
+                background: '#10b981',
+                color: '#ffffff',
                 fontWeight: 700
               }}
             >
@@ -194,7 +242,7 @@ export const IngestModal: React.FC<IngestModalProps> = ({
             style={{
               fontFamily: 'ui-monospace, Menlo, monospace',
               fontSize: '10px',
-              color: 'rgba(233,237,242,.6)',
+              color: c.textMuted,
               lineHeight: 1.4
             }}
           >
@@ -213,11 +261,11 @@ export const IngestModal: React.FC<IngestModalProps> = ({
                 flex: 1,
                 padding: '10px 12px',
                 borderRadius: '10px',
-                border: '1px solid rgba(148,188,227,.25)',
-                background: 'var(--surface, #182636)',
+                border: c.inputBorder,
+                background: c.inputBg,
                 fontFamily: 'ui-monospace, Menlo, monospace',
                 fontSize: '11.5px',
-                color: 'var(--ink, #e9edf2)'
+                color: c.inputText
               }}
             />
             <button
@@ -226,15 +274,15 @@ export const IngestModal: React.FC<IngestModalProps> = ({
                 padding: '10px 16px',
                 borderRadius: '10px',
                 cursor: 'pointer',
-                border: '1px solid #416180',
-                background: 'linear-gradient(180deg, #6b91b6, #5980a6)',
+                border: `1px solid ${c.btnPriBorder}`,
+                background: c.btnPriBg,
                 color: '#ffffff',
                 fontFamily: "'Barlow Condensed', sans-serif",
                 fontSize: '14px',
                 fontWeight: 600,
                 letterSpacing: '.05em',
                 textTransform: 'uppercase',
-                boxShadow: '0 2px 0 #2c455d'
+                boxShadow: c.btnPriShadow
               }}
             >
               Scan Disk
@@ -246,7 +294,7 @@ export const IngestModal: React.FC<IngestModalProps> = ({
               style={{
                 fontFamily: 'ui-monospace, Menlo, monospace',
                 fontSize: '9.5px',
-                color: 'rgba(233,237,242,.4)'
+                color: c.textMuted
               }}
             >
               Quick Presets:
@@ -256,9 +304,9 @@ export const IngestModal: React.FC<IngestModalProps> = ({
               style={{
                 padding: '3px 7px',
                 borderRadius: '5px',
-                background: 'rgba(148,188,227,.12)',
-                border: '1px solid rgba(148,188,227,.2)',
-                color: '#94bce3',
+                background: c.btnSecBg,
+                border: c.btnSecBorder,
+                color: c.btnSecText,
                 fontFamily: 'ui-monospace, Menlo, monospace',
                 fontSize: '9px',
                 cursor: 'pointer'
@@ -271,9 +319,9 @@ export const IngestModal: React.FC<IngestModalProps> = ({
               style={{
                 padding: '3px 7px',
                 borderRadius: '5px',
-                background: 'rgba(148,188,227,.12)',
-                border: '1px solid rgba(148,188,227,.2)',
-                color: '#94bce3',
+                background: c.btnSecBg,
+                border: c.btnSecBorder,
+                color: c.btnSecText,
                 fontFamily: 'ui-monospace, Menlo, monospace',
                 fontSize: '9px',
                 cursor: 'pointer'
@@ -289,9 +337,9 @@ export const IngestModal: React.FC<IngestModalProps> = ({
           style={{
             padding: '13px 16px',
             borderRadius: '12px',
-            border: '1px solid rgba(148,188,227,.2)',
-            background: 'var(--surface, #182636)',
-            color: '#b5d9fd',
+            border: c.actionCardBorder,
+            background: c.actionCardBg,
+            color: c.textPrimary,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -300,12 +348,12 @@ export const IngestModal: React.FC<IngestModalProps> = ({
             transition: 'background 0.2s, border-color 0.2s'
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = '#94bce3';
-            e.currentTarget.style.background = 'rgba(148,188,227,.12)';
+            e.currentTarget.style.borderColor = c.actionCardHoverBorder;
+            e.currentTarget.style.background = c.actionCardHoverBg;
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = 'rgba(148,188,227,.2)';
-            e.currentTarget.style.background = 'var(--surface, #182636)';
+            e.currentTarget.style.borderColor = c.actionCardBorder;
+            e.currentTarget.style.background = c.actionCardBg;
           }}
         >
           <input
@@ -324,7 +372,8 @@ export const IngestModal: React.FC<IngestModalProps> = ({
                 fontFamily: "'Barlow Condensed', sans-serif",
                 fontWeight: 600,
                 fontSize: '16px',
-                textTransform: 'uppercase'
+                textTransform: 'uppercase',
+                color: c.sectionTitle
               }}
             >
               📁 Select Folder via Browser File Dialog
@@ -333,14 +382,14 @@ export const IngestModal: React.FC<IngestModalProps> = ({
               style={{
                 fontFamily: 'ui-monospace, Menlo, monospace',
                 fontSize: '9.5px',
-                color: 'rgba(233,237,242,.5)',
+                color: c.textMuted,
                 marginTop: '2px'
               }}
             >
               Native OS directory dialog (recursively indexes all assets)
             </div>
           </div>
-          <span style={{ fontSize: '18px' }}>›</span>
+          <span style={{ fontSize: '18px', color: c.accentBadge }}>›</span>
         </label>
 
         {/* Action 3: Drop / Choose Zips and Files */}
@@ -348,8 +397,8 @@ export const IngestModal: React.FC<IngestModalProps> = ({
           style={{
             padding: '18px',
             borderRadius: '12px',
-            border: '2px dashed rgba(148,188,227,.3)',
-            background: 'var(--surface, #182636)',
+            border: isLight ? '2px dashed rgba(15, 23, 42, 0.20)' : isMid ? '2px dashed rgba(15, 27, 39, 0.30)' : '2px dashed rgba(148,188,227,.3)',
+            background: c.actionCardBg,
             textAlign: 'center',
             display: 'flex',
             flexDirection: 'column',
@@ -358,12 +407,12 @@ export const IngestModal: React.FC<IngestModalProps> = ({
             transition: 'border-color 0.2s, background 0.2s'
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = '#94bce3';
-            e.currentTarget.style.background = 'rgba(148,188,227,.08)';
+            e.currentTarget.style.borderColor = c.actionCardHoverBorder;
+            e.currentTarget.style.background = c.actionCardHoverBg;
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = 'rgba(148,188,227,.3)';
-            e.currentTarget.style.background = 'var(--surface, #182636)';
+            e.currentTarget.style.borderColor = isLight ? 'rgba(15, 23, 42, 0.20)' : isMid ? 'rgba(15, 27, 39, 0.30)' : 'rgba(148,188,227,.3)';
+            e.currentTarget.style.background = c.actionCardBg;
           }}
         >
           <input
@@ -378,7 +427,8 @@ export const IngestModal: React.FC<IngestModalProps> = ({
               fontFamily: "'Barlow Condensed', sans-serif",
               fontWeight: 600,
               fontSize: '16px',
-              textTransform: 'uppercase'
+              textTransform: 'uppercase',
+              color: c.sectionTitle
             }}
           >
             Drop or choose zips & loose creative assets
@@ -389,7 +439,7 @@ export const IngestModal: React.FC<IngestModalProps> = ({
               fontSize: '9.5px',
               letterSpacing: '.06em',
               textTransform: 'uppercase',
-              color: 'rgba(233,237,242,.5)'
+              color: c.textMuted
             }}
           >
             Each zip becomes one entry · indexed into archive.db with inner file contents
@@ -404,9 +454,9 @@ export const IngestModal: React.FC<IngestModalProps> = ({
               padding: '10px 16px',
               borderRadius: '11px',
               cursor: 'pointer',
-              border: '1px solid rgba(148,188,227,.2)',
+              border: c.btnSecBorder,
               background: 'transparent',
-              color: 'var(--ink, #e9edf2)',
+              color: c.textPrimary,
               fontFamily: "'Barlow Condensed', sans-serif",
               fontSize: '14px',
               fontWeight: 600,
@@ -422,15 +472,15 @@ export const IngestModal: React.FC<IngestModalProps> = ({
               padding: '10px 18px',
               borderRadius: '11px',
               cursor: 'pointer',
-              border: '1px solid #416180',
-              color: '#f2f2f3',
+              border: `1px solid ${c.btnPriBorder}`,
+              color: '#ffffff',
               fontFamily: "'Barlow Condensed', sans-serif",
               fontSize: '14px',
               fontWeight: 600,
               letterSpacing: '.05em',
               textTransform: 'uppercase',
-              background: 'linear-gradient(180deg, #6b91b6, #5980a6)',
-              boxShadow: '0 2px 0 #416180, inset 0 1px 0 rgba(255,255,255,.26)'
+              background: c.btnPriBg,
+              boxShadow: c.btnPriShadow
             }}
           >
             Add as Watched Folder

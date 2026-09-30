@@ -241,6 +241,141 @@ export function formatAgeWatermark(dateStr?: string): string {
   return 'TODAY';
 }
 
+export function formatBytes(bytes?: number): string {
+  if (!bytes || bytes <= 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
+
+export function formatDateCompact(dateStr?: string): string {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (!isNaN(d.getTime())) {
+    const year = String(d.getFullYear()).slice(-2);
+    const month = d.toLocaleString('en-US', { month: 'short' });
+    const day = d.getDate();
+    return `${month} ${day}, '${year}`;
+  }
+  return dateStr.slice(0, 10);
+}
+
+export function formatDateDisplay(dateStr?: string): string {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (!isNaN(d.getTime())) {
+    const year = d.getFullYear();
+    const month = d.toLocaleString('en-US', { month: 'short' });
+    const day = d.getDate();
+    return `${month} ${day}, ${year}`;
+  }
+  return dateStr.slice(0, 10);
+}
+
+export interface SortDisplayInfo {
+  icon: string;
+  label: string;
+  badge: string;
+  byline: string;
+  full: string;
+}
+
+export function getSortDisplayInfo(entry: AssetEntry, sortOption: SortOption): SortDisplayInfo {
+  if (!entry) {
+    return { icon: '', label: '', badge: '', byline: '', full: '' };
+  }
+
+  const meta = SORT_CONFIGS[sortOption] || SORT_CONFIGS.name;
+
+  switch (sortOption) {
+    case 'size': {
+      const sizeStr = entry.size || (entry.sizeBytes ? formatBytes(entry.sizeBytes) : '0 B');
+      return {
+        icon: meta.icon,
+        label: `Size: ${sizeStr}`,
+        badge: sizeStr,
+        byline: sizeStr,
+        full: sizeStr
+      };
+    }
+
+    case 'date_mod': {
+      const dStr = entry.dateModified || entry.date || '';
+      const display = formatDateDisplay(dStr);
+      const compact = formatDateCompact(dStr);
+      return {
+        icon: meta.icon,
+        label: `Mod: ${display}`,
+        badge: compact,
+        byline: `Mod: ${compact}`,
+        full: dStr || display
+      };
+    }
+
+    case 'date_created': {
+      const dStr = entry.dateCreated || entry.date || '';
+      const display = formatDateDisplay(dStr);
+      const compact = formatDateCompact(dStr);
+      return {
+        icon: meta.icon,
+        label: `Created: ${display}`,
+        badge: compact,
+        byline: `Added: ${compact}`,
+        full: dStr || display
+      };
+    }
+
+    case 'age': {
+      const dStr = entry.dateCreated || entry.date || '';
+      const ageStr = formatAgeWatermark(dStr);
+      const compact = formatDateCompact(dStr);
+      return {
+        icon: meta.icon,
+        label: `Age: ${ageStr}`,
+        badge: ageStr,
+        byline: `${ageStr.toLowerCase()} (${compact})`,
+        full: `${ageStr} (${dStr})`
+      };
+    }
+
+    case 'number': {
+      const num = extractNumber(entry.title);
+      const numDisplay = num === Number.MAX_SAFE_INTEGER ? 'None' : `#${num}`;
+      return {
+        icon: meta.icon,
+        label: `Num: ${numDisplay}`,
+        badge: numDisplay,
+        byline: `Seq ${numDisplay}`,
+        full: `Sequence number ${numDisplay}`
+      };
+    }
+
+    case 'type': {
+      const typeStr = (entry.exts?.[0] || entry.type || '').toUpperCase();
+      return {
+        icon: meta.icon,
+        label: `Type: ${typeStr}`,
+        badge: typeStr,
+        byline: `Type: ${typeStr}`,
+        full: typeStr
+      };
+    }
+
+    case 'name':
+    default: {
+      const firstLetter = (entry.title || '').trim().charAt(0).toUpperCase() || 'A';
+      return {
+        icon: meta.icon,
+        label: `Name: A–Z`,
+        badge: firstLetter,
+        byline: entry.date || '',
+        full: entry.title
+      };
+    }
+  }
+}
+
 /**
  * Computes the backdrop watermark string for an individual asset entry based on the active sort option.
  */
@@ -273,3 +408,5 @@ export function computeItemWatermark(entry: AssetEntry, sortOption: SortOption):
       return '';
   }
 }
+
+

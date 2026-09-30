@@ -58,6 +58,7 @@ export const App: React.FC = () => {
   const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>({});
   const [stars, setStars] = useState<Record<string, boolean>>({});
   const [openId, setOpenId] = useState<string | null>(null);
+  const [isStudioMode, setIsStudioMode] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -325,6 +326,8 @@ export const App: React.FC = () => {
     });
     root.style.setProperty('--accent', accent);
     document.body.style.background = t.bg;
+    root.dataset.theme = theme;
+    document.body.dataset.theme = theme;
 
     // Random elastic scale pulse on reveal elements
     gsap.fromTo(
@@ -1056,17 +1059,18 @@ export const App: React.FC = () => {
         position: 'fixed',
         inset: 0,
         display: 'grid',
-        gridTemplateColumns: '252px 1fr',
+        gridTemplateColumns: 'var(--rail-width, 252px) 1fr',
         background: 'var(--bg, #f2f2f3)',
         color: 'var(--ink, #1d1f20)',
         fontFamily: 'Barlow, system-ui, sans-serif',
-        fontSize: '15px',
+        fontSize: 'var(--app-font-size, 15px)',
         lineHeight: 1.5,
         overflow: 'hidden'
       }}
     >
       {/* Left Rail */}
       <Rail
+        theme={theme}
         totalCount={entries.length}
         poolCounts={poolCounts}
         selectedPool={selectedPool}
@@ -1191,9 +1195,15 @@ export const App: React.FC = () => {
               alignItems: 'center',
               justifyContent: 'space-between',
               padding: '12px 24px',
-              background: 'linear-gradient(90deg, rgba(29, 45, 61, 0.96) 0%, rgba(20, 32, 45, 0.94) 100%)',
-              borderBottom: '1px solid rgba(148, 188, 227, 0.35)',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.35)',
+              background: theme === 'light'
+                ? 'linear-gradient(90deg, rgba(255, 255, 255, 0.98) 0%, rgba(241, 245, 249, 0.96) 100%)'
+                : 'linear-gradient(90deg, rgba(29, 45, 61, 0.96) 0%, rgba(20, 32, 45, 0.94) 100%)',
+              borderBottom: theme === 'light'
+                ? '1px solid rgba(15, 23, 42, 0.1)'
+                : '1px solid rgba(148, 188, 227, 0.35)',
+              boxShadow: theme === 'light'
+                ? '0 4px 16px rgba(15, 23, 42, 0.06)'
+                : '0 4px 20px rgba(0, 0, 0, 0.35)',
               backdropFilter: 'blur(12px)',
               WebkitBackdropFilter: 'blur(12px)',
               zIndex: 15,
@@ -1206,8 +1216,8 @@ export const App: React.FC = () => {
                   width: '38px',
                   height: '38px',
                   borderRadius: '11px',
-                  background: 'rgba(148, 188, 227, 0.16)',
-                  border: '1px solid rgba(148, 188, 227, 0.4)',
+                  background: theme === 'light' ? 'rgba(37, 99, 235, 0.08)' : 'rgba(148, 188, 227, 0.16)',
+                  border: theme === 'light' ? '1px solid rgba(37, 99, 235, 0.2)' : '1px solid rgba(148, 188, 227, 0.4)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1225,7 +1235,7 @@ export const App: React.FC = () => {
                       fontSize: '9.5px',
                       letterSpacing: '.14em',
                       textTransform: 'uppercase',
-                      color: '#94bce3',
+                      color: theme === 'light' ? '#1d4ed8' : '#94bce3',
                       fontWeight: 700
                     }}
                   >
@@ -1239,7 +1249,7 @@ export const App: React.FC = () => {
                       borderRadius: '4px',
                       background: 'rgba(56, 239, 125, 0.16)',
                       border: '1px solid rgba(56, 239, 125, 0.35)',
-                      color: '#38ef7d',
+                      color: theme === 'light' ? '#15803d' : '#38ef7d',
                       fontWeight: 700
                     }}
                   >
@@ -1251,7 +1261,7 @@ export const App: React.FC = () => {
                     fontFamily: "'Barlow Condensed', sans-serif",
                     fontSize: '21px',
                     fontWeight: 700,
-                    color: '#ffffff',
+                    color: theme === 'light' ? '#0f172a' : '#ffffff',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -1336,6 +1346,7 @@ export const App: React.FC = () => {
 
         {/* Stage / Card Layout Area */}
         <Stage
+          theme={theme}
           entries={pagedEntries}
           allEntries={activeZipArchive ? activeZipArchive.innerEntries : entries}
           view={view}
@@ -1361,10 +1372,13 @@ export const App: React.FC = () => {
           sortOption={sortOption}
           sortDirection={sortDirection}
           onSortChange={handleSortChange}
+          isPreviewOpen={!!openEntry}
+          isStudioMode={isStudioMode}
         />
 
         {/* Floating Selection Bar */}
         <SelectionBar
+          theme={theme}
           selectedCount={selectedCount}
           onClear={() => setSelectedIds({})}
           onThrowToPool={handleThrowToPool}
@@ -1375,6 +1389,7 @@ export const App: React.FC = () => {
 
       {/* Slide-in Side Panel */}
       <SidePanel
+        theme={theme}
         entry={openEntry}
         onClose={() => setOpenId(null)}
         onPrevInPool={handlePrevInPool}
@@ -1383,6 +1398,8 @@ export const App: React.FC = () => {
         onSpecimenChange={setSpecimen}
         motionMultiplier={motionMultiplier}
         onOpenZipContents={handleOpenZipContents}
+        isStudioMode={isStudioMode}
+        onToggleStudioMode={() => setIsStudioMode((prev) => !prev)}
       />
 
       {/* Fullscreen Drop Overlay */}
@@ -1396,6 +1413,7 @@ export const App: React.FC = () => {
         onAddFolder={handleAddFolder}
         onScanNativeFolder={handleScanNativeFolder}
         onScanDiskFolder={handleScanDiskFolder}
+        theme={theme}
       />
 
       {/* Settings & Backups Modal */}

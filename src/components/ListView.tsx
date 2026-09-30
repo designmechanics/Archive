@@ -1,9 +1,17 @@
 import React from 'react';
-import { AssetEntry, SortOption, SortDirection } from '../types';
+import { AssetEntry, SortOption, SortDirection, ThemeMode } from '../types';
 import { KINDS } from '../data/seedData';
 import { isZipArchive } from '../services/zipService';
+import {
+  extractNumber,
+  formatBytes,
+  formatDateCompact,
+  formatAgeWatermark,
+  SORT_CONFIGS
+} from '../services/sortService';
 
 interface ListViewProps {
+  theme?: ThemeMode;
   entries: AssetEntry[];
   stars: Record<string, boolean>;
   onToggleStar: (id: string, e: React.MouseEvent) => void;
@@ -16,16 +24,20 @@ interface ListViewProps {
 }
 
 export const ListView: React.FC<ListViewProps> = ({
+  theme,
   entries,
   stars,
   onToggleStar,
   onSelectEntry,
   accent,
   onOpenZipContents,
-  sortOption,
-  sortDirection,
+  sortOption = 'name',
+  sortDirection = 'asc',
   onSortChange
 }) => {
+  const isLight = theme === 'light';
+  const isMid = theme === 'mid';
+
   const handleHeaderSort = (opt: SortOption) => {
     if (!onSortChange) return;
     if (sortOption === opt) {
@@ -35,6 +47,38 @@ export const ListView: React.FC<ListViewProps> = ({
     }
   };
 
+  const isSortAsset = sortOption === 'name' || sortOption === 'number';
+  const isSortFormat = sortOption === 'type';
+  const isSortSize = sortOption === 'size';
+  const isSortDate = sortOption === 'date_created' || sortOption === 'date_mod' || sortOption === 'age';
+
+  const sortBadgeStyle = (active: boolean): React.CSSProperties => {
+    if (!active) {
+      return {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '4px',
+        padding: '3px 6px',
+        borderRadius: '5px',
+        transition: 'all 0.15s'
+      };
+    }
+    return {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '4px',
+      padding: '3px 8px',
+      borderRadius: '6px',
+      background: isLight ? 'rgba(37, 99, 235, 0.14)' : isMid ? 'rgba(15, 27, 39, 0.22)' : 'rgba(89, 128, 166, 0.32)',
+      border: isLight ? '1px solid rgba(37, 99, 235, 0.4)' : isMid ? '1px solid rgba(15, 27, 39, 0.35)' : '1px solid rgba(148, 188, 227, 0.45)',
+      color: isLight ? '#1d4ed8' : isMid ? '#09131d' : '#b5d9fd',
+      fontWeight: 700,
+      boxShadow: isLight ? '0 1px 3px rgba(37, 99, 235, 0.12)' : '0 1px 3px rgba(0, 0, 0, 0.2)'
+    };
+  };
+
+  const dirArrow = sortDirection === 'asc' ? '▲' : '▼';
+
   return (
     <div
       data-list="1"
@@ -43,67 +87,149 @@ export const ListView: React.FC<ListViewProps> = ({
         flexDirection: 'column',
         gap: '5px',
         width: '100%',
-        paddingBottom: '80px'
+        paddingBottom: '80px',
+        position: 'relative'
       }}
     >
-      {/* Table Header */}
+      {/* Sticky Table Header */}
       <div
         style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 15,
           display: 'flex',
           alignItems: 'center',
           gap: '14px',
-          padding: '6px 14px 8px',
-          borderBottom: '1px solid rgba(var(--inkc, 29,31,32), .16)',
+          padding: '8px 14px',
+          marginBottom: '3px',
+          borderRadius: '10px',
+          borderBottom: isLight
+            ? '1px solid rgba(15, 23, 42, 0.12)'
+            : isMid
+            ? '1px solid rgba(15, 27, 39, 0.22)'
+            : '1px solid rgba(148, 188, 227, 0.22)',
+          background: isLight
+            ? 'rgba(248, 250, 252, 0.96)'
+            : isMid
+            ? 'rgba(115, 145, 176, 0.96)'
+            : 'rgba(16, 22, 29, 0.96)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          boxShadow: isLight
+            ? '0 4px 12px rgba(15, 23, 42, 0.05)'
+            : '0 4px 14px rgba(0, 0, 0, 0.35)',
           fontFamily: 'ui-monospace, Menlo, monospace',
           fontSize: '9.5px',
           letterSpacing: '.08em',
           textTransform: 'uppercase',
-          color: 'rgba(var(--inkc, 29,31,32), .6)'
+          color: isLight ? 'rgba(15, 23, 42, 0.65)' : isMid ? 'rgba(15, 27, 39, 0.75)' : 'rgba(233, 237, 242, 0.65)'
         }}
       >
         <span style={{ width: '40px', flex: 'none' }}>Prev</span>
         <span style={{ width: '22px', flex: 'none', textAlign: 'center' }}>★</span>
+
+        {/* Asset Title Column Header */}
         <span
-          onClick={() => handleHeaderSort('name')}
+          onClick={() => handleHeaderSort(sortOption === 'number' ? 'number' : 'name')}
           style={{
             flex: '1.6',
             minWidth: 0,
             cursor: onSortChange ? 'pointer' : 'default',
-            color: sortOption === 'name' ? 'var(--ink, #1d1f20)' : 'inherit',
-            fontWeight: sortOption === 'name' ? 700 : 'normal'
+            display: 'flex',
+            alignItems: 'center'
           }}
-          title="Sort by Name"
+          title={sortOption === 'number' ? 'Sort by Number' : 'Sort by Name (A–Z)'}
         >
-          Asset {sortOption === 'name' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+          <span style={sortBadgeStyle(isSortAsset)}>
+            <span>{sortOption === 'number' ? 'Asset #' : 'Asset'}</span>
+            {isSortAsset && (
+              <span style={{ fontSize: '9px', color: isLight ? '#2563eb' : '#38ef7d' }}>
+                {dirArrow} {sortDirection.toUpperCase()}
+              </span>
+            )}
+          </span>
         </span>
+
+        {/* Format Column Header */}
         <span
           onClick={() => handleHeaderSort('type')}
           style={{
-            width: '96px',
+            width: '88px',
             flex: 'none',
             cursor: onSortChange ? 'pointer' : 'default',
-            color: sortOption === 'type' ? 'var(--ink, #1d1f20)' : 'inherit',
-            fontWeight: sortOption === 'type' ? 700 : 'normal'
+            display: 'flex',
+            alignItems: 'center'
           }}
-          title="Sort by Type"
+          title="Sort by Format / Type"
         >
-          Format {sortOption === 'type' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+          <span style={sortBadgeStyle(isSortFormat)}>
+            <span>Format</span>
+            {isSortFormat && (
+              <span style={{ fontSize: '9px', color: isLight ? '#2563eb' : '#38ef7d' }}>
+                {dirArrow} {sortDirection.toUpperCase()}
+              </span>
+            )}
+          </span>
         </span>
-        <span style={{ flex: '1', minWidth: 0 }}>Pool</span>
-        <span style={{ width: '120px', flex: 'none' }}>Source</span>
+
+        {/* Size Column Header */}
         <span
-          onClick={() => handleHeaderSort('date_created')}
+          onClick={() => handleHeaderSort('size')}
           style={{
-            width: '78px',
+            width: '74px',
             flex: 'none',
             textAlign: 'right',
             cursor: onSortChange ? 'pointer' : 'default',
-            color: sortOption === 'date_created' || sortOption === 'date_mod' ? 'var(--ink, #1d1f20)' : 'inherit',
-            fontWeight: sortOption === 'date_created' || sortOption === 'date_mod' ? 700 : 'normal'
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end'
           }}
-          title="Sort by Date"
+          title="Sort by File Size"
         >
-          Added {sortOption === 'date_created' || sortOption === 'date_mod' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+          <span style={sortBadgeStyle(isSortSize)}>
+            <span>Size</span>
+            {isSortSize && (
+              <span style={{ fontSize: '9px', color: isLight ? '#2563eb' : '#38ef7d' }}>
+                {dirArrow}
+              </span>
+            )}
+          </span>
+        </span>
+
+        {/* Pool Column Header */}
+        <span style={{ flex: '0.9', minWidth: 0 }}>Pool</span>
+
+        {/* Source Column Header */}
+        <span style={{ width: '110px', flex: 'none' }}>Source</span>
+
+        {/* Date / Added / Mod / Age Column Header */}
+        <span
+          onClick={() => {
+            if (sortOption === 'date_mod') handleHeaderSort('date_mod');
+            else if (sortOption === 'age') handleHeaderSort('age');
+            else handleHeaderSort('date_created');
+          }}
+          style={{
+            width: '84px',
+            flex: 'none',
+            textAlign: 'right',
+            cursor: onSortChange ? 'pointer' : 'default',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end'
+          }}
+          title={`Sort by Date: ${SORT_CONFIGS[sortOption]?.label || 'Date'}`}
+        >
+          <span style={sortBadgeStyle(isSortDate)}>
+            <span>
+              {sortOption === 'date_mod' ? 'Modified' : sortOption === 'age' ? 'Age' : 'Added'}
+            </span>
+            {isSortDate && (
+              <span style={{ fontSize: '9px', color: isLight ? '#2563eb' : '#38ef7d' }}>
+                {dirArrow}
+              </span>
+            )}
+          </span>
         </span>
       </div>
 
@@ -128,24 +254,24 @@ export const ListView: React.FC<ListViewProps> = ({
               gap: '14px',
               padding: '9px 14px',
               borderRadius: '13px',
-              background: 'rgba(23, 32, 44, 0.44)',
-              backdropFilter: 'brightness(2.1) contrast(1.28) saturate(1.1)',
-              WebkitBackdropFilter: 'brightness(2.1) contrast(1.28) saturate(1.1)',
-              border: '1px solid rgba(233, 237, 242, 0.09)',
+              background: isLight ? 'rgba(255, 255, 255, 0.72)' : 'rgba(23, 32, 44, 0.44)',
+              backdropFilter: isLight ? 'contrast(1.18) saturate(1.1) brightness(1.08)' : 'brightness(2.1) contrast(1.28) saturate(1.1)',
+              WebkitBackdropFilter: isLight ? 'contrast(1.18) saturate(1.1) brightness(1.08)' : 'brightness(2.1) contrast(1.28) saturate(1.1)',
+              border: isLight ? '1px solid rgba(15, 23, 42, 0.08)' : '1px solid rgba(233, 237, 242, 0.09)',
               cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.22)',
+              boxShadow: isLight ? '0 2px 8px rgba(15, 23, 42, 0.05)' : '0 2px 8px rgba(0, 0, 0, 0.22)',
               transition: 'background .2s, box-shadow .24s, border-color .2s, transform .24s'
             }}
             onMouseEnter={(el) => {
-              el.currentTarget.style.background = 'rgba(38, 54, 72, 0.72)';
-              el.currentTarget.style.boxShadow = '0 10px 24px rgba(0, 0, 0, 0.35)';
-              el.currentTarget.style.borderColor = '#94bce3';
+              el.currentTarget.style.background = isLight ? 'rgba(255, 255, 255, 0.95)' : 'rgba(38, 54, 72, 0.72)';
+              el.currentTarget.style.boxShadow = isLight ? '0 8px 24px rgba(15, 23, 42, 0.1)' : '0 10px 24px rgba(0, 0, 0, 0.35)';
+              el.currentTarget.style.borderColor = isLight ? 'rgba(37, 99, 235, 0.5)' : '#94bce3';
               el.currentTarget.style.transform = 'translateX(4px)';
             }}
             onMouseLeave={(el) => {
-              el.currentTarget.style.background = 'rgba(23, 32, 44, 0.44)';
-              el.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.22)';
-              el.currentTarget.style.borderColor = 'rgba(233, 237, 242, 0.09)';
+              el.currentTarget.style.background = isLight ? 'rgba(255, 255, 255, 0.72)' : 'rgba(23, 32, 44, 0.44)';
+              el.currentTarget.style.boxShadow = isLight ? '0 2px 8px rgba(15, 23, 42, 0.05)' : '0 2px 8px rgba(0, 0, 0, 0.22)';
+              el.currentTarget.style.borderColor = isLight ? 'rgba(15, 23, 42, 0.08)' : 'rgba(233, 237, 242, 0.09)';
               el.currentTarget.style.transform = 'translateX(0)';
             }}
           >
@@ -159,7 +285,9 @@ export const ListView: React.FC<ListViewProps> = ({
                 border: '1px solid rgba(var(--inkc, 29,31,32), .12)',
                 background: e.thumb
                   ? `url(${e.thumb}) center/${(e.exts && e.exts.includes('pdf')) ? 'contain #ffffff' : 'cover'} no-repeat`
-                  : 'repeating-linear-gradient(135deg, rgba(89,128,166,.18) 0 3px, rgba(89,128,166,.04) 3px 7px)',
+                  : isLight
+                    ? 'repeating-linear-gradient(135deg, rgba(37,99,235,.10) 0 3px, rgba(37,99,235,.02) 3px 7px)'
+                    : 'repeating-linear-gradient(135deg, rgba(89,128,166,.18) 0 3px, rgba(89,128,166,.04) 3px 7px)',
                 position: 'relative',
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -203,42 +331,99 @@ export const ListView: React.FC<ListViewProps> = ({
               {isStarred ? '★' : '☆'}
             </span>
 
-            {/* Title */}
+            {/* Title / Asset */}
             <span
               style={{
                 flex: '1.6',
                 minWidth: 0,
                 fontFamily: "'Barlow Condensed', sans-serif",
-                fontWeight: 600,
+                fontWeight: isSortAsset ? 700 : 600,
                 fontSize: '17px',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
-                textOverflow: 'ellipsis'
+                textOverflow: 'ellipsis',
+                color: isSortAsset ? (isLight ? '#1d4ed8' : isMid ? '#09131d' : '#b5d9fd') : 'inherit',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
               }}
             >
-              {e.title}
+              {sortOption === 'number' && (
+                <span
+                  style={{
+                    fontFamily: 'ui-monospace, Menlo, monospace',
+                    fontSize: '10px',
+                    padding: '1px 5px',
+                    borderRadius: '4px',
+                    background: isLight ? '#2563eb' : isMid ? '#09131d' : '#5980a6',
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    flex: 'none'
+                  }}
+                >
+                  #{extractNumber(e.title) === Number.MAX_SAFE_INTEGER ? '—' : extractNumber(e.title)}
+                </span>
+              )}
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.title}</span>
             </span>
 
             {/* Format */}
             <span
               style={{
-                width: '96px',
+                width: '88px',
                 flex: 'none',
                 fontFamily: 'ui-monospace, Menlo, monospace',
                 fontSize: '9.5px',
                 letterSpacing: '.08em',
                 textTransform: 'uppercase',
-                color: isZipArchive(e) && !e.isZipInnerFile ? '#38ef7d' : '#416180',
-                fontWeight: isZipArchive(e) && !e.isZipInnerFile ? 700 : 400
+                color: isSortFormat
+                  ? (isLight ? '#1d4ed8' : isMid ? '#09131d' : '#38ef7d')
+                  : isZipArchive(e) && !e.isZipInnerFile
+                  ? (isLight ? '#15803d' : '#38ef7d')
+                  : (isLight ? 'var(--tint-ink, #1d4ed8)' : '#416180'),
+                fontWeight: isSortFormat || (isZipArchive(e) && !e.isZipInnerFile) ? 700 : 500,
+                background: isSortFormat
+                  ? (isLight ? 'rgba(37, 99, 235, 0.12)' : isMid ? 'rgba(15, 27, 39, 0.16)' : 'rgba(148, 188, 227, 0.16)')
+                  : 'transparent',
+                padding: isSortFormat ? '3px 7px' : '0',
+                borderRadius: '6px',
+                border: isSortFormat
+                  ? (isLight ? '1px solid rgba(37, 99, 235, 0.28)' : isMid ? '1px solid rgba(15, 27, 39, 0.25)' : '1px solid rgba(148, 188, 227, 0.35)')
+                  : 'none'
               }}
             >
               {isZipArchive(e) && !e.isZipInnerFile ? `📦 ZIP · ${e.fileCount || ''}` : (KINDS[e.type]?.[0] || e.type)}
             </span>
 
+            {/* Size */}
+            <span
+              style={{
+                width: '74px',
+                flex: 'none',
+                textAlign: 'right',
+                fontFamily: 'ui-monospace, Menlo, monospace',
+                fontSize: '10px',
+                color: isSortSize
+                  ? (isLight ? '#1d4ed8' : isMid ? '#09131d' : '#b5d9fd')
+                  : 'rgba(var(--inkc, 29,31,32), .65)',
+                fontWeight: isSortSize ? 700 : 400,
+                background: isSortSize
+                  ? (isLight ? 'rgba(37, 99, 235, 0.12)' : isMid ? 'rgba(15, 27, 39, 0.16)' : 'rgba(148, 188, 227, 0.16)')
+                  : 'transparent',
+                padding: isSortSize ? '3px 7px' : '0',
+                borderRadius: '6px',
+                border: isSortSize
+                  ? (isLight ? '1px solid rgba(37, 99, 235, 0.28)' : isMid ? '1px solid rgba(15, 27, 39, 0.25)' : '1px solid rgba(148, 188, 227, 0.35)')
+                  : 'none'
+              }}
+            >
+              {e.size || (e.sizeBytes ? formatBytes(e.sizeBytes) : '—')}
+            </span>
+
             {/* Pool */}
             <span
               style={{
-                flex: '1',
+                flex: '0.9',
                 minWidth: 0,
                 fontFamily: 'ui-monospace, Menlo, monospace',
                 fontSize: '10px',
@@ -254,7 +439,7 @@ export const ListView: React.FC<ListViewProps> = ({
             {/* Source / Author */}
             <span
               style={{
-                width: '120px',
+                width: '110px',
                 flex: 'none',
                 fontFamily: 'ui-monospace, Menlo, monospace',
                 fontSize: '10px',
@@ -267,18 +452,40 @@ export const ListView: React.FC<ListViewProps> = ({
               {e.author}
             </span>
 
-            {/* Added Date */}
+            {/* Added / Mod / Age Date */}
             <span
               style={{
-                width: '78px',
+                width: '84px',
                 flex: 'none',
                 textAlign: 'right',
                 fontFamily: 'ui-monospace, Menlo, monospace',
                 fontSize: '10px',
-                color: 'rgba(var(--inkc, 29,31,32), .42)'
+                color: isSortDate
+                  ? (isLight ? '#1d4ed8' : isMid ? '#09131d' : '#b5d9fd')
+                  : 'rgba(var(--inkc, 29,31,32), .42)',
+                fontWeight: isSortDate ? 700 : 400,
+                background: isSortDate
+                  ? (isLight ? 'rgba(37, 99, 235, 0.12)' : isMid ? 'rgba(15, 27, 39, 0.16)' : 'rgba(148, 188, 227, 0.16)')
+                  : 'transparent',
+                padding: isSortDate ? '3px 7px' : '0',
+                borderRadius: '6px',
+                border: isSortDate
+                  ? (isLight ? '1px solid rgba(37, 99, 235, 0.28)' : isMid ? '1px solid rgba(15, 27, 39, 0.25)' : '1px solid rgba(148, 188, 227, 0.35)')
+                  : 'none'
               }}
+              title={
+                sortOption === 'date_mod'
+                  ? `Modified: ${e.dateModified || e.date}`
+                  : sortOption === 'age'
+                  ? `Age: ${formatAgeWatermark(e.dateCreated || e.date)} (${e.dateCreated || e.date})`
+                  : `Created: ${e.dateCreated || e.date}`
+              }
             >
-              {e.date}
+              {sortOption === 'date_mod'
+                ? formatDateCompact(e.dateModified || e.date)
+                : sortOption === 'age'
+                ? formatAgeWatermark(e.dateCreated || e.date)
+                : (e.dateCreated || e.date || '—')}
             </span>
           </div>
         );

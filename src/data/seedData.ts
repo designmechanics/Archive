@@ -96,14 +96,16 @@ export function typeFromExt(x: string): AssetType {
 
 export const THEMES = {
   light: {
-    bg: "#f2f2f3",
+    bg: "#f8fafc",
     surface: "#ffffff",
-    ink: "#1d1f20",
-    inkc: "29,31,32",
-    well: "#e3e4e6",
-    tint: "#eef6ff",
-    "tint-ink": "#2c455d",
-    rail: "#1d2d3d"
+    ink: "#0f172a",
+    inkc: "15,23,42",
+    well: "#f1f5f9",
+    tint: "#eff6ff",
+    "tint-ink": "#1d4ed8",
+    rail: "#f8fafc",
+    "rail-ink": "#0f172a",
+    "rail-border": "rgba(15,23,42,0.08)"
   },
   mid: {
     bg: "#7391b0",
@@ -113,7 +115,9 @@ export const THEMES = {
     well: "#6384a6",
     tint: "#d3e4f5",
     "tint-ink": "#16263a",
-    rail: "#182636"
+    rail: "#182636",
+    "rail-ink": "#e9edf2",
+    "rail-border": "rgba(0,0,0,0.18)"
   },
   dark: {
     bg: "#10161d",
@@ -123,7 +127,9 @@ export const THEMES = {
     well: "#0b1016",
     tint: "#233447",
     "tint-ink": "#b5d9fd",
-    rail: "#1a2a3b"
+    rail: "#1a2a3b",
+    "rail-ink": "#e9edf2",
+    "rail-border": "rgba(255,255,255,0.08)"
   }
 };
 

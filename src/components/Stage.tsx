@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
-import { AssetEntry, Density, ViewMode, WatchedFolder, SortOption, SortDirection } from '../types';
+import { AssetEntry, Density, ViewMode, WatchedFolder, SortOption, SortDirection, ThemeMode } from '../types';
 import { KINDS } from '../data/seedData';
 import { ListView } from './ListView';
 import { isZipArchive } from '../services/zipService';
-import { computeItemWatermark, getInitialGlyph } from '../services/sortService';
+import { computeItemWatermark, getInitialGlyph, getSortDisplayInfo, SORT_CONFIGS } from '../services/sortService';
 
 interface StageProps {
+  theme?: ThemeMode;
   entries: AssetEntry[];
   allEntries: AssetEntry[];
   view: ViewMode;
@@ -32,52 +33,87 @@ interface StageProps {
   sortOption?: SortOption;
   sortDirection?: SortDirection;
   onSortChange?: (option: SortOption, direction?: SortDirection) => void;
+  isPreviewOpen?: boolean;
+  isStudioMode?: boolean;
 }
 
 const getCardDepthStyling = (
   ad: number,
   isSelected: boolean,
-  isCarousel: boolean
+  isCarousel: boolean,
+  isLight: boolean
 ) => {
   if (!isCarousel) {
     return {
-      border: isSelected ? '2px solid #5980a6' : '1px solid rgba(233, 237, 242, 0.18)',
-      borderColor: isSelected ? '#5980a6' : 'rgba(233, 237, 242, 0.18)',
+      border: isSelected
+        ? '2px solid #5980a6'
+        : (isLight ? '1px solid rgba(15, 23, 42, 0.08)' : '1px solid rgba(233, 237, 242, 0.18)'),
+      borderColor: isSelected
+        ? '#5980a6'
+        : (isLight ? 'rgba(15, 23, 42, 0.08)' : 'rgba(233, 237, 242, 0.18)'),
       boxShadow: isSelected
-        ? '0 8px 24px rgba(89, 128, 166, 0.4), 0 2px 6px rgba(0, 0, 0, 0.25)'
-        : '0 4px 14px rgba(0, 0, 0, 0.26), 0 1px 3px rgba(0, 0, 0, 0.16)'
+        ? (isLight ? '0 8px 24px rgba(37, 99, 235, 0.35), 0 2px 6px rgba(15, 23, 42, 0.08)' : '0 8px 24px rgba(89, 128, 166, 0.4), 0 2px 6px rgba(0, 0, 0, 0.25)')
+        : (isLight ? '0 2px 10px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04)' : '0 4px 14px rgba(0, 0, 0, 0.26), 0 1px 3px rgba(0, 0, 0, 0.16)')
     };
   }
 
   // Border: Strong high contrast in center, progressively weaker/dimmer further away
-  const borderAlpha = Math.max(0.02, Number((0.68 * Math.pow(0.46, ad)).toFixed(3)));
-  const borderColor = isSelected
-    ? (ad === 0 ? '#5980a6' : 'rgba(89, 128, 166, 0.85)')
-    : `rgba(255, 255, 255, ${borderAlpha})`;
+  let borderAlpha: number;
+  let borderColor: string;
+  if (isLight) {
+    borderAlpha = Math.max(0.02, Number((0.26 * Math.pow(0.46, ad)).toFixed(3)));
+    borderColor = isSelected
+      ? (ad === 0 ? '#2563eb' : 'rgba(37, 99, 235, 0.85)')
+      : `rgba(15, 23, 42, ${borderAlpha})`;
+  } else {
+    borderAlpha = Math.max(0.02, Number((0.68 * Math.pow(0.46, ad)).toFixed(3)));
+    borderColor = isSelected
+      ? (ad === 0 ? '#5980a6' : 'rgba(89, 128, 166, 0.85)')
+      : `rgba(255, 255, 255, ${borderAlpha})`;
+  }
   const border = `${isSelected ? 2 : 1}px solid ${borderColor}`;
 
   // Shadow: Slight in center, progressively larger and deeper further away
   let boxShadow: string;
-  if (ad === 0) {
-    boxShadow = isSelected
-      ? '0 8px 28px rgba(89, 128, 166, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
-      : '0 6px 18px -2px rgba(0, 0, 0, 0.34), 0 2px 6px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.22)';
-  } else {
-    const blur = Math.round(18 + ad * 16);
-    const offsetY = Math.round(6 + ad * 7);
-    const spread = Math.round(ad * 2.8);
-    const opacity = Math.min(0.88, Number((0.34 + ad * 0.12).toFixed(2)));
-    const subOpacity = Number((opacity * 0.65).toFixed(2));
+  if (isLight) {
+    if (ad === 0) {
+      boxShadow = isSelected
+        ? '0 8px 28px rgba(37, 99, 235, 0.35), 0 2px 8px rgba(15, 23, 42, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.9)'
+        : '0 6px 20px -2px rgba(15, 23, 42, 0.09), 0 2px 6px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9)';
+    } else {
+      const blur = Math.round(18 + ad * 16);
+      const offsetY = Math.round(6 + ad * 7);
+      const spread = Math.round(ad * 2.5);
+      const opacity = Math.min(0.24, Number((0.08 + ad * 0.04).toFixed(2)));
+      const subOpacity = Number((opacity * 0.6).toFixed(2));
 
-    boxShadow = isSelected
-      ? `0 ${offsetY}px ${blur}px ${spread}px rgba(0, 0, 0, ${opacity}), 0 0 26px rgba(89, 128, 166, 0.45)`
-      : `0 ${offsetY}px ${blur}px ${spread}px rgba(0, 0, 0, ${opacity}), 0 ${Math.round(offsetY * 0.5)}px ${Math.round(blur * 0.4)}px rgba(0, 0, 0, ${subOpacity})`;
+      boxShadow = isSelected
+        ? `0 ${offsetY}px ${blur}px ${spread}px rgba(15, 23, 42, ${opacity}), 0 0 26px rgba(37, 99, 235, 0.35)`
+        : `0 ${offsetY}px ${blur}px ${spread}px rgba(15, 23, 42, ${opacity}), 0 ${Math.round(offsetY * 0.5)}px ${Math.round(blur * 0.4)}px rgba(15, 23, 42, ${subOpacity})`;
+    }
+  } else {
+    if (ad === 0) {
+      boxShadow = isSelected
+        ? '0 8px 28px rgba(89, 128, 166, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
+        : '0 6px 18px -2px rgba(0, 0, 0, 0.34), 0 2px 6px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.22)';
+    } else {
+      const blur = Math.round(18 + ad * 16);
+      const offsetY = Math.round(6 + ad * 7);
+      const spread = Math.round(ad * 2.8);
+      const opacity = Math.min(0.88, Number((0.34 + ad * 0.12).toFixed(2)));
+      const subOpacity = Number((opacity * 0.65).toFixed(2));
+
+      boxShadow = isSelected
+        ? `0 ${offsetY}px ${blur}px ${spread}px rgba(0, 0, 0, ${opacity}), 0 0 26px rgba(89, 128, 166, 0.45)`
+        : `0 ${offsetY}px ${blur}px ${spread}px rgba(0, 0, 0, ${opacity}), 0 ${Math.round(offsetY * 0.5)}px ${Math.round(blur * 0.4)}px rgba(0, 0, 0, ${subOpacity})`;
+    }
   }
 
   return { border, borderColor, boxShadow };
 };
 
 export const Stage: React.FC<StageProps> = ({
+  theme,
   entries,
   allEntries,
   view,
@@ -102,14 +138,39 @@ export const Stage: React.FC<StageProps> = ({
   onOpenZipContents,
   sortOption = 'name',
   sortDirection = 'asc',
-  onSortChange
+  onSortChange,
+  isPreviewOpen = false,
+  isStudioMode = false
 }) => {
+  const isLight = theme === 'light';
   const wrapRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const ioRef = useRef<IntersectionObserver | null>(null);
 
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [stageWidth, setStageWidth] = useState<number>(() =>
+    typeof window !== 'undefined' ? Math.max(300, window.innerWidth - 220) : 1200
+  );
+
+  useEffect(() => {
+    const updateWidth = () => {
+      const w = stageRef.current?.clientWidth || wrapRef.current?.clientWidth || (window.innerWidth - 220);
+      setStageWidth(w);
+    };
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, []);
+
+  const isDocked56vw = !!isPreviewOpen && !isStudioMode;
+  const panelWidth = Math.min(
+    typeof window !== 'undefined' ? window.innerWidth * 0.96 : 1400,
+    Math.max(580, typeof window !== 'undefined' ? window.innerWidth * 0.56 : 700)
+  );
+  const leftoverW = Math.max(0, stageWidth - panelWidth);
+  const leftoverCenter = Math.max(120, Math.round(leftoverW / 2));
+
   const isPointerDownRef = useRef(false);
   const isDraggingRef = useRef(false);
   const hasMovedRef = useRef(false);
@@ -121,7 +182,8 @@ export const Stage: React.FC<StageProps> = ({
 
   // Keep live references to avoid re-binding listeners during continuous gestures
   const focusIndexRef = useRef(focusIndex);
-  focusIndexRef.current = focusIndex;
+  const focusIndexRef_curr = focusIndex;
+  focusIndexRef.current = focusIndexRef_curr;
 
   const entriesRef = useRef(entries);
   entriesRef.current = entries;
@@ -338,9 +400,10 @@ export const Stage: React.FC<StageProps> = ({
     if (view === 'grid') {
       wr.style.overflowY = 'scroll';
       wr.style.overflowX = 'hidden';
-      const cols = density;
+      const gridW = isDocked56vw ? leftoverW : W;
+      const cols = isDocked56vw ? Math.max(1, Math.min(density, 3)) : density;
       const gap = 18;
-      const cw = Math.max(120, Math.floor((W - gap * (cols - 1)) / cols));
+      const cw = Math.max(120, Math.floor((gridW - gap * (cols - 1)) / cols));
       const ch = Math.round(cw * 0.74 + 132);
 
       entries.forEach((e, i) => {
@@ -365,11 +428,14 @@ export const Stage: React.FC<StageProps> = ({
       wr.style.overflow = 'hidden';
 
       if (view === 'filmstrip') {
-        // Filmstrip: related to display area vh; card centered vertically at cy; vertical strip at 33% width
-        // vStep = ch2 + gap prevents 3D card planes from overlapping and intersecting
-        const ch2 = Math.max(300, Math.min(640, Math.round(displayH * 0.45)));
-        const cw2 = Math.round(ch2 * 0.72);
-        const cxFilm = Math.round(W * 0.33 - cw2 / 2);
+        // Filmstrip: related to display area vh; card centered vertically at cy;
+        // In default state: strip at 33% width. In 56vw docked state: card centered in leftover space at left
+        const ch2 = isDocked56vw
+          ? Math.max(280, Math.min(520, Math.round(displayH * 0.42)))
+          : Math.max(300, Math.min(640, Math.round(displayH * 0.45)));
+        const maxW = isDocked56vw ? Math.round(leftoverW * 0.84) : Math.round(W * 0.36);
+        const cw2 = Math.min(Math.round(ch2 * 0.72), maxW);
+        const cxFilm = isDocked56vw ? Math.round(leftoverCenter - cw2 / 2) : Math.round(W * 0.33 - cw2 / 2);
         const cy = Math.round((displayH - ch2) / 2);
         const gap = Math.max(22, Math.round(displayH * 0.028));
         const vStep = ch2 + gap;
@@ -392,18 +458,21 @@ export const Stage: React.FC<StageProps> = ({
           };
         });
       } else if (view === 'coverflow') {
-        // Coverflow: card size related to display area vh; center card dead in center
-        const ch2 = Math.max(320, Math.min(660, Math.round(displayH * 0.56)));
-        const maxW = Math.round(W * 0.42);
+        // Coverflow: card size related to display area vh; center card in leftover space when 56vw docked, or W/2 normally
+        const ch2 = isDocked56vw
+          ? Math.max(280, Math.min(540, Math.round(displayH * 0.48)))
+          : Math.max(320, Math.min(660, Math.round(displayH * 0.56)));
+        const maxW = isDocked56vw ? Math.round(leftoverW * 0.84) : Math.round(W * 0.42);
         const cw2 = Math.min(Math.round(ch2 * 0.74), maxW);
-        const cx = Math.round(W / 2 - cw2 / 2);
+        const cx = isDocked56vw ? Math.round(leftoverCenter - cw2 / 2) : Math.round(W / 2 - cw2 / 2);
         const cy = Math.round((displayH - ch2) / 2);
+        const step = isDocked56vw ? Math.round(cw2 * 0.42) : Math.round(cw2 * 0.52);
 
         entries.forEach((e, i) => {
           const d = i - focus;
           const ad = Math.abs(d);
           T[e.id] = {
-            x: cx + d * Math.round(cw2 * 0.52),
+            x: cx + d * step,
             y: cy + ad * 8,
             w: cw2,
             h: ch2,
@@ -417,10 +486,13 @@ export const Stage: React.FC<StageProps> = ({
           };
         });
       } else if (view === 'peel') {
-        // Peel: scaled to display area vh; centered in center; alternating throw to the right for peeled cards
-        const ch2 = Math.max(320, Math.min(640, Math.round(displayH * 0.54)));
-        const cw2 = Math.round(ch2 * 0.74);
-        const cx = Math.round(W / 2 - cw2 / 2);
+        // Peel: scaled to display area vh; centered in leftover space when 56vw docked, or W/2 normally
+        const ch2 = isDocked56vw
+          ? Math.max(280, Math.min(520, Math.round(displayH * 0.46)))
+          : Math.max(320, Math.min(640, Math.round(displayH * 0.54)));
+        const maxW = isDocked56vw ? Math.round(leftoverW * 0.84) : Math.round(W * 0.42);
+        const cw2 = Math.min(Math.round(ch2 * 0.74), maxW);
+        const cx = isDocked56vw ? Math.round(leftoverCenter - cw2 / 2) : Math.round(W / 2 - cw2 / 2);
         const cy = Math.round((displayH - ch2) / 2);
 
         entries.forEach((e, i) => {
@@ -431,15 +503,16 @@ export const Stage: React.FC<StageProps> = ({
             const side = (i % 2 === 0) ? -1 : 1; // -1 = LEFT, +1 = RIGHT (Left, Right, repeat)
             const pileIdx = Math.floor(i / 2);
             const altTilt = (pileIdx % 2 === 0) ? 1 : -1;
-            const spreadStep = Math.min(k, 4) * 14;
+            const spreadStep = Math.min(k, 4) * (isDocked56vw ? 9 : 14);
 
             const baseRZ = side * 14;
             const scatterTilt = altTilt * (4 + (k % 3) * 3);
             const rZ = baseRZ + scatterTilt;
             const rY = side * 10 + altTilt * 4;
+            const discardOffset = isDocked56vw ? Math.round(cw2 * 0.6) : Math.round(cw2 * 0.84);
 
             T[e.id] = {
-              x: cx + side * (Math.round(cw2 * 0.84) + spreadStep) + altTilt * (side === 1 ? 14 : -12),
+              x: cx + side * (discardOffset + spreadStep) + altTilt * (side === 1 ? 14 : -12),
               y: cy + altTilt * 24 + Math.min(k, 4) * 6,
               w: cw2,
               h: ch2,
@@ -469,11 +542,14 @@ export const Stage: React.FC<StageProps> = ({
           }
         });
       } else if (view === 'radial') {
-        const ch2 = Math.max(300, Math.min(620, Math.round(displayH * 0.52)));
-        const cw2 = Math.round(ch2 * 0.74);
-        const cx = Math.round(W / 2 - cw2 / 2);
+        const ch2 = isDocked56vw
+          ? Math.max(280, Math.min(500, Math.round(displayH * 0.44)))
+          : Math.max(300, Math.min(620, Math.round(displayH * 0.52)));
+        const maxW = isDocked56vw ? Math.round(leftoverW * 0.84) : Math.round(W * 0.42);
+        const cw2 = Math.min(Math.round(ch2 * 0.74), maxW);
+        const cx = isDocked56vw ? Math.round(leftoverCenter - cw2 / 2) : Math.round(W / 2 - cw2 / 2);
         const cy = Math.round((displayH - ch2) / 2);
-        const R = Math.max(900, Math.round(W * 0.88));
+        const R = Math.max(isDocked56vw ? 600 : 900, Math.round((isDocked56vw ? leftoverW : W) * 0.88));
 
         entries.forEach((e, i) => {
           const d = i - focus;
@@ -495,16 +571,20 @@ export const Stage: React.FC<StageProps> = ({
         });
       } else {
         // strip
-        const ch2 = Math.max(300, Math.min(620, Math.round(displayH * 0.52)));
-        const cw2 = Math.round(ch2 * 0.74);
-        const cx = Math.round(W / 2 - cw2 / 2);
+        const ch2 = isDocked56vw
+          ? Math.max(280, Math.min(500, Math.round(displayH * 0.44)))
+          : Math.max(300, Math.min(620, Math.round(displayH * 0.52)));
+        const maxW = isDocked56vw ? Math.round(leftoverW * 0.84) : Math.round(W * 0.42);
+        const cw2 = Math.min(Math.round(ch2 * 0.74), maxW);
+        const cx = isDocked56vw ? Math.round(leftoverCenter - cw2 / 2) : Math.round(W / 2 - cw2 / 2);
         const cy = Math.round((displayH - ch2) / 2);
+        const step = isDocked56vw ? cw2 + 14 : cw2 + 24;
 
         entries.forEach((e, i) => {
           const d = i - focus;
           const ad = Math.abs(d);
           T[e.id] = {
-            x: cx + d * (cw2 + 24),
+            x: cx + d * step,
             y: cy + (d === 0 ? -10 : 8),
             w: cw2,
             h: ch2,
@@ -522,7 +602,7 @@ export const Stage: React.FC<StageProps> = ({
 
     st.style.height = `${view === 'grid' ? stageH : displayH}px`;
 
-    const dur = 0.72 * m;
+    const dur = 0.62 * m;
     const ease = view === 'strip' ? 'elastic.out(0.55, 0.72)' : 'expo.out';
 
     allEntries.forEach((entry) => {
@@ -558,7 +638,7 @@ export const Stage: React.FC<StageProps> = ({
 
       const idxInVis = entries.findIndex((x) => x.id === entry.id);
       const ad = isCarousel && idxInVis >= 0 ? Math.abs(idxInVis - focus) : 0;
-      const depth = getCardDepthStyling(ad, isSelected, isCarousel);
+      const depth = getCardDepthStyling(ad, isSelected, isCarousel, isLight);
 
       const innerSurface = el.querySelector('[data-reveal] > div') as HTMLElement | null;
       if (innerSurface) {
@@ -578,7 +658,7 @@ export const Stage: React.FC<StageProps> = ({
         duration: dur,
         ease: ease,
         overwrite: 'auto',
-        delay: Math.min(idxInVis * 0.016 * m, 0.5)
+        delay: isCarousel ? 0 : Math.min(idxInVis * 0.016 * m, 0.5)
       });
     });
 
@@ -624,7 +704,7 @@ export const Stage: React.FC<StageProps> = ({
         gsap.set(r, { opacity: 1, y: 0, rotateX: 0 });
       });
     }
-  }, [entries, allEntries, view, density, focusIndex, selectedIds, motionMultiplier]);
+  }, [entries, allEntries, view, density, focusIndex, selectedIds, motionMultiplier, isPreviewOpen, isStudioMode, stageWidth]);
 
   // Magnetic hover effect when pool in rail is hovered
   useEffect(() => {
@@ -1209,7 +1289,9 @@ export const Stage: React.FC<StageProps> = ({
           aria-hidden="true"
           className="watermark-backdrop"
           style={{
-            perspectiveOrigin: isFilmstrip ? '67% 50%' : '50% 50%'
+            perspectiveOrigin: isDocked56vw
+              ? `${leftoverCenter}px 50%`
+              : (isFilmstrip ? '67% 50%' : '50% 50%')
           }}
         >
           {/* Exiting Letter & Script Group */}
@@ -1221,7 +1303,7 @@ export const Stage: React.FC<StageProps> = ({
                 position: 'absolute',
                 top: 0,
                 bottom: 0,
-                left: isFilmstrip ? '67%' : '50%',
+                left: isDocked56vw ? `${leftoverCenter}px` : (isFilmstrip ? '67%' : '50%'),
                 width: 0,
                 display: 'flex',
                 alignItems: 'center',
@@ -1271,7 +1353,7 @@ export const Stage: React.FC<StageProps> = ({
                 position: 'absolute',
                 top: 0,
                 bottom: 0,
-                left: isFilmstrip ? '67%' : '50%',
+                left: isDocked56vw ? `${leftoverCenter}px` : (isFilmstrip ? '67%' : '50%'),
                 width: 0,
                 display: 'flex',
                 alignItems: 'center',
@@ -1329,6 +1411,7 @@ export const Stage: React.FC<StageProps> = ({
       >
         {view === 'list' ? (
           <ListView
+            theme={theme}
             entries={entries}
             stars={stars}
             onToggleStar={onToggleStar}
@@ -1357,13 +1440,13 @@ export const Stage: React.FC<StageProps> = ({
               maxWidth: '460px',
               padding: '36px 30px',
               borderRadius: '20px',
-              border: '1px dashed rgba(148, 188, 227, 0.25)',
-              background: 'rgba(27, 36, 46, 0.5)',
+              border: isLight ? '1px dashed rgba(15, 23, 42, 0.2)' : '1px dashed rgba(148, 188, 227, 0.25)',
+              background: isLight ? 'rgba(255, 255, 255, 0.9)' : 'rgba(27, 36, 46, 0.5)',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               gap: '14px',
-              boxShadow: '0 20px 40px rgba(0,0,0,0.3)'
+              boxShadow: isLight ? '0 10px 30px rgba(15, 23, 42, 0.08)' : '0 20px 40px rgba(0,0,0,0.3)'
             }}
           >
             <div
@@ -1371,12 +1454,12 @@ export const Stage: React.FC<StageProps> = ({
                 width: '52px',
                 height: '52px',
                 borderRadius: '16px',
-                background: 'rgba(148, 188, 227, 0.1)',
-                border: '1px solid rgba(148, 188, 227, 0.2)',
+                background: isLight ? 'rgba(37, 99, 235, 0.08)' : 'rgba(148, 188, 227, 0.1)',
+                border: isLight ? '1px solid rgba(37, 99, 235, 0.2)' : '1px solid rgba(148, 188, 227, 0.2)',
                 display: 'grid',
                 placeItems: 'center',
                 fontSize: '24px',
-                color: '#94bce3'
+                color: isLight ? 'var(--tint-ink, #1d4ed8)' : '#94bce3'
               }}
             >
               📁
@@ -1417,7 +1500,7 @@ export const Stage: React.FC<StageProps> = ({
                   fontSize: '26px',
                   letterSpacing: '.04em',
                   textTransform: 'uppercase',
-                  color: '#e9edf2'
+                  color: isLight ? '#0f172a' : '#e9edf2'
                 }}
               >
                 Archive is empty
@@ -1426,7 +1509,7 @@ export const Stage: React.FC<StageProps> = ({
                 style={{
                   fontFamily: 'ui-monospace, Menlo, monospace',
                   fontSize: '11px',
-                  color: 'rgba(233, 237, 242, 0.6)',
+                  color: isLight ? 'rgba(15, 23, 42, 0.65)' : 'rgba(233, 237, 242, 0.6)',
                   marginTop: '6px',
                   lineHeight: 1.5
                 }}
@@ -1443,15 +1526,15 @@ export const Stage: React.FC<StageProps> = ({
                     padding: '10px 18px',
                     borderRadius: '12px',
                     cursor: 'pointer',
-                    border: '1px solid #416180',
-                    color: '#f2f2f3',
+                    border: isLight ? '1px solid rgba(15, 23, 42, 0.15)' : '1px solid #416180',
+                    color: isLight ? '#ffffff' : '#f2f2f3',
                     fontFamily: "'Barlow Condensed', sans-serif",
                     fontSize: '14px',
                     fontWeight: 600,
                     letterSpacing: '.05em',
                     textTransform: 'uppercase',
-                    background: 'linear-gradient(180deg, #6b91b6, #5980a6)',
-                    boxShadow: '0 2px 0 #416180, 0 6px 14px rgba(65,97,128,.3)'
+                    background: isLight ? 'linear-gradient(180deg, #3b82f6, #2563eb)' : 'linear-gradient(180deg, #6b91b6, #5980a6)',
+                    boxShadow: isLight ? '0 2px 8px rgba(37,99,235,.25)' : '0 2px 0 #416180, 0 6px 14px rgba(65,97,128,.3)'
                   }}
                 >
                   + Ingest Zips & Files
@@ -1464,9 +1547,9 @@ export const Stage: React.FC<StageProps> = ({
                     padding: '10px 18px',
                     borderRadius: '12px',
                     cursor: 'pointer',
-                    border: '1px solid rgba(148, 188, 227, 0.3)',
+                    border: isLight ? '1px solid rgba(15, 23, 42, 0.16)' : '1px solid rgba(148, 188, 227, 0.3)',
                     background: 'transparent',
-                    color: '#b5d9fd',
+                    color: isLight ? 'var(--tint-ink, #1d4ed8)' : '#b5d9fd',
                     fontFamily: "'Barlow Condensed', sans-serif",
                     fontSize: '14px',
                     fontWeight: 600,
@@ -1490,7 +1573,7 @@ export const Stage: React.FC<StageProps> = ({
                   fontSize: '10px',
                   letterSpacing: '.06em',
                   textTransform: 'uppercase',
-                  color: 'rgba(148, 188, 227, 0.5)',
+                  color: isLight ? 'var(--tint-ink, #1d4ed8)' : 'rgba(148, 188, 227, 0.5)',
                   textDecoration: 'underline'
                 }}
               >
@@ -1510,7 +1593,7 @@ export const Stage: React.FC<StageProps> = ({
             justifyContent: 'center',
             textAlign: 'center',
             padding: '40px 20px',
-            color: 'rgba(233, 237, 242, 0.7)',
+            color: isLight ? 'rgba(15, 23, 42, 0.7)' : 'rgba(233, 237, 242, 0.7)',
             fontFamily: 'ui-monospace, Menlo, monospace',
             fontSize: '12px',
             gap: '12px'
@@ -1525,9 +1608,9 @@ export const Stage: React.FC<StageProps> = ({
               style={{
                 padding: '8px 14px',
                 borderRadius: '10px',
-                border: '1px solid rgba(148, 188, 227, 0.3)',
-                background: 'rgba(148, 188, 227, 0.1)',
-                color: '#b5d9fd',
+                border: isLight ? '1px solid rgba(15, 23, 42, 0.15)' : '1px solid rgba(148, 188, 227, 0.3)',
+                background: isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(148, 188, 227, 0.1)',
+                color: isLight ? 'var(--tint-ink, #1d4ed8)' : '#b5d9fd',
                 fontFamily: "'Barlow Condensed', sans-serif",
                 fontSize: '13px',
                 fontWeight: 600,
@@ -1546,9 +1629,9 @@ export const Stage: React.FC<StageProps> = ({
           style={{
             position: 'relative',
             width: '100%',
-            perspective: '1500px',
-            perspectiveOrigin: view === 'filmstrip' ? '33% 50%' : '50% 50%',
-            transformStyle: 'preserve-3d',
+            perspectiveOrigin: isDocked56vw
+              ? `${leftoverCenter}px 50%`
+              : (view === 'filmstrip' ? '33% 50%' : '50% 50%'),
             userSelect: 'none'
           }}
         >
@@ -1559,7 +1642,9 @@ export const Stage: React.FC<StageProps> = ({
             const idxInEntries = entries.findIndex((x) => x.id === e.id);
             const focus = Math.max(0, Math.min(focusIndex, entries.length - 1));
             const ad = isCarousel && idxInEntries >= 0 ? Math.abs(idxInEntries - focus) : 0;
-            const depth = getCardDepthStyling(ad, isSelected, isCarousel);
+            const depth = getCardDepthStyling(ad, isSelected, isCarousel, isLight);
+            const sortInfo = getSortDisplayInfo(e, sortOption);
+            const sortMeta = SORT_CONFIGS[sortOption] || SORT_CONFIGS.name;
 
             return (
               <div
@@ -1600,9 +1685,9 @@ export const Stage: React.FC<StageProps> = ({
                     }}
                     onMouseEnter={(el) => {
                       el.currentTarget.style.boxShadow = isSelected
-                        ? '0 16px 36px rgba(89,128,166,.5), 0 0 20px rgba(89,128,166,.3)'
-                        : '0 20px 48px rgba(0,0,0,.65), 0 0 0 1px rgba(181,217,253,.6)';
-                      el.currentTarget.style.borderColor = '#b5d9fd';
+                        ? (isLight ? '0 16px 36px rgba(37,99,235,.4), 0 0 20px rgba(37,99,235,.2)' : '0 16px 36px rgba(89,128,166,.5), 0 0 20px rgba(89,128,166,.3)')
+                        : (isLight ? '0 16px 36px rgba(15,23,42,.15), 0 0 0 1px rgba(37,99,235,.5)' : '0 20px 48px rgba(0,0,0,.65), 0 0 0 1px rgba(181,217,253,.6)');
+                      el.currentTarget.style.borderColor = isLight ? '#2563eb' : '#b5d9fd';
                       el.currentTarget.style.transform = 'translateY(-3px)';
                     }}
                     onMouseLeave={(el) => {
@@ -1617,9 +1702,10 @@ export const Stage: React.FC<StageProps> = ({
                         position: 'relative',
                         flex: 1,
                         minHeight: 0,
-                        background:
-                          'repeating-linear-gradient(135deg, rgba(89,128,166,.15) 0 4px, rgba(89,128,166,.04) 4px 9px)',
-                        borderBottom: '1px solid rgba(var(--inkc, 29,31,32), .1)'
+                        background: isLight
+                          ? 'repeating-linear-gradient(135deg, rgba(37,99,235,.07) 0 4px, rgba(37,99,235,.02) 4px 9px)'
+                          : 'repeating-linear-gradient(135deg, rgba(89,128,166,.15) 0 4px, rgba(89,128,166,.04) 4px 9px)',
+                        borderBottom: isLight ? '1px solid rgba(15, 23, 42, 0.08)' : '1px solid rgba(var(--inkc, 29,31,32), .1)'
                       }}
                     >
                       {e.thumb ? (
@@ -1647,9 +1733,15 @@ export const Stage: React.FC<StageProps> = ({
                           top: '9px',
                           padding: '3px 8px',
                           borderRadius: '7px',
-                          background: isZipArchive(e) && !e.isZipInnerFile ? 'rgba(56,239,125,.22)' : 'rgba(29,45,61,.85)',
-                          border: isZipArchive(e) && !e.isZipInnerFile ? '1px solid rgba(56,239,125,.45)' : '1px solid rgba(255,255,255,.08)',
-                          color: isZipArchive(e) && !e.isZipInnerFile ? '#38ef7d' : '#e9edf2',
+                          background: isZipArchive(e) && !e.isZipInnerFile
+                            ? (isLight ? 'rgba(34, 197, 94, 0.16)' : 'rgba(56,239,125,.22)')
+                            : (isLight ? 'rgba(241, 245, 249, 0.92)' : 'rgba(29,45,61,.85)'),
+                          border: isZipArchive(e) && !e.isZipInnerFile
+                            ? (isLight ? '1px solid rgba(34, 197, 94, 0.45)' : '1px solid rgba(56,239,125,.45)')
+                            : (isLight ? '1px solid rgba(15, 23, 42, 0.12)' : '1px solid rgba(255,255,255,.08)'),
+                          color: isZipArchive(e) && !e.isZipInnerFile
+                            ? (isLight ? '#15803d' : '#38ef7d')
+                            : (isLight ? '#0f172a' : '#e9edf2'),
                           fontFamily: 'ui-monospace, Menlo, monospace',
                           fontSize: '9px',
                           fontWeight: isZipArchive(e) && !e.isZipInnerFile ? 700 : 400,
@@ -1702,11 +1794,11 @@ export const Stage: React.FC<StageProps> = ({
                             right: '10px',
                             padding: '4px 10px',
                             borderRadius: '7px',
-                            background: 'rgba(15,23,42,0.85)',
+                            background: isLight ? 'rgba(255,255,255,0.92)' : 'rgba(15,23,42,0.85)',
                             backdropFilter: 'blur(8px)',
                             WebkitBackdropFilter: 'blur(8px)',
-                            border: '1px solid rgba(56,239,125,0.3)',
-                            color: '#b5d9fd',
+                            border: isLight ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(56,239,125,0.3)',
+                            color: isLight ? '#15803d' : '#b5d9fd',
                             fontFamily: 'ui-monospace, Menlo, monospace',
                             fontSize: '9.5px',
                             display: 'flex',
@@ -1716,10 +1808,39 @@ export const Stage: React.FC<StageProps> = ({
                             zIndex: 2
                           }}
                         >
-                          <span style={{ color: '#38ef7d', fontWeight: 600 }}>Explore Archive</span>
-                          <span style={{ fontSize: '11px', color: '#38ef7d' }}>›</span>
+                          <span style={{ color: isLight ? '#15803d' : '#38ef7d', fontWeight: 600 }}>Explore Archive</span>
+                          <span style={{ fontSize: '11px', color: isLight ? '#15803d' : '#38ef7d' }}>›</span>
                         </div>
                       )}
+
+                      {/* Active Sort Metric Badge on Thumbnail */}
+                      <span
+                        style={{
+                          position: 'absolute',
+                          right: '38px',
+                          top: '7px',
+                          padding: '3px 8px',
+                          borderRadius: '7px',
+                          background: isLight ? 'rgba(255, 255, 255, 0.94)' : 'rgba(15, 23, 42, 0.88)',
+                          backdropFilter: 'blur(8px)',
+                          WebkitBackdropFilter: 'blur(8px)',
+                          border: isLight ? '1px solid rgba(37, 99, 235, 0.35)' : '1px solid rgba(148, 188, 227, 0.45)',
+                          color: isLight ? '#1d4ed8' : '#b5d9fd',
+                          fontFamily: 'ui-monospace, Menlo, monospace',
+                          fontSize: '9.5px',
+                          fontWeight: 700,
+                          letterSpacing: '.04em',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          boxShadow: isLight ? '0 2px 6px rgba(15, 23, 42, 0.1)' : '0 2px 8px rgba(0, 0, 0, 0.4)',
+                          zIndex: 2
+                        }}
+                        title={`Sorted by ${sortMeta.label}: ${sortInfo.full}`}
+                      >
+                        <span style={{ fontSize: '10px' }}>{sortMeta.icon}</span>
+                        <span>{sortInfo.badge}</span>
+                      </span>
 
                       {/* Star Button */}
                       <span
@@ -1774,7 +1895,7 @@ export const Stage: React.FC<StageProps> = ({
                         style={{
                           position: 'absolute',
                           inset: 0,
-                          border: '2px solid #5980a6',
+                          border: isLight ? '2px solid #2563eb' : '2px solid #5980a6',
                           opacity: isSelected ? 1 : 0,
                           pointerEvents: 'none',
                           transition: 'opacity 0.2s'
@@ -1809,6 +1930,30 @@ export const Stage: React.FC<StageProps> = ({
 
                       {/* Tag Chips */}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                        {/* Active Sort Attribute Pill */}
+                        <span
+                          style={{
+                            padding: '3px 9px',
+                            borderRadius: '99px',
+                            fontFamily: 'ui-monospace, Menlo, monospace',
+                            fontSize: '9.5px',
+                            fontWeight: 700,
+                            letterSpacing: '.04em',
+                            textTransform: 'uppercase',
+                            background: isLight ? 'rgba(37, 99, 235, 0.14)' : 'rgba(89, 128, 166, 0.35)',
+                            color: isLight ? '#1d4ed8' : '#b5d9fd',
+                            border: isLight ? '1px solid rgba(37, 99, 235, 0.45)' : '1px solid rgba(148, 188, 227, 0.55)',
+                            boxShadow: isLight ? '0 1px 3px rgba(37, 99, 235, 0.12)' : '0 1px 3px rgba(0, 0, 0, 0.3)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                          title={`Active Sort: ${sortMeta.label} (${sortInfo.full})`}
+                        >
+                          <span style={{ fontSize: '10px' }}>{sortMeta.icon}</span>
+                          <span>{sortInfo.label}</span>
+                        </span>
+
                         <span
                           style={{
                             padding: '3px 9px',
@@ -1819,7 +1964,7 @@ export const Stage: React.FC<StageProps> = ({
                             textTransform: 'uppercase',
                             background: 'var(--tint, #eef6ff)',
                             color: 'var(--tint-ink, #2c455d)',
-                            border: '1px solid rgba(89,128,166,.28)'
+                            border: isLight ? '1px solid rgba(37, 99, 235, 0.2)' : '1px solid rgba(89,128,166,.28)'
                           }}
                         >
                           {e.cat}
@@ -1840,7 +1985,7 @@ export const Stage: React.FC<StageProps> = ({
                                   textTransform: 'uppercase',
                                   background: 'var(--tint, #eef6ff)',
                                   color: 'var(--tint-ink, #2c455d)',
-                                  border: '1px solid rgba(89,128,166,.28)'
+                                  border: isLight ? '1px solid rgba(37, 99, 235, 0.2)' : '1px solid rgba(89,128,166,.28)'
                                 }}
                               >
                                 {d}
@@ -1867,8 +2012,9 @@ export const Stage: React.FC<StageProps> = ({
                             overflow: 'hidden',
                             textOverflow: 'ellipsis'
                           }}
+                          title={`${e.author} · ${sortInfo.byline}`}
                         >
-                          {e.author} · {e.date}
+                          {e.author} · {sortInfo.byline}
                         </span>
                         <span
                           onClick={(ev) => handleCopy(`${e.title} — ${KINDS[e.type]?.[0]}`, e.id, ev)}

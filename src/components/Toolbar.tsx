@@ -89,6 +89,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
   return (
     <div
+      data-toolbar="1"
       data-intro="1"
       style={{
         display: 'flex',

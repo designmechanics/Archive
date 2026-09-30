@@ -15,7 +15,9 @@ export const VideoViewer: React.FC<VideoViewerProps> = ({ src, name }) => {
   const [playbackRate, setPlaybackRate] = useState(1);
   const [loop, setLoop] = useState(true);
   const [resolution, setResolution] = useState<{ w: number; h: number } | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
+  const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
@@ -99,14 +101,131 @@ export const VideoViewer: React.FC<VideoViewerProps> = ({ src, name }) => {
     }
   }, []);
 
+  // Listen to browser and player fullscreen events (and sync controls / state)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isFs = !!(
+        document.fullscreenElement === videoRef.current ||
+        document.fullscreenElement === containerRef.current ||
+        (document as any).webkitFullscreenElement === videoRef.current ||
+        (document as any).webkitFullscreenElement === containerRef.current ||
+        (videoRef.current as any)?.webkitDisplayingFullscreen
+      );
+      setIsFullscreen(isFs);
+      if (videoRef.current) {
+        // When in native fullscreen, enable the player's built-in controls
+        // so the user can interact with the native player's built-in controls and built-in fullscreen exit toggle!
+        videoRef.current.controls = isFs;
+      }
+    };
+
+    const handleWebkitBegin = () => {
+      setIsFullscreen(true);
+      if (videoRef.current) videoRef.current.controls = true;
+    };
+
+    const handleWebkitEnd = () => {
+      setIsFullscreen(false);
+      if (videoRef.current) videoRef.current.controls = false;
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    const v = videoRef.current;
+    if (v) {
+      v.addEventListener('webkitbeginfullscreen', handleWebkitBegin);
+      v.addEventListener('webkitendfullscreen', handleWebkitEnd);
+    }
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+      if (v) {
+        v.removeEventListener('webkitbeginfullscreen', handleWebkitBegin);
+        v.removeEventListener('webkitendfullscreen', handleWebkitEnd);
+      }
+    };
+  }, []);
+
+  const toggleFullscreen = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const isFs = !!(
+      document.fullscreenElement ||
+      (document as any).webkitFullscreenElement ||
+      (document as any).mozFullScreenElement ||
+      (document as any).msFullscreenElement ||
+      (video as any).webkitDisplayingFullscreen
+    );
+
+    if (isFs) {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if ((document as any).webkitExitFullscreen) {
+        (document as any).webkitExitFullscreen();
+      } else if ((document as any).mozCancelFullScreen) {
+        (document as any).mozCancelFullScreen();
+      } else if ((document as any).msExitFullscreen) {
+        (document as any).msExitFullscreen();
+      } else if ((video as any).webkitExitFullscreen) {
+        (video as any).webkitExitFullscreen();
+      }
+    } else {
+      // Prioritize the video element's built-in fullscreen API so the native player's
+      // built-in fullscreen toggle and player controls engage
+      if (video.requestFullscreen) {
+        video.requestFullscreen().catch((err) => {
+          console.warn('Video requestFullscreen failed, falling back to container:', err);
+          if (containerRef.current?.requestFullscreen) {
+            containerRef.current.requestFullscreen().catch(() => {});
+          }
+        });
+      } else if ((video as any).webkitRequestFullscreen) {
+        (video as any).webkitRequestFullscreen();
+      } else if ((video as any).webkitEnterFullscreen) {
+        (video as any).webkitEnterFullscreen();
+      } else if ((video as any).mozRequestFullScreen) {
+        (video as any).mozRequestFullScreen();
+      } else if ((video as any).msRequestFullscreen) {
+        (video as any).msRequestFullscreen();
+      } else if (containerRef.current?.requestFullscreen) {
+        containerRef.current.requestFullscreen().catch(() => {});
+      }
+    }
+  };
+
+  // Keyboard shortcut 'f' / 'F' to toggle fullscreen
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const togglePlay = () => {
     if (!videoRef.current) return;
-    if (isPlaying) {
-      videoRef.current.pause();
+    if (videoRef.current.paused) {
+      videoRef.current.play().catch(() => {});
+      setIsPlaying(true);
     } else {
-      videoRef.current.play();
+      videoRef.current.pause();
+      setIsPlaying(false);
     }
-    setIsPlaying(!isPlaying);
   };
 
   const handleTimeUpdate = () => {
@@ -162,13 +281,14 @@ export const VideoViewer: React.FC<VideoViewerProps> = ({ src, name }) => {
 
   return (
     <div
+      ref={containerRef}
       style={{
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
         minHeight: 0,
         background: '#090e13',
-        borderRadius: '14px',
+        borderRadius: isFullscreen ? 0 : '14px',
         overflow: 'hidden',
         position: 'relative'
       }}
@@ -190,6 +310,10 @@ export const VideoViewer: React.FC<VideoViewerProps> = ({ src, name }) => {
           overflow: 'hidden'
         }}
         onClick={togglePlay}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          toggleFullscreen();
+        }}
       >
         {/* Aspect-fit container: dynamically calculated from stage contentRect and video aspect ratio */}
         <div
@@ -210,7 +334,12 @@ export const VideoViewer: React.FC<VideoViewerProps> = ({ src, name }) => {
             onLoadedMetadata={handleLoadedMetadata}
             onLoadedData={handleLoadedMetadata}
             onCanPlay={handleLoadedMetadata}
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
             onEnded={() => setIsPlaying(false)}
+            onVolumeChange={() => {
+              if (videoRef.current) setIsMuted(videoRef.current.muted);
+            }}
             playsInline
             style={{
               width: '100%',
@@ -218,14 +347,14 @@ export const VideoViewer: React.FC<VideoViewerProps> = ({ src, name }) => {
               maxWidth: '100%',
               maxHeight: '100%',
               objectFit: 'contain',
-              borderRadius: '8px',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.65)',
+              borderRadius: isFullscreen ? 0 : '8px',
+              boxShadow: isFullscreen ? 'none' : '0 8px 32px rgba(0,0,0,0.65)',
               display: 'block'
             }}
           />
 
           {/* Center Play Overlay Icon if paused - centered to video frame */}
-          {!isPlaying && (
+          {!isPlaying && !isFullscreen && (
             <div
               style={{
                 position: 'absolute',
@@ -358,7 +487,7 @@ export const VideoViewer: React.FC<VideoViewerProps> = ({ src, name }) => {
           ))}
         </div>
 
-        {/* Volume & Loop */}
+        {/* Volume, Loop, Resolution & Fullscreen */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <button
             onClick={() => setLoop(!loop)}
@@ -392,12 +521,38 @@ export const VideoViewer: React.FC<VideoViewerProps> = ({ src, name }) => {
                 fontFamily: 'ui-monospace, Menlo, monospace',
                 fontSize: '9.5px',
                 color: 'rgba(233,237,242,.5)',
-                marginLeft: '4px'
+                marginLeft: '2px',
+                marginRight: '2px'
               }}
             >
               {resolution.w}×{resolution.h}
             </span>
           )}
+
+          <button
+            onClick={toggleFullscreen}
+            style={{
+              ...btnStyle,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '4px 7px',
+              background: isFullscreen ? 'rgba(56,239,125,.2)' : 'rgba(148,188,227,.1)',
+              borderColor: isFullscreen ? '#38ef7d' : 'rgba(148,188,227,.2)',
+              color: isFullscreen ? '#38ef7d' : '#b5d9fd'
+            }}
+            title={isFullscreen ? 'Exit Fullscreen (F)' : 'Fullscreen (F)'}
+          >
+            {isFullscreen ? (
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
+              </svg>
+            ) : (
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+              </svg>
+            )}
+          </button>
         </div>
       </div>
     </div>

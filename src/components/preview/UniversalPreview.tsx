@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import gsap from 'gsap';
-import { AssetEntry, ZipPack } from '../../types';
+import { AssetEntry, ZipPack, ThemeMode } from '../../types';
 import { getPackBlob } from '../../services/db';
 import { detectFormat, PreviewFormat } from './types';
 import { ImageViewer } from './ImageViewer';
@@ -17,6 +17,7 @@ import { HtmlViewer } from './HtmlViewer';
 import { PdfViewer } from './PdfViewer';
 
 interface UniversalPreviewProps {
+  theme?: ThemeMode;
   entry: AssetEntry;
   pack?: ZipPack | null;
   packSel?: string | null;
@@ -28,6 +29,7 @@ interface UniversalPreviewProps {
 }
 
 export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
+  theme,
   entry,
   pack,
   packSel,
@@ -37,6 +39,7 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
   onToggleStudioMode,
   motionMultiplier = 1
 }) => {
+  const isLight = theme === 'light';
   const [activeFormat, setActiveFormat] = useState<PreviewFormat>('code');
   const [contentString, setContentString] = useState<string>('');
   const [mediaBlobUrl, setMediaBlobUrl] = useState<string | null>(null);
@@ -275,8 +278,8 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
         minHeight: 0,
         borderRadius: '14px',
         overflow: 'hidden',
-        border: '1px solid rgba(148,188,227,.22)',
-        background: '#090e13',
+        border: isLight ? '1px solid rgba(15, 23, 42, 0.1)' : '1px solid rgba(148,188,227,.22)',
+        background: isLight ? '#f8fafc' : '#090e13',
         position: 'relative'
       }}
     >
@@ -287,8 +290,8 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '6px 12px',
-          background: 'rgba(24,36,50,.96)',
-          borderBottom: '1px solid rgba(148,188,227,.18)',
+          background: isLight ? 'rgba(241, 245, 249, 0.96)' : 'rgba(24,36,50,.96)',
+          borderBottom: isLight ? '1px solid rgba(15, 23, 42, 0.08)' : '1px solid rgba(148,188,227,.18)',
           zIndex: 12,
           flexShrink: 0
         }}
@@ -300,8 +303,8 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
               width: '8px',
               height: '8px',
               borderRadius: '99px',
-              background: '#94bce3',
-              boxShadow: '0 0 8px rgba(148,188,227,.6)'
+              background: isLight ? '#2563eb' : '#94bce3',
+              boxShadow: isLight ? '0 0 8px rgba(37, 99, 235, 0.5)' : '0 0 8px rgba(148,188,227,.6)'
             }}
           />
           <span
@@ -311,7 +314,7 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
               fontWeight: 600,
               letterSpacing: '.1em',
               textTransform: 'uppercase',
-              color: '#b5d9fd',
+              color: isLight ? '#0f172a' : '#b5d9fd',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -326,10 +329,10 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
             <div
               style={{
                 display: 'flex',
-                background: 'rgba(16,22,29,.85)',
+                background: isLight ? 'rgba(15, 23, 42, 0.06)' : 'rgba(16,22,29,.85)',
                 borderRadius: '6px',
                 padding: '1px',
-                border: '1px solid rgba(148,188,227,.15)'
+                border: isLight ? '1px solid rgba(15, 23, 42, 0.08)' : '1px solid rgba(148,188,227,.15)'
               }}
             >
               {availableFormats.map((fmt) => (
@@ -341,8 +344,13 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
                     borderRadius: '5px',
                     border: 0,
                     cursor: 'pointer',
-                    background: activeFormat === fmt ? 'rgba(148,188,227,.28)' : 'transparent',
-                    color: activeFormat === fmt ? '#b5d9fd' : 'rgba(233,237,242,.6)',
+                    background: activeFormat === fmt
+                      ? (isLight ? '#ffffff' : 'rgba(148,188,227,.28)')
+                      : 'transparent',
+                    color: activeFormat === fmt
+                      ? (isLight ? '#0f172a' : '#b5d9fd')
+                      : (isLight ? 'rgba(15, 23, 42, 0.6)' : 'rgba(233,237,242,.6)'),
+                    boxShadow: activeFormat === fmt && isLight ? '0 1px 2px rgba(15, 23, 42, 0.08)' : 'none',
                     fontFamily: 'ui-monospace, monospace',
                     fontSize: '9px',
                     textTransform: 'uppercase',
@@ -368,9 +376,13 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
               gap: '5px',
               padding: '3px 8px',
               borderRadius: '6px',
-              border: '1px solid rgba(148,188,227,.24)',
-              background: isStudioMode ? 'rgba(148,188,227,.25)' : 'rgba(148,188,227,.1)',
-              color: isStudioMode ? '#ffffff' : '#b5d9fd',
+              border: isLight ? '1px solid rgba(15, 23, 42, 0.12)' : '1px solid rgba(148,188,227,.24)',
+              background: isStudioMode
+                ? (isLight ? 'rgba(37, 99, 235, 0.15)' : 'rgba(148,188,227,.25)')
+                : (isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(148,188,227,.1)'),
+              color: isStudioMode
+                ? (isLight ? '#1d4ed8' : '#ffffff')
+                : (isLight ? '#0f172a' : '#b5d9fd'),
               fontFamily: 'ui-monospace, Menlo, monospace',
               fontSize: '10px',
               cursor: 'pointer',
@@ -381,7 +393,8 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
             <span
               style={{
                 fontSize: '9px',
-                background: 'rgba(181,217,253,.2)',
+                background: isLight ? 'rgba(15, 23, 42, 0.08)' : 'rgba(181,217,253,.2)',
+                color: isLight ? '#0f172a' : 'inherit',
                 padding: '1px 4px',
                 borderRadius: '4px'
               }}
@@ -413,7 +426,7 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
               height: '100%',
               fontFamily: 'ui-monospace, monospace',
               fontSize: '11px',
-              color: '#94bce3',
+              color: isLight ? 'var(--tint-ink, #1d4ed8)' : '#94bce3',
               letterSpacing: '.1em',
               textTransform: 'uppercase'
             }}

@@ -17,7 +17,10 @@
         --tint: #233447;
         --tint-ink: #b5d9fd;
         --rail: #1a2a3b;
+        --rail-ink: #e9edf2;
+        --rail-border: rgba(255, 255, 255, 0.08);
         --accent: #2c455d;
+        --rail-width: 252px;
       }
       * {
         box-sizing: border-box;
@@ -146,6 +149,329 @@
         user-select: none;
         z-index: 2;
         opacity: 0.50;
+      }
+
+      /* ================= Responsive Scaling for 1080p and Smaller ================= */
+      @media (max-width: 1920px) {
+        :root {
+          --rail-width: 195px;
+          --app-font-size: 13.5px;
+        }
+
+        /* 1. Sidemenu (Left Rail) Width, Fonts & Line Heights */
+        aside[data-rail="1"] {
+          width: 195px !important;
+          min-width: 195px !important;
+          max-width: 195px !important;
+        }
+        aside[data-rail="1"] > div:first-child {
+          padding: 12px 14px 8px !important;
+          gap: 3px !important;
+        }
+        aside[data-rail="1"] > div:first-child [data-intro="1"]:last-child {
+          font-size: 8.5px !important;
+          letter-spacing: .08em !important;
+        }
+
+        /* Indexing status card */
+        aside[data-rail="1"] > div[data-intro="1"] {
+          margin: 0 10px 8px !important;
+          padding: 6px 9px !important;
+          gap: 4px !important;
+          border-radius: 9px !important;
+        }
+        aside[data-rail="1"] > div[data-intro="1"] div {
+          font-size: 8px !important;
+        }
+
+        /* Scrollable Navigation / Pools area */
+        aside[data-rail="1"] div[data-scroll="1"] {
+          padding: 0 8px 8px !important;
+        }
+
+        /* Section headers (Pools, Watched folders) */
+        aside[data-rail="1"] div[data-scroll="1"] > div[data-intro="1"] {
+          padding: 4px 6px !important;
+          font-size: 8px !important;
+          margin-top: 4px !important;
+        }
+
+        /* Everything Button */
+        aside[data-rail="1"] button[data-intro="1"] {
+          padding: 5px 8px !important;
+          margin-bottom: 2px !important;
+          border-radius: 8px !important;
+          gap: 6px !important;
+          font-size: 12.5px !important;
+          line-height: 1.15 !important;
+        }
+        aside[data-rail="1"] button[data-intro="1"] span:first-child {
+          font-size: 12.5px !important;
+          line-height: 1.15 !important;
+        }
+        aside[data-rail="1"] button[data-intro="1"] span:last-child {
+          font-size: 8.5px !important;
+        }
+
+        /* Pool Rows & Buttons */
+        aside[data-rail="1"] [data-pool] {
+          margin-bottom: 1.5px !important;
+        }
+        aside[data-rail="1"] [data-pool] > button {
+          padding: 4.5px 7px !important;
+          border-radius: 8px !important;
+          gap: 6px !important;
+          font-size: 12px !important;
+          line-height: 1.15 !important;
+        }
+        aside[data-rail="1"] [data-pool] > button span:nth-child(1) {
+          width: 5px !important;
+          height: 5px !important;
+        }
+        aside[data-rail="1"] [data-pool] > button span:nth-child(2) {
+          font-size: 12px !important;
+          line-height: 1.15 !important;
+        }
+        aside[data-rail="1"] [data-pool] > button span:nth-child(3) {
+          font-size: 8.5px !important;
+        }
+        aside[data-rail="1"] [data-pool] > button span:nth-child(4) {
+          width: 17px !important;
+          height: 17px !important;
+          font-size: 9.5px !important;
+          border-radius: 5px !important;
+        }
+
+        /* Watched Folder Items */
+        aside[data-rail="1"] [data-folder] {
+          padding: 4px 7px !important;
+          margin-bottom: 2px !important;
+          gap: 6px !important;
+          border-radius: 8px !important;
+          font-size: 9px !important;
+          line-height: 1.15 !important;
+        }
+        aside[data-rail="1"] [data-folder] span:nth-of-type(1) {
+          font-size: 8.5px !important;
+        }
+        aside[data-rail="1"] [data-folder] span:nth-of-type(2) {
+          font-size: 8px !important;
+        }
+
+        /* + Add folder button */
+        aside[data-rail="1"] div[data-scroll="1"] > button:last-of-type {
+          padding: 5px 8px !important;
+          font-size: 11px !important;
+          line-height: 1.2 !important;
+          margin-top: 4px !important;
+          border-radius: 8px !important;
+        }
+
+        /* SQLite Database Card */
+        aside[data-rail="1"] div[data-scroll="1"] > div:last-child {
+          margin-top: 8px !important;
+          padding: 6px 9px !important;
+          border-radius: 9px !important;
+          gap: 4px !important;
+        }
+        aside[data-rail="1"] div[data-scroll="1"] > div:last-child * {
+          font-size: 8px !important;
+        }
+        aside[data-rail="1"] div[data-scroll="1"] > div:last-child button {
+          padding: 3px 6px !important;
+          font-size: 8px !important;
+        }
+
+        /* 2. Top Header Bar */
+        header {
+          padding: 10px 18px 8px !important;
+          gap: 10px !important;
+        }
+        header input {
+          padding: 7px 12px 7px 32px !important;
+          font-size: 12px !important;
+          border-radius: 9px !important;
+        }
+        header button {
+          padding: 5px 9px !important;
+          font-size: 11px !important;
+          border-radius: 8px !important;
+        }
+        header span[data-intro="1"] {
+          font-size: 9px !important;
+        }
+
+        /* 3. Toolbar Controls */
+        [data-toolbar="1"] {
+          padding: 0 18px 10px !important;
+          gap: 6px !important;
+        }
+        /* View Switcher buttons */
+        [data-toolbar="1"] > div:first-child button {
+          padding: 4px 8px !important;
+          font-size: 11px !important;
+          border-radius: 7px !important;
+          letter-spacing: .03em !important;
+        }
+        /* Density buttons */
+        [data-density="1"] button {
+          padding: 3px 7px !important;
+          font-size: 10px !important;
+        }
+        /* Sort buttons */
+        [data-sort-selector="1"] > div {
+          gap: 4px !important;
+        }
+        [data-sort-selector="1"] button {
+          padding: 4px 8px !important;
+          font-size: 10.5px !important;
+          border-radius: 7px !important;
+        }
+        /* Pagination buttons */
+        [data-page-nav="1"] button {
+          padding: 3px 6px !important;
+          font-size: 10px !important;
+        }
+        [data-max-per-page="1"] button {
+          padding: 3px 6px !important;
+          font-size: 10px !important;
+        }
+
+        /* 4. Stage & Card Content */
+        div[data-wrap="1"] {
+          padding: 4px 18px 80px !important;
+        }
+        /* Card Title */
+        div[data-card] div[data-reveal="1"] > div > div:last-child > div:first-child {
+          font-size: 14px !important;
+          line-height: 1.15 !important;
+        }
+        /* Card footer container */
+        div[data-card] div[data-reveal="1"] > div > div:last-child {
+          padding: 7px 9px 8px !important;
+          gap: 5px !important;
+        }
+        /* Card tag chips */
+        div[data-card] div[data-reveal="1"] > div > div:last-child > div:nth-child(2) span {
+          padding: 2px 6px !important;
+          font-size: 8px !important;
+          letter-spacing: .02em !important;
+        }
+        /* Card byline */
+        div[data-card] div[data-reveal="1"] > div > div:last-child > div:last-child {
+          font-size: 8px !important;
+          gap: 6px !important;
+        }
+        div[data-card] div[data-reveal="1"] > div > div:last-child > div:last-child span:last-child {
+          padding: 2px 5px !important;
+          font-size: 8px !important;
+        }
+
+        /* Card badges on thumbnail */
+        div[data-card] span[style*="position: absolute"] {
+          font-size: 8px !important;
+        }
+        div[data-card] span[style*="position: absolute"][style*="left: 10px"] {
+          padding: 2px 5px !important;
+          font-size: 7.5px !important;
+          top: 6px !important;
+          left: 6px !important;
+        }
+        div[data-card] span[style*="position: absolute"][style*="right: 38px"] {
+          padding: 2px 5px !important;
+          font-size: 7.5px !important;
+          top: 5px !important;
+          right: 30px !important;
+        }
+        div[data-card] span[style*="position: absolute"][style*="right: 8px"] {
+          width: 20px !important;
+          height: 20px !important;
+          font-size: 11px !important;
+          top: 5px !important;
+          right: 6px !important;
+        }
+
+        /* 5. List View Table */
+        div[data-list="1"] > div:first-child {
+          padding: 5px 10px !important;
+          font-size: 8px !important;
+          gap: 10px !important;
+        }
+        div[data-list="1"] div[data-row] {
+          padding: 5px 10px !important;
+          gap: 10px !important;
+          border-radius: 9px !important;
+        }
+        div[data-list="1"] div[data-row] > span:nth-child(1) {
+          width: 32px !important;
+          height: 26px !important;
+        }
+        div[data-list="1"] div[data-row] > span:nth-child(2) {
+          font-size: 11px !important;
+        }
+        div[data-list="1"] div[data-row] > span:nth-child(3) {
+          font-size: 13.5px !important;
+        }
+        div[data-list="1"] div[data-row] > span:nth-child(4),
+        div[data-list="1"] div[data-row] > span:nth-child(5),
+        div[data-list="1"] div[data-row] > span:nth-child(6),
+        div[data-list="1"] div[data-row] > span:nth-child(7),
+        div[data-list="1"] div[data-row] > span:nth-child(8) {
+          font-size: 8.5px !important;
+        }
+
+        /* 6. Background Watermark */
+        .watermark-glyph {
+          font-size: 88vh !important;
+          margin-top: -9vh !important;
+        }
+        .watermark-script {
+          font-size: 18vh !important;
+          bottom: 2vh !important;
+        }
+
+        /* 7. SidePanel (Docked Preview) */
+        div[data-panel="1"] {
+          min-width: 480px !important;
+        }
+        div[data-panel="1"] > div:first-child {
+          padding: 10px 14px 8px !important;
+          gap: 6px !important;
+        }
+        div[data-panel="1"] > div:first-child [style*="font-size: 26px"] {
+          font-size: 20px !important;
+        }
+        div[data-panel="1"] > div:first-child button {
+          height: 28px !important;
+          font-size: 10px !important;
+        }
+      }
+
+      /* ================= Extra Scaling for Laptop & Compact Screens (<= 1440px) ================= */
+      @media (max-width: 1440px) {
+        :root {
+          --rail-width: 175px;
+          --app-font-size: 12.5px;
+        }
+
+        aside[data-rail="1"] {
+          width: 175px !important;
+          min-width: 175px !important;
+          max-width: 175px !important;
+        }
+        aside[data-rail="1"] [data-pool] > button span:nth-child(2) {
+          font-size: 11px !important;
+        }
+        aside[data-rail="1"] button[data-intro="1"] span:first-child {
+          font-size: 11.5px !important;
+        }
+        div[data-card] div[data-reveal="1"] > div > div:last-child > div:first-child {
+          font-size: 13px !important;
+        }
+        [data-toolbar="1"] > div:first-child button {
+          padding: 3px 6px !important;
+          font-size: 10px !important;
+        }
       }
     </style>
   </head>

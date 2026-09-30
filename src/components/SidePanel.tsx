@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import gsap from 'gsap';
-import { AssetEntry, ZipPack } from '../types';
+import { AssetEntry, ZipPack, ThemeMode } from '../types';
 import { KINDS, fmtSize, isIn } from '../data/seedData';
 import { generatePreviewDoc, getPack, isZipArchive, pickDefaultFile, restorePackFromDB } from '../services/zipService';
 import { UniversalPreview } from './preview/UniversalPreview';
 
 interface SidePanelProps {
+  theme?: ThemeMode;
   entry: AssetEntry | null;
   onClose: () => void;
   onPrevInPool?: () => void;
@@ -14,11 +15,14 @@ interface SidePanelProps {
   onSpecimenChange: (txt: string) => void;
   motionMultiplier: number;
   onOpenZipContents?: (entry: AssetEntry) => void;
+  isStudioMode?: boolean;
+  onToggleStudioMode?: () => void;
 }
 
 type PanelTab = 'preview' | 'info' | 'files' | 'specimen';
 
 export const SidePanel: React.FC<SidePanelProps> = ({
+  theme,
   entry,
   onClose,
   onPrevInPool,
@@ -26,13 +30,18 @@ export const SidePanel: React.FC<SidePanelProps> = ({
   specimenText,
   onSpecimenChange,
   motionMultiplier,
-  onOpenZipContents
+  onOpenZipContents,
+  isStudioMode: propStudioMode,
+  onToggleStudioMode: propToggleStudioMode
 }) => {
+  const isLight = theme === 'light';
   const [pack, setPack] = useState<ZipPack | null>(null);
   const [packSel, setPackSel] = useState<string | null>(null);
   const [packDoc, setPackDoc] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [isStudioMode, setIsStudioMode] = useState(false);
+  const [internalStudioMode, setInternalStudioMode] = useState(false);
+  const isStudioMode = propStudioMode !== undefined ? propStudioMode : internalStudioMode;
+  const toggleStudioMode = propToggleStudioMode || (() => setInternalStudioMode((prev) => !prev));
   const [activeTab, setActiveTab] = useState<PanelTab>('preview');
   const [fileFilter, setFileFilter] = useState('');
   const panelRef = React.useRef<HTMLDivElement>(null);
@@ -248,25 +257,27 @@ export const SidePanel: React.FC<SidePanelProps> = ({
 
   return (
     <>
-      {/* Backdrop overlay: clicking anywhere to the left of the side panel closes the preview */}
-      <div
-        data-panel-backdrop="1"
-        onClick={onClose}
-        title="Click to close preview"
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 38,
-          background: 'rgba(8, 14, 22, 0.42)',
-          backdropFilter: 'blur(2px)',
-          WebkitBackdropFilter: 'blur(2px)',
-          cursor: 'pointer',
-          animation: 'panelBackdropFadeIn 0.22s ease-out'
-        }}
-      />
+      {/* Backdrop overlay: shown in Studio Mode (88vw) to dim background; omitted in Dock Mode (56vw) so the centered content card remains clear and interactive */}
+      {isStudioMode && (
+        <div
+          data-panel-backdrop="1"
+          onClick={onClose}
+          title="Click to close preview"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 38,
+            background: 'rgba(8, 14, 22, 0.42)',
+            backdropFilter: 'blur(2px)',
+            WebkitBackdropFilter: 'blur(2px)',
+            cursor: 'pointer',
+            animation: 'panelBackdropFadeIn 0.22s ease-out'
+          }}
+        />
+      )}
       <div
         ref={panelRef}
         data-panel="1"
@@ -280,9 +291,10 @@ export const SidePanel: React.FC<SidePanelProps> = ({
         maxWidth: '96vw',
         zIndex: 40,
         transform: 'translateX(104%)',
-        background: 'var(--rail, #1d2d3d)',
-        color: '#e9edf2',
-        boxShadow: '-20px 0 60px rgba(29,45,61,.42)',
+        background: isLight ? '#ffffff' : 'var(--rail, #1d2d3d)',
+        color: isLight ? '#0f172a' : '#e9edf2',
+        borderLeft: isLight ? '1px solid rgba(15, 23, 42, 0.08)' : '1px solid rgba(148, 188, 227, 0.18)',
+        boxShadow: isLight ? '-16px 0 48px rgba(15, 23, 42, 0.12)' : '-20px 0 60px rgba(29,45,61,.42)',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden'
@@ -293,7 +305,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({
         style={{
           flex: 'none',
           padding: '16px 20px 12px',
-          borderBottom: '1px solid rgba(148,188,227,.18)',
+          borderBottom: isLight ? '1px solid rgba(15, 23, 42, 0.08)' : '1px solid rgba(148,188,227,.18)',
           display: 'flex',
           flexDirection: 'column',
           gap: '8px'
@@ -307,7 +319,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 fontSize: '9.5px',
                 letterSpacing: '.14em',
                 textTransform: 'uppercase',
-                color: '#94bce3'
+                color: isLight ? 'var(--tint-ink, #1d4ed8)' : '#94bce3'
               }}
             >
               {KINDS[entry.type]?.[0] || entry.type} · {entry.cat}
@@ -333,11 +345,11 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 style={{
                   height: '32px',
                   width: '32px',
-                  border: '1px solid rgba(148,188,227,.2)',
+                  border: isLight ? '1px solid rgba(15, 23, 42, 0.12)' : '1px solid rgba(148,188,227,.2)',
                   borderRadius: '10px',
                   cursor: 'pointer',
-                  background: 'rgba(148,188,227,.12)',
-                  color: '#b5d9fd',
+                  background: isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(148,188,227,.12)',
+                  color: isLight ? '#0f172a' : '#b5d9fd',
                   fontFamily: 'ui-monospace, Menlo, monospace',
                   fontSize: '15px',
                   display: 'flex',
@@ -345,8 +357,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                   justifyContent: 'center',
                   transition: 'background 0.15s, border-color 0.15s'
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.24)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.12)')}
+                onMouseEnter={(e) => (e.currentTarget.style.background = isLight ? 'rgba(15, 23, 42, 0.09)' : 'rgba(148,188,227,.24)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(148,188,227,.12)')}
               >
                 ‹
               </button>
@@ -358,11 +370,11 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 style={{
                   height: '32px',
                   width: '32px',
-                  border: '1px solid rgba(148,188,227,.2)',
+                  border: isLight ? '1px solid rgba(15, 23, 42, 0.12)' : '1px solid rgba(148,188,227,.2)',
                   borderRadius: '10px',
                   cursor: 'pointer',
-                  background: 'rgba(148,188,227,.12)',
-                  color: '#b5d9fd',
+                  background: isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(148,188,227,.12)',
+                  color: isLight ? '#0f172a' : '#b5d9fd',
                   fontFamily: 'ui-monospace, Menlo, monospace',
                   fontSize: '15px',
                   display: 'flex',
@@ -370,23 +382,27 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                   justifyContent: 'center',
                   transition: 'background 0.15s, border-color 0.15s'
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.24)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.12)')}
+                onMouseEnter={(e) => (e.currentTarget.style.background = isLight ? 'rgba(15, 23, 42, 0.09)' : 'rgba(148,188,227,.24)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(148,188,227,.12)')}
               >
                 ›
               </button>
             )}
             <button
-              onClick={() => setIsStudioMode(!isStudioMode)}
+              onClick={toggleStudioMode}
               title={isStudioMode ? 'Collapse to standard dock (56vw)' : 'Expand to Studio mode (88vw)'}
               style={{
                 height: '32px',
                 padding: '0 11px',
-                border: '1px solid rgba(148,188,227,.2)',
+                border: isLight ? '1px solid rgba(15, 23, 42, 0.12)' : '1px solid rgba(148,188,227,.2)',
                 borderRadius: '10px',
                 cursor: 'pointer',
-                background: isStudioMode ? 'rgba(148,188,227,.35)' : 'rgba(148,188,227,.14)',
-                color: isStudioMode ? '#ffffff' : '#b5d9fd',
+                background: isStudioMode
+                  ? (isLight ? 'rgba(37, 99, 235, 0.15)' : 'rgba(148,188,227,.35)')
+                  : (isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(148,188,227,.14)'),
+                color: isStudioMode
+                  ? (isLight ? '#1d4ed8' : '#ffffff')
+                  : (isLight ? '#0f172a' : '#b5d9fd'),
                 fontFamily: 'ui-monospace, Menlo, monospace',
                 fontSize: '11px',
                 display: 'flex',
@@ -406,11 +422,11 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 style={{
                   height: '32px',
                   padding: '0 12px',
-                  border: '1px solid rgba(56,239,125,.4)',
+                  border: isLight ? '1px solid rgba(34, 197, 94, 0.45)' : '1px solid rgba(56,239,125,.4)',
                   borderRadius: '10px',
                   cursor: 'pointer',
-                  background: 'rgba(56,239,125,.14)',
-                  color: '#38ef7d',
+                  background: isLight ? 'rgba(34, 197, 94, 0.12)' : 'rgba(56,239,125,.14)',
+                  color: isLight ? '#15803d' : '#38ef7d',
                   fontFamily: "'Barlow Condensed', sans-serif",
                   fontSize: '13px',
                   fontWeight: 700,
@@ -421,8 +437,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                   gap: '6px',
                   transition: 'all 0.15s'
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(56,239,125,.28)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(56,239,125,.14)')}
+                onMouseEnter={(e) => (e.currentTarget.style.background = isLight ? 'rgba(34, 197, 94, 0.2)' : 'rgba(56,239,125,.28)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = isLight ? 'rgba(34, 197, 94, 0.12)' : 'rgba(56,239,125,.14)')}
               >
                 <span>📦</span>
                 <span>Open in Stage</span>
@@ -434,11 +450,11 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 flex: 'none',
                 width: '32px',
                 height: '32px',
-                border: 0,
+                border: isLight ? '1px solid rgba(15, 23, 42, 0.1)' : 0,
                 borderRadius: '10px',
                 cursor: 'pointer',
-                background: 'rgba(148,188,227,.16)',
-                color: '#e9edf2',
+                background: isLight ? 'rgba(15, 23, 42, 0.06)' : 'rgba(148,188,227,.16)',
+                color: isLight ? '#0f172a' : '#e9edf2',
                 fontFamily: 'ui-monospace, Menlo, monospace',
                 fontSize: '13px'
               }}
@@ -455,10 +471,10 @@ export const SidePanel: React.FC<SidePanelProps> = ({
             alignItems: 'center',
             gap: '4px',
             marginTop: '4px',
-            background: 'rgba(16,22,29,.6)',
+            background: isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(16,22,29,.6)',
             padding: '3px',
             borderRadius: '10px',
-            border: '1px solid rgba(148,188,227,.12)',
+            border: isLight ? '1px solid rgba(15, 23, 42, 0.08)' : '1px solid rgba(148,188,227,.12)',
             width: 'fit-content'
           }}
         >
@@ -469,8 +485,13 @@ export const SidePanel: React.FC<SidePanelProps> = ({
               borderRadius: '7px',
               border: 0,
               cursor: 'pointer',
-              background: activeTab === 'preview' ? 'rgba(148,188,227,.25)' : 'transparent',
-              color: activeTab === 'preview' ? '#ffffff' : 'rgba(233,237,242,.65)',
+              background: activeTab === 'preview'
+                ? (isLight ? '#ffffff' : 'rgba(148,188,227,.25)')
+                : 'transparent',
+              color: activeTab === 'preview'
+                ? (isLight ? '#0f172a' : '#ffffff')
+                : (isLight ? 'rgba(15, 23, 42, 0.6)' : 'rgba(233,237,242,.65)'),
+              boxShadow: activeTab === 'preview' && isLight ? '0 1px 3px rgba(15, 23, 42, 0.08)' : 'none',
               fontFamily: 'ui-monospace, Menlo, monospace',
               fontSize: '10.5px',
               fontWeight: activeTab === 'preview' ? 600 : 400,
@@ -493,8 +514,13 @@ export const SidePanel: React.FC<SidePanelProps> = ({
               borderRadius: '7px',
               border: 0,
               cursor: 'pointer',
-              background: activeTab === 'info' ? 'rgba(148,188,227,.25)' : 'transparent',
-              color: activeTab === 'info' ? '#ffffff' : 'rgba(233,237,242,.65)',
+              background: activeTab === 'info'
+                ? (isLight ? '#ffffff' : 'rgba(148,188,227,.25)')
+                : 'transparent',
+              color: activeTab === 'info'
+                ? (isLight ? '#0f172a' : '#ffffff')
+                : (isLight ? 'rgba(15, 23, 42, 0.6)' : 'rgba(233,237,242,.65)'),
+              boxShadow: activeTab === 'info' && isLight ? '0 1px 3px rgba(15, 23, 42, 0.08)' : 'none',
               fontFamily: 'ui-monospace, Menlo, monospace',
               fontSize: '10.5px',
               fontWeight: activeTab === 'info' ? 600 : 400,
@@ -518,8 +544,13 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 borderRadius: '7px',
                 border: 0,
                 cursor: 'pointer',
-                background: activeTab === 'files' ? 'rgba(148,188,227,.25)' : 'transparent',
-                color: activeTab === 'files' ? '#ffffff' : 'rgba(233,237,242,.65)',
+                background: activeTab === 'files'
+                  ? (isLight ? '#ffffff' : 'rgba(148,188,227,.25)')
+                  : 'transparent',
+                color: activeTab === 'files'
+                  ? (isLight ? '#0f172a' : '#ffffff')
+                  : (isLight ? 'rgba(15, 23, 42, 0.6)' : 'rgba(233,237,242,.65)'),
+                boxShadow: activeTab === 'files' && isLight ? '0 1px 3px rgba(15, 23, 42, 0.08)' : 'none',
                 fontFamily: 'ui-monospace, Menlo, monospace',
                 fontSize: '10.5px',
                 fontWeight: activeTab === 'files' ? 600 : 400,
@@ -536,7 +567,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({
               <span
                 style={{
                   fontSize: '9px',
-                  background: 'rgba(148,188,227,.2)',
+                  background: isLight ? 'rgba(15, 23, 42, 0.08)' : 'rgba(148,188,227,.2)',
+                  color: isLight ? '#0f172a' : 'inherit',
                   padding: '1px 5px',
                   borderRadius: '99px'
                 }}
@@ -554,8 +586,13 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 borderRadius: '7px',
                 border: 0,
                 cursor: 'pointer',
-                background: activeTab === 'specimen' ? 'rgba(148,188,227,.25)' : 'transparent',
-                color: activeTab === 'specimen' ? '#ffffff' : 'rgba(233,237,242,.65)',
+                background: activeTab === 'specimen'
+                  ? (isLight ? '#ffffff' : 'rgba(148,188,227,.25)')
+                  : 'transparent',
+                color: activeTab === 'specimen'
+                  ? (isLight ? '#0f172a' : '#ffffff')
+                  : (isLight ? 'rgba(15, 23, 42, 0.6)' : 'rgba(233,237,242,.65)'),
+                boxShadow: activeTab === 'specimen' && isLight ? '0 1px 3px rgba(15, 23, 42, 0.08)' : 'none',
                 fontFamily: 'ui-monospace, Menlo, monospace',
                 fontSize: '10.5px',
                 fontWeight: activeTab === 'specimen' ? 600 : 400,
@@ -590,13 +627,14 @@ export const SidePanel: React.FC<SidePanelProps> = ({
         >
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             <UniversalPreview
+              theme={theme}
               entry={entry}
               pack={pack}
               packSel={packSel}
               packDoc={packDoc}
               specimenText={specimenText}
               isStudioMode={isStudioMode}
-              onToggleStudioMode={() => setIsStudioMode(!isStudioMode)}
+              onToggleStudioMode={toggleStudioMode}
               motionMultiplier={motionMultiplier}
             />
           </div>
@@ -618,9 +656,9 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 padding: '9px 16px',
                 borderRadius: '11px',
                 cursor: 'pointer',
-                border: '1px solid rgba(148,188,227,.28)',
-                background: 'rgba(24,36,50,.85)',
-                color: '#b5d9fd',
+                border: isLight ? '1px solid rgba(15, 23, 42, 0.12)' : '1px solid rgba(148,188,227,.28)',
+                background: isLight ? 'rgba(15, 23, 42, 0.04)' : 'rgba(24,36,50,.85)',
+                color: isLight ? '#0f172a' : '#b5d9fd',
                 fontFamily: "'Barlow Condensed', sans-serif",
                 fontSize: '14px',
                 fontWeight: 600,
@@ -633,14 +671,14 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 transition: 'background 0.18s, border-color 0.18s, transform 0.15s, box-shadow 0.18s'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(148,188,227,.2)';
-                e.currentTarget.style.borderColor = '#94bce3';
-                e.currentTarget.style.boxShadow = '0 4px 14px rgba(29,45,61,.3)';
+                e.currentTarget.style.background = isLight ? 'rgba(37, 99, 235, 0.08)' : 'rgba(148,188,227,.2)';
+                e.currentTarget.style.borderColor = isLight ? '#2563eb' : '#94bce3';
+                e.currentTarget.style.boxShadow = isLight ? '0 4px 14px rgba(15, 23, 42, 0.08)' : '0 4px 14px rgba(29,45,61,.3)';
                 e.currentTarget.style.transform = 'translateX(-2px)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(24,36,50,.85)';
-                e.currentTarget.style.borderColor = 'rgba(148,188,227,.28)';
+                e.currentTarget.style.background = isLight ? 'rgba(15, 23, 42, 0.04)' : 'rgba(24,36,50,.85)';
+                e.currentTarget.style.borderColor = isLight ? 'rgba(15, 23, 42, 0.12)' : 'rgba(148,188,227,.28)';
                 e.currentTarget.style.boxShadow = 'none';
                 e.currentTarget.style.transform = 'translateX(0)';
               }}
@@ -657,9 +695,9 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 padding: '9px 16px',
                 borderRadius: '11px',
                 cursor: 'pointer',
-                border: '1px solid rgba(148,188,227,.28)',
-                background: 'rgba(24,36,50,.85)',
-                color: '#b5d9fd',
+                border: isLight ? '1px solid rgba(15, 23, 42, 0.12)' : '1px solid rgba(148,188,227,.28)',
+                background: isLight ? 'rgba(15, 23, 42, 0.04)' : 'rgba(24,36,50,.85)',
+                color: isLight ? '#0f172a' : '#b5d9fd',
                 fontFamily: "'Barlow Condensed', sans-serif",
                 fontSize: '14px',
                 fontWeight: 600,
@@ -672,14 +710,14 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 transition: 'background 0.18s, border-color 0.18s, transform 0.15s, box-shadow 0.18s'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(148,188,227,.2)';
-                e.currentTarget.style.borderColor = '#94bce3';
-                e.currentTarget.style.boxShadow = '0 4px 14px rgba(29,45,61,.3)';
+                e.currentTarget.style.background = isLight ? 'rgba(37, 99, 235, 0.08)' : 'rgba(148,188,227,.2)';
+                e.currentTarget.style.borderColor = isLight ? '#2563eb' : '#94bce3';
+                e.currentTarget.style.boxShadow = isLight ? '0 4px 14px rgba(15, 23, 42, 0.08)' : '0 4px 14px rgba(29,45,61,.3)';
                 e.currentTarget.style.transform = 'translateX(2px)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(24,36,50,.85)';
-                e.currentTarget.style.borderColor = 'rgba(148,188,227,.28)';
+                e.currentTarget.style.background = isLight ? 'rgba(15, 23, 42, 0.04)' : 'rgba(24,36,50,.85)';
+                e.currentTarget.style.borderColor = isLight ? 'rgba(15, 23, 42, 0.12)' : 'rgba(148,188,227,.28)';
                 e.currentTarget.style.boxShadow = 'none';
                 e.currentTarget.style.transform = 'translateX(0)';
               }}
@@ -708,9 +746,9 @@ export const SidePanel: React.FC<SidePanelProps> = ({
           <div
             style={{
               borderRadius: '13px',
-              border: '1px solid rgba(148,188,227,.2)',
+              border: isLight ? '1px solid rgba(15, 23, 42, 0.1)' : '1px solid rgba(148,188,227,.2)',
               overflow: 'hidden',
-              background: 'rgba(16,22,29,.4)'
+              background: isLight ? 'rgba(15, 23, 42, 0.02)' : 'rgba(16,22,29,.4)'
             }}
           >
             <div
@@ -720,9 +758,9 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 fontSize: '9.5px',
                 letterSpacing: '.12em',
                 textTransform: 'uppercase',
-                color: '#94bce3',
-                background: 'rgba(148,188,227,.1)',
-                borderBottom: '1px solid rgba(148,188,227,.15)'
+                color: isLight ? 'var(--tint-ink, #1d4ed8)' : '#94bce3',
+                background: isLight ? 'rgba(37, 99, 235, 0.06)' : 'rgba(148,188,227,.1)',
+                borderBottom: isLight ? '1px solid rgba(15, 23, 42, 0.08)' : '1px solid rgba(148,188,227,.15)'
               }}
             >
               File Properties & Metadata
@@ -734,7 +772,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                   display: 'flex',
                   gap: '12px',
                   padding: '9px 14px',
-                  borderBottom: '1px solid rgba(148,188,227,.08)'
+                  borderBottom: isLight ? '1px solid rgba(15, 23, 42, 0.06)' : '1px solid rgba(148,188,227,.08)'
                 }}
               >
                 <span
@@ -745,7 +783,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                     fontSize: '9.5px',
                     letterSpacing: '.1em',
                     textTransform: 'uppercase',
-                    color: 'rgba(233,237,242,.45)'
+                    color: isLight ? 'rgba(15, 23, 42, 0.55)' : 'rgba(233,237,242,.45)'
                   }}
                 >
                   {m.k}
@@ -756,7 +794,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                     minWidth: 0,
                     fontFamily: 'ui-monospace, Menlo, monospace',
                     fontSize: '11px',
-                    color: 'rgba(233,237,242,.85)',
+                    color: isLight ? '#0f172a' : 'rgba(233,237,242,.85)',
                     wordBreak: 'break-all'
                   }}
                 >
@@ -776,9 +814,9 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 fontSize: '9.5px',
                 letterSpacing: '.08em',
                 textTransform: 'uppercase',
-                background: 'rgba(148,188,227,.14)',
-                color: '#b5d9fd',
-                border: '1px solid rgba(148,188,227,.26)'
+                background: isLight ? 'var(--tint, #eff6ff)' : 'rgba(148,188,227,.14)',
+                color: isLight ? 'var(--tint-ink, #1d4ed8)' : '#b5d9fd',
+                border: isLight ? '1px solid rgba(37, 99, 235, 0.2)' : '1px solid rgba(148,188,227,.26)'
               }}
             >
               Pool: {entry.cat}
@@ -794,9 +832,9 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                     fontSize: '9.5px',
                     letterSpacing: '.08em',
                     textTransform: 'uppercase',
-                    background: 'rgba(148,188,227,.14)',
-                    color: '#b5d9fd',
-                    border: '1px solid rgba(148,188,227,.26)'
+                    background: isLight ? 'var(--tint, #eff6ff)' : 'rgba(148,188,227,.14)',
+                    color: isLight ? 'var(--tint-ink, #1d4ed8)' : '#b5d9fd',
+                    border: isLight ? '1px solid rgba(37, 99, 235, 0.2)' : '1px solid rgba(148,188,227,.26)'
                   }}
                 >
                   {d}
@@ -813,9 +851,9 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                     fontSize: '9.5px',
                     letterSpacing: '.08em',
                     textTransform: 'uppercase',
-                    background: 'rgba(148,188,227,.14)',
-                    color: '#b5d9fd',
-                    border: '1px solid rgba(148,188,227,.26)'
+                    background: isLight ? 'var(--tint, #eff6ff)' : 'rgba(148,188,227,.14)',
+                    color: isLight ? 'var(--tint-ink, #1d4ed8)' : '#b5d9fd',
+                    border: isLight ? '1px solid rgba(37, 99, 235, 0.2)' : '1px solid rgba(148,188,227,.26)'
                   }}
                 >
                   .{x}
@@ -832,24 +870,28 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 padding: '11px',
                 borderRadius: '12px',
                 cursor: 'pointer',
-                border: '1px solid #416180',
-                color: '#f2f2f3',
+                border: isLight ? '1px solid #1d4ed8' : '1px solid #416180',
+                color: '#ffffff',
                 fontFamily: "'Barlow Condensed', sans-serif",
                 fontSize: '14px',
                 fontWeight: 600,
                 letterSpacing: '.05em',
                 textTransform: 'uppercase',
-                background: 'linear-gradient(180deg, #6b91b6, #5980a6)',
-                boxShadow: '0 2px 0 #2c455d, inset 0 1px 0 rgba(255,255,255,.24)',
+                background: isLight ? 'linear-gradient(180deg, #3b82f6, #2563eb)' : 'linear-gradient(180deg, #6b91b6, #5980a6)',
+                boxShadow: isLight
+                  ? '0 2px 0 #1d4ed8, inset 0 1px 0 rgba(255,255,255,.3)'
+                  : '0 2px 0 #2c455d, inset 0 1px 0 rgba(255,255,255,.24)',
                 transition: 'transform 0.1s, box-shadow 0.1s'
               }}
               onMouseDown={(e) => {
                 e.currentTarget.style.transform = 'translateY(2px)';
-                e.currentTarget.style.boxShadow = '0 0 0 #2c455d';
+                e.currentTarget.style.boxShadow = isLight ? '0 0 0 #1d4ed8' : '0 0 0 #2c455d';
               }}
               onMouseUp={(e) => {
                 e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 2px 0 #2c455d, inset 0 1px 0 rgba(255,255,255,.24)';
+                e.currentTarget.style.boxShadow = isLight
+                  ? '0 2px 0 #1d4ed8, inset 0 1px 0 rgba(255,255,255,.3)'
+                  : '0 2px 0 #2c455d, inset 0 1px 0 rgba(255,255,255,.24)';
               }}
             >
               {copied
@@ -866,9 +908,9 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 padding: '11px 16px',
                 borderRadius: '12px',
                 cursor: 'pointer',
-                border: '1px solid rgba(148,188,227,.3)',
-                background: 'rgba(148,188,227,.12)',
-                color: '#b5d9fd',
+                border: isLight ? '1px solid rgba(15, 23, 42, 0.16)' : '1px solid rgba(148,188,227,.3)',
+                background: isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(148,188,227,.12)',
+                color: isLight ? '#0f172a' : '#b5d9fd',
                 fontFamily: "'Barlow Condensed', sans-serif",
                 fontSize: '14px',
                 fontWeight: 600,
@@ -876,8 +918,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 textTransform: 'uppercase',
                 transition: 'background 0.18s'
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.22)')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.12)')}
+              onMouseEnter={(e) => (e.currentTarget.style.background = isLight ? 'rgba(15, 23, 42, 0.09)' : 'rgba(148,188,227,.22)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(148,188,227,.12)')}
             >
               Export ↓
             </button>
@@ -908,9 +950,9 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 flex: 1,
                 padding: '8px 12px',
                 borderRadius: '9px',
-                border: '1px solid rgba(148,188,227,.24)',
-                background: 'rgba(148,188,227,.07)',
-                color: '#e9edf2',
+                border: isLight ? '1px solid rgba(15, 23, 42, 0.14)' : '1px solid rgba(148,188,227,.24)',
+                background: isLight ? '#ffffff' : 'rgba(148,188,227,.07)',
+                color: isLight ? '#0f172a' : '#e9edf2',
                 fontFamily: 'ui-monospace, Menlo, monospace',
                 fontSize: '11px'
               }}
@@ -923,8 +965,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                   borderRadius: '8px',
                   border: 0,
                   cursor: 'pointer',
-                  background: 'rgba(148,188,227,.15)',
-                  color: '#b5d9fd',
+                  background: isLight ? 'rgba(15, 23, 42, 0.06)' : 'rgba(148,188,227,.15)',
+                  color: isLight ? '#0f172a' : '#b5d9fd',
                   fontFamily: 'ui-monospace, monospace',
                   fontSize: '11px'
                 }}
@@ -937,9 +979,9 @@ export const SidePanel: React.FC<SidePanelProps> = ({
           <div
             style={{
               borderRadius: '13px',
-              border: '1px solid rgba(148,188,227,.2)',
+              border: isLight ? '1px solid rgba(15, 23, 42, 0.1)' : '1px solid rgba(148,188,227,.2)',
               overflow: 'hidden',
-              background: 'rgba(16,22,29,.4)'
+              background: isLight ? 'rgba(15, 23, 42, 0.02)' : 'rgba(16,22,29,.4)'
             }}
           >
             <div
@@ -949,8 +991,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 fontSize: '9.5px',
                 letterSpacing: '.12em',
                 textTransform: 'uppercase',
-                color: 'rgba(233,237,242,.5)',
-                background: 'rgba(148,188,227,.08)',
+                color: isLight ? 'rgba(15, 23, 42, 0.65)' : 'rgba(233,237,242,.5)',
+                background: isLight ? 'rgba(15, 23, 42, 0.04)' : 'rgba(148,188,227,.08)',
                 display: 'flex',
                 justifyContent: 'space-between'
               }}
@@ -980,14 +1022,16 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                       padding: '8px 14px',
                       fontFamily: 'ui-monospace, Menlo, monospace',
                       fontSize: '11.5px',
-                      color: 'rgba(233,237,242,.88)',
+                      color: isLight ? '#0f172a' : 'rgba(233,237,242,.88)',
                       cursor: 'pointer',
-                      borderBottom: '1px solid rgba(148,188,227,.06)',
-                      background: isSelected ? 'rgba(148,188,227,.22)' : 'transparent',
+                      borderBottom: isLight ? '1px solid rgba(15, 23, 42, 0.06)' : '1px solid rgba(148,188,227,.06)',
+                      background: isSelected
+                        ? (isLight ? 'rgba(37, 99, 235, 0.12)' : 'rgba(148,188,227,.22)')
+                        : 'transparent',
                       transition: 'background 0.15s'
                     }}
                     onMouseEnter={(e) => {
-                      if (!isSelected) e.currentTarget.style.background = 'rgba(148,188,227,.12)';
+                      if (!isSelected) e.currentTarget.style.background = isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(148,188,227,.12)';
                     }}
                     onMouseLeave={(e) => {
                       if (!isSelected) e.currentTarget.style.background = 'transparent';
@@ -1002,13 +1046,13 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                         textOverflow: 'ellipsis'
                       }}
                     >
-                      <span style={{ color: 'rgba(148,188,227,.55)' }}>{dir}</span>
-                      <strong style={{ color: isSelected ? '#ffffff' : '#b5d9fd' }}>{name}</strong>
+                      <span style={{ color: isLight ? 'rgba(15, 23, 42, 0.45)' : 'rgba(148,188,227,.55)' }}>{dir}</span>
+                      <strong style={{ color: isSelected ? (isLight ? '#1d4ed8' : '#ffffff') : (isLight ? '#0f172a' : '#b5d9fd') }}>{name}</strong>
                     </span>
                     <span
                       style={{
                         flex: 'none',
-                        color: 'rgba(148,188,227,.7)',
+                        color: isLight ? 'rgba(15, 23, 42, 0.55)' : 'rgba(148,188,227,.7)',
                         fontSize: '10.5px'
                       }}
                     >
@@ -1019,8 +1063,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                         fontSize: '9.5px',
                         padding: '2px 6px',
                         borderRadius: '4px',
-                        background: 'rgba(148,188,227,.15)',
-                        color: '#b5d9fd'
+                        background: isLight ? 'rgba(37, 99, 235, 0.08)' : 'rgba(148,188,227,.15)',
+                        color: isLight ? 'var(--tint-ink, #1d4ed8)' : '#b5d9fd'
                       }}
                     >
                       View ›
@@ -1053,7 +1097,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 fontSize: '9.5px',
                 letterSpacing: '.14em',
                 textTransform: 'uppercase',
-                color: '#94bce3'
+                color: isLight ? 'var(--tint-ink, #1d4ed8)' : '#94bce3'
               }}
             >
               Type Custom Specimen Text
@@ -1066,9 +1110,9 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 width: '100%',
                 padding: '10px 14px',
                 borderRadius: '11px',
-                border: '1px solid rgba(148,188,227,.28)',
-                background: 'rgba(148,188,227,.08)',
-                color: '#e9edf2',
+                border: isLight ? '1px solid rgba(15, 23, 42, 0.14)' : '1px solid rgba(148,188,227,.28)',
+                background: isLight ? '#ffffff' : 'rgba(148,188,227,.08)',
+                color: isLight ? '#0f172a' : '#e9edf2',
                 fontFamily: 'Barlow, sans-serif',
                 fontSize: '15px'
               }}
@@ -1079,27 +1123,27 @@ export const SidePanel: React.FC<SidePanelProps> = ({
           <div
             style={{
               borderRadius: '13px',
-              border: '1px solid rgba(148,188,227,.2)',
+              border: isLight ? '1px solid rgba(15, 23, 42, 0.1)' : '1px solid rgba(148,188,227,.2)',
               padding: '16px',
-              background: 'rgba(16,22,29,.4)',
+              background: isLight ? 'rgba(15, 23, 42, 0.02)' : 'rgba(16,22,29,.4)',
               display: 'flex',
               flexDirection: 'column',
               gap: '14px'
             }}
           >
             {[16, 22, 32, 48, 64].map((sz) => (
-              <div key={sz} style={{ borderBottom: '1px solid rgba(148,188,227,.08)', paddingBottom: '10px' }}>
+              <div key={sz} style={{ borderBottom: isLight ? '1px solid rgba(15, 23, 42, 0.06)' : '1px solid rgba(148,188,227,.08)', paddingBottom: '10px' }}>
                 <div
                   style={{
                     fontFamily: 'ui-monospace, Menlo, monospace',
                     fontSize: '9px',
-                    color: 'rgba(148,188,227,.6)',
+                    color: isLight ? 'rgba(15, 23, 42, 0.5)' : 'rgba(148,188,227,.6)',
                     marginBottom: '4px'
                   }}
                 >
                   {sz}px
                 </div>
-                <div style={{ fontSize: `${sz}px`, lineHeight: 1.1, wordBreak: 'break-word' }}>
+                <div style={{ fontSize: `${sz}px`, lineHeight: 1.1, wordBreak: 'break-word', color: isLight ? '#0f172a' : 'inherit' }}>
                   {specimenText || 'Archive Specimen Typography'}
                 </div>
               </div>

@@ -1,9 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { CATS } from '../data/seedData';
-import { Pool } from '../types';
+import { Pool, ThemeMode } from '../types';
 
 interface SelectionBarProps {
+  theme?: ThemeMode;
   selectedCount: number;
   onClear: () => void;
   onThrowToPool: (cat: string) => void;
@@ -12,12 +13,14 @@ interface SelectionBarProps {
 }
 
 export const SelectionBar: React.FC<SelectionBarProps> = ({
+  theme,
   selectedCount,
   onClear,
   onThrowToPool,
   motionMultiplier,
   pools = []
 }) => {
+  const isLight = theme === 'light';
   const barRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -49,9 +52,12 @@ export const SelectionBar: React.FC<SelectionBarProps> = ({
         gap: '10px',
         padding: '10px 12px 10px 18px',
         borderRadius: '16px',
-        background: 'var(--rail, #1d2d3d)',
-        color: '#e9edf2',
-        boxShadow: '0 18px 44px rgba(29,45,61,.4)',
+        background: isLight ? '#ffffff' : 'var(--rail, #1d2d3d)',
+        color: isLight ? '#0f172a' : '#e9edf2',
+        border: isLight ? '1px solid rgba(15, 23, 42, 0.1)' : 'none',
+        boxShadow: isLight
+          ? '0 16px 40px rgba(15, 23, 42, 0.12), 0 2px 8px rgba(15, 23, 42, 0.06)'
+          : '0 18px 44px rgba(29,45,61,.4)',
         opacity: 0,
         pointerEvents: 'none'
       }}
@@ -70,7 +76,7 @@ export const SelectionBar: React.FC<SelectionBarProps> = ({
         {selectedCount} {selectedCount === 1 ? 'asset' : 'assets'}
       </span>
 
-      <span style={{ width: '1px', height: '22px', background: 'rgba(148,188,227,.28)' }} />
+      <span style={{ width: '1px', height: '22px', background: isLight ? 'rgba(15, 23, 42, 0.12)' : 'rgba(148,188,227,.28)' }} />
 
       <span
         style={{
@@ -78,7 +84,7 @@ export const SelectionBar: React.FC<SelectionBarProps> = ({
           fontSize: '9.5px',
           letterSpacing: '.1em',
           textTransform: 'uppercase',
-          color: 'rgba(233,237,242,.55)',
+          color: isLight ? 'rgba(15, 23, 42, 0.55)' : 'rgba(233,237,242,.55)',
           whiteSpace: 'nowrap'
         }}
       >
@@ -103,21 +109,27 @@ export const SelectionBar: React.FC<SelectionBarProps> = ({
             style={{
               flex: 'none',
               padding: '6px 11px',
-              border: 0,
+              border: isLight ? '1px solid rgba(15, 23, 42, 0.08)' : 0,
               borderRadius: '10px',
               cursor: 'pointer',
-              background: 'rgba(148,188,227,.16)',
-              color: '#e9edf2',
+              background: isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(148,188,227,.16)',
+              color: isLight ? '#0f172a' : '#e9edf2',
               fontFamily: "'Barlow Condensed', sans-serif",
               fontSize: '13.5px',
               fontWeight: 600,
               letterSpacing: '.04em',
               textTransform: 'uppercase',
               whiteSpace: 'nowrap',
-              transition: 'background 0.15s'
+              transition: 'background 0.15s, color 0.15s'
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = '#5980a6')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.16)')}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = isLight ? '#2563eb' : '#5980a6';
+              e.currentTarget.style.color = '#ffffff';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(148,188,227,.16)';
+              e.currentTarget.style.color = isLight ? '#0f172a' : '#e9edf2';
+            }}
           >
             {p}
           </button>
@@ -132,17 +144,17 @@ export const SelectionBar: React.FC<SelectionBarProps> = ({
           flex: 'none',
           width: '30px',
           height: '30px',
-          border: 0,
+          border: isLight ? '1px solid rgba(15, 23, 42, 0.1)' : 0,
           borderRadius: '10px',
           cursor: 'pointer',
-          background: 'rgba(148,188,227,.16)',
-          color: '#e9edf2',
+          background: isLight ? 'rgba(15, 23, 42, 0.06)' : 'rgba(148,188,227,.16)',
+          color: isLight ? '#0f172a' : '#e9edf2',
           fontFamily: 'ui-monospace, Menlo, monospace',
           fontSize: '12px',
           transition: 'background 0.15s'
         }}
-        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.3)')}
-        onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.16)')}
+        onMouseEnter={(e) => (e.currentTarget.style.background = isLight ? 'rgba(15, 23, 42, 0.12)' : 'rgba(148,188,227,.3)')}
+        onMouseLeave={(e) => (e.currentTarget.style.background = isLight ? 'rgba(15, 23, 42, 0.06)' : 'rgba(148,188,227,.16)')}
       >
         ✕
       </button>

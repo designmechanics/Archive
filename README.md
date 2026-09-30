@@ -90,6 +90,15 @@ Server runs locally at `http://127.0.0.1:6080` (or `http://localhost:6080`).
 
 ---
 
+## 🎨 Creative Guides & Workflows
+
+For detailed creative direction workflows, see **[CREATIVE_WORKFLOWS_GUIDE.md](file:///d:/Archive/CREATIVE_WORKFLOWS_GUIDE.md)**:
+- **Ideation & Concept Exploration**: Using spatial 3D views (Coverflow, Arc/Radial, Peel) for serendipitous discovery, physical card throwing, and interactive shader sandboxing.
+- **Picture Creation & Art Direction**: Ultra-high-resolution inspection (800% zoom, pixel grid, transparent/dark backdrops), automatic dominant color palette extraction, and 3D lighting studies.
+- **Logo Design & Brand Identity**: Infinite vector zoom without rasterization, outline/wireframe stroke mode for curve auditing, live multi-scale font specimen typing, and instant clean SVG export.
+
+---
+
 ## 📁 Project Structure
 
 ```
