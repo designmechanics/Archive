@@ -381,18 +381,26 @@ export const Stage: React.FC<StageProps> = ({
         entries.forEach((e, i) => {
           const d = i - focus;
           if (d < 0) {
-            // Discard pile: alternating throw to the right
+            // Discard piles: alternating side of exit (left, right, repeat) + alternating organic scatter
             const k = Math.min(6, -d);
-            const alt = (-d % 2 === 1) ? 1 : -1;
-            const spreadStep = Math.min(k, 4) * 16;
+            const side = (i % 2 === 0) ? -1 : 1; // -1 = LEFT, +1 = RIGHT (Left, Right, repeat)
+            const pileIdx = Math.floor(i / 2);
+            const altTilt = (pileIdx % 2 === 0) ? 1 : -1;
+            const spreadStep = Math.min(k, 4) * 14;
+
+            const baseRZ = side * 14;
+            const scatterTilt = altTilt * (4 + (k % 3) * 3);
+            const rZ = baseRZ + scatterTilt;
+            const rY = side * 10 + altTilt * 4;
+
             T[e.id] = {
-              x: cx + Math.round(cw2 * 0.84) + spreadStep + alt * 14,
-              y: cy + alt * 26 + Math.min(k, 4) * 8,
+              x: cx + side * (Math.round(cw2 * 0.84) + spreadStep) + altTilt * (side === 1 ? 14 : -12),
+              y: cy + altTilt * 24 + Math.min(k, 4) * 6,
               w: cw2,
               h: ch2,
-              rY: alt * 10,
+              rY: rY,
               rX: 4,
-              rZ: alt * (12 + (k % 3) * 4),
+              rZ: rZ,
               z: -k * 30,
               s: 0.94 - Math.min(k, 4) * 0.025,
               o: k > 5 ? 0 : Math.max(0, 0.92 - k * 0.16),
@@ -840,16 +848,19 @@ export const Stage: React.FC<StageProps> = ({
           }
         );
       } else if (view === 'peel') {
-        // Peel: card peels off with alternating throw to the right (+x, +rZ / -rZ)
+        // Peel: card peels off with alternating side of exit (left, right, repeat)
+        const lastExitedIdx = Math.max(0, focusIndex - 1);
+        const exitSide = (lastExitedIdx % 2 === 0) ? -1 : 1; // 0 -> LEFT (-1), 1 -> RIGHT (+1)...
+
         if (dir === 1) {
           gsap.fromTo(
             exitEl,
             { opacity: 1, x: 0, y: 0, rotateZ: 0, scale: 1 },
             {
               opacity: 0,
-              x: 180,
+              x: exitSide * 180,
               y: -50,
-              rotateZ: 16,
+              rotateZ: exitSide * 16,
               scale: 0.92,
               duration: 0.46 * m,
               ease: 'power3.inOut',
@@ -860,14 +871,15 @@ export const Stage: React.FC<StageProps> = ({
             }
           );
         } else {
+          const returnSide = (focusIndex % 2 === 0) ? -1 : 1;
           gsap.fromTo(
             exitEl,
             { opacity: 1, x: 0, y: 0, rotateZ: 0, scale: 1 },
             {
               opacity: 0,
-              x: -30,
+              x: -returnSide * 30,
               y: 20,
-              rotateZ: -4,
+              rotateZ: -returnSide * 4,
               scale: 0.90,
               duration: 0.44 * m,
               ease: 'power3.inOut',
@@ -983,15 +995,19 @@ export const Stage: React.FC<StageProps> = ({
           }
         );
       } else if (view === 'peel') {
-        // Peel: incoming letter reveals from underneath the deck (dir=1) or returns from the right (dir=-1)
+        // Peel: incoming letter reveals from underneath (dir=1) or returns from the peeled side (dir=-1)
+        const lastExitedIdx = Math.max(0, focusIndex - 1);
+        const exitSide = (lastExitedIdx % 2 === 0) ? -1 : 1;
+        const returnSide = (focusIndex % 2 === 0) ? -1 : 1;
+
         if (dir === 1) {
           gsap.fromTo(
             currentEl,
             {
               opacity: 0,
-              x: -30,
+              x: -exitSide * 30,
               y: 20,
-              rotateZ: -4,
+              rotateZ: -exitSide * 4,
               scale: 0.90
             },
             {
@@ -1010,9 +1026,9 @@ export const Stage: React.FC<StageProps> = ({
             currentEl,
             {
               opacity: 0,
-              x: 180,
+              x: returnSide * 180,
               y: -50,
-              rotateZ: 16,
+              rotateZ: returnSide * 16,
               scale: 0.92
             },
             {
@@ -1111,7 +1127,7 @@ export const Stage: React.FC<StageProps> = ({
         );
       }
     }
-  }, [watermarkState.animKey, motionMultiplier, view]);
+  }, [watermarkState.animKey, motionMultiplier, view, focusIndex]);
 
   const isFilmstrip = view === 'filmstrip';
 
