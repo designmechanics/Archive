@@ -92,9 +92,8 @@ export const ListView: React.FC<ListViewProps> = ({
                 borderRadius: '8px',
                 border: '1px solid rgba(var(--inkc, 29,31,32), .12)',
                 background: e.thumb
-                  ? `url(${e.thumb}) center/cover no-repeat`
-                  : 'repeating-linear-gradient(135deg, rgba(89,128,166,.18) 0 3px, rgba(89,128,166,.04) 3px 7px)',
-                filter: e.thumb ? 'grayscale(1) contrast(1.05)' : 'none'
+                  ? `url(${e.thumb}) center/${(e.exts && e.exts.includes('pdf')) ? 'contain #ffffff' : 'cover'} no-repeat`
+                  : 'repeating-linear-gradient(135deg, rgba(89,128,166,.18) 0 3px, rgba(89,128,166,.04) 3px 7px)'
               }}
             />
 

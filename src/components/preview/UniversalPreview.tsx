@@ -207,13 +207,14 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
       style={{
         display: 'flex',
         flexDirection: 'column',
-        height: isStudioMode ? '540px' : '360px',
+        height: '100%',
+        flex: 1,
+        minHeight: 0,
         borderRadius: '14px',
         overflow: 'hidden',
         border: '1px solid rgba(148,188,227,.22)',
         background: '#090e13',
-        position: 'relative',
-        transition: 'height 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+        position: 'relative'
       }}
     >
       {/* Universal Preview Master Header Bar */}
@@ -322,7 +323,7 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
                 borderRadius: '4px'
               }}
             >
-              {isStudioMode ? '820px' : '480px'}
+              {isStudioMode ? '88vw' : '56vw'}
             </span>
           </button>
         </div>

@@ -3,6 +3,7 @@ import JSZip from 'jszip';
 import { AssetEntry, ZipFileInfo, ZipPack } from '../types';
 import { extOf, fmtSize, isIn, MIME, typeFromExt, EXT } from '../data/seedData';
 import { savePackBlob, getPackBlob } from './db';
+import { generatePdfThumbnail } from './thumbnailService';
 
 // Cache for active pack objects in memory
 const packRegistry: Record<string, ZipPack> = {};
@@ -170,6 +171,7 @@ export async function createEntryFromPack(pack: ZipPack, isZip: boolean): Promis
   else if (has('vid')) cat = 'Transitions';
   else if (exts.css || exts.js) cat = 'Routines/utils';
   else if (has('img')) cat = 'Backgrounds';
+  else if (extOf(pack.name) === 'pdf' || exts.pdf) cat = 'Layouts';
 
   const names = list.map((f) => f.path.toLowerCase()).join(' ');
   const deps = [
@@ -199,6 +201,34 @@ export async function createEntryFromPack(pack: ZipPack, isZip: boolean): Promis
       thumb = dataUrl(extOf(imgFile.path), b64);
     } catch (e) {
       console.warn('Thumbnail generation failed:', e);
+    }
+  }
+
+  // If no image thumbnail and this is a PDF or contains a PDF, generate 1st page snapshot
+  if (!thumb) {
+    const isSinglePdf = extOf(pack.name) === 'pdf';
+    const pdfFile = isSinglePdf
+      ? null
+      : list.find((f) => extOf(f.path) === 'pdf' && f.size < 60_000_000);
+
+    if (isSinglePdf) {
+      try {
+        const blob = pack.rawBlob || (typeof pack.blob === 'function' ? await pack.blob(pack.name) : null);
+        if (blob) {
+          thumb = await generatePdfThumbnail(blob);
+        }
+      } catch (e) {
+        console.warn('PDF thumbnail generation failed for single file:', e);
+      }
+    } else if (pdfFile && typeof pack.blob === 'function') {
+      try {
+        const blob = await pack.blob(pdfFile.path);
+        if (blob) {
+          thumb = await generatePdfThumbnail(blob);
+        }
+      } catch (e) {
+        console.warn('PDF thumbnail generation failed for pack entry:', e);
+      }
     }
   }
 

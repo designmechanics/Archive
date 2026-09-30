@@ -702,22 +702,22 @@ export const Stage: React.FC<StageProps> = ({
                         borderBottom: '1px solid rgba(var(--inkc, 29,31,32), .1)'
                       }}
                     >
-                      {e.thumb && (
+                      {e.thumb ? (
                         <img
                           src={e.thumb}
-                          alt=""
+                          alt={e.title}
                           style={{
                             position: 'absolute',
                             inset: 0,
                             width: '100%',
                             height: '100%',
-                            objectFit: 'cover',
-                            filter: 'grayscale(1) contrast(1.05)',
-                            mixBlendMode: 'multiply',
-                            opacity: 0.9
+                            objectFit: (e.exts && e.exts.includes('pdf')) || e.type === 'file' ? 'contain' : 'cover',
+                            background: (e.exts && e.exts.includes('pdf')) ? '#ffffff' : 'transparent',
+                            padding: (e.exts && e.exts.includes('pdf')) ? '8px' : '0',
+                            opacity: 1
                           }}
                         />
-                      )}
+                      ) : null}
 
                       {/* Format Kind Badge */}
                       <span

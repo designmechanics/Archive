@@ -74,16 +74,34 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ src, name }) => {
           transition: 'transform 0.25s ease'
         }}
       >
-        <iframe
-          src={src}
-          title={name}
-          style={{
-            width: '100%',
-            height: '100%',
-            border: 'none',
-            background: '#ffffff'
-          }}
-        />
+        {src ? (
+          <iframe
+            src={src}
+            title={name}
+            style={{
+              width: '100%',
+              height: '100%',
+              border: 'none',
+              background: '#ffffff'
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+              color: '#94bce3',
+              fontFamily: 'ui-monospace, Menlo, monospace',
+              fontSize: '11px',
+              letterSpacing: '.06em',
+              textTransform: 'uppercase'
+            }}
+          >
+            Loading PDF Document…
+          </div>
+        )}
       </div>
 
       {/* Bottom HUD */}

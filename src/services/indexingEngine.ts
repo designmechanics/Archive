@@ -137,7 +137,7 @@ class IndexingEngine {
           const file = await fileHandle.getFile();
           // Filter to relevant creative/asset files
           if (
-            /\.(zip|html?|css|m?js|json|svg|png|jpe?g|gif|webp|mp4|webm|mov|mp3|wav|otf|ttf|woff2?|psd|ai|prproj)$/i.test(
+            /\.(zip|html?|css|m?jsx?|tsx?|json|md|markdown|txt|csv|svg|png|jpe?g|gif|webp|avif|bmp|mp4|webm|mov|mp3|wav|ogg|otf|ttf|woff2?|psd|ai|prproj|pdf|glb|gltf|obj)$/i.test(
               file.name
             )
           ) {

@@ -62,7 +62,9 @@ export const MIME: Record<string, string> = {
   css: "text/css",
   js: "text/javascript",
   mjs: "text/javascript",
-  json: "application/json"
+  json: "application/json",
+  pdf: "application/pdf",
+  md: "text/markdown"
 };
 
 export function extOf(p: string): string {

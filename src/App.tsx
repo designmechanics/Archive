@@ -68,6 +68,7 @@ export const App: React.FC = () => {
   const [dbStats, setDbStats] = useState<DatabaseStats | null>(null);
 
   const dragCounterRef = useRef(0);
+  const nativeDirInputRef = useRef<HTMLInputElement>(null);
 
   // Initialize DB and load saved data
   useEffect(() => {
@@ -388,6 +389,15 @@ export const App: React.FC = () => {
     if (files.length === 0) return;
     setModalOpen(false);
 
+    // Auto-detect root directory name from webkitRelativePath if present
+    const firstFile = files[0] as any;
+    if (firstFile?.webkitRelativePath) {
+      const topDir = firstFile.webkitRelativePath.split('/')[0];
+      if (topDir) {
+        handleAddFolder(topDir);
+      }
+    }
+
     const newEntries = await indexingEngine.ingestFileList(files, (entry) => {
       setEntries((prev) => [entry, ...prev]);
     });
@@ -402,7 +412,7 @@ export const App: React.FC = () => {
     }
   };
 
-  // Real native folder crawl (File System Access API)
+  // Real native folder crawl (File System Access API with OS dialog fallback)
   const handleScanNativeFolder = async () => {
     if ('showDirectoryPicker' in window) {
       try {
@@ -412,11 +422,16 @@ export const App: React.FC = () => {
           setEntries((prev) => [entry, ...prev]);
         });
         setFolders((prev) => [res.folder, ...prev]);
+        return;
       } catch (err) {
-        if ((err as Error).name !== 'AbortError') {
-          console.error('Directory scan error:', err);
-        }
+        if ((err as Error).name === 'AbortError') return;
+        console.warn('Directory scan via showDirectoryPicker failed, using file dialog:', err);
       }
+    }
+
+    // Direct fallback to HTML5 directory picker
+    if (nativeDirInputRef.current) {
+      nativeDirInputRef.current.click();
     }
   };
 
@@ -688,6 +703,23 @@ export const App: React.FC = () => {
         poolCounts={poolCounts}
         motionMultiplier={motionMultiplier}
         onMotionChange={setMotionMultiplier}
+      />
+
+      {/* Hidden Native OS Directory Picker Input */}
+      <input
+        ref={nativeDirInputRef}
+        type="file"
+        // @ts-ignore
+        webkitdirectory=""
+        directory=""
+        multiple
+        onChange={(e) => {
+          if (e.target.files && e.target.files.length > 0) {
+            handleIngestFiles(e.target.files);
+            e.target.value = '';
+          }
+        }}
+        style={{ display: 'none' }}
       />
     </div>
   );

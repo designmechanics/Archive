@@ -14,6 +14,8 @@ interface SidePanelProps {
   motionMultiplier: number;
 }
 
+type PanelTab = 'preview' | 'info' | 'files' | 'specimen';
+
 export const SidePanel: React.FC<SidePanelProps> = ({
   entry,
   onClose,
@@ -27,13 +29,15 @@ export const SidePanel: React.FC<SidePanelProps> = ({
   const [packDoc, setPackDoc] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [isStudioMode, setIsStudioMode] = useState(false);
+  const [activeTab, setActiveTab] = useState<PanelTab>('preview');
+  const [fileFilter, setFileFilter] = useState('');
   const panelRef = React.useRef<HTMLDivElement>(null);
 
-  // Animate studio width changes
+  // Animate width changes: default to at least middle of screen (56vw), studio mode (88vw)
   useEffect(() => {
     const p = panelRef.current;
     if (!p) return;
-    const targetWidth = isStudioMode ? '820px' : '480px';
+    const targetWidth = isStudioMode ? '88vw' : '56vw';
     gsap.to(p, {
       width: targetWidth,
       duration: 0.45 * motionMultiplier,
@@ -41,6 +45,13 @@ export const SidePanel: React.FC<SidePanelProps> = ({
     });
   }, [isStudioMode, motionMultiplier]);
 
+  // Reset tab to preview on entry change
+  useEffect(() => {
+    if (entry) {
+      setActiveTab('preview');
+      setFileFilter('');
+    }
+  }, [entry?.id]);
 
   // Animate panel slide in/out
   useEffect(() => {
@@ -57,8 +68,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({
     if (isOpen) {
       gsap.fromTo(
         '[data-sandbox="1"]',
-        { y: 22, opacity: 0, scale: 0.97 },
-        { y: 0, opacity: 1, scale: 1, duration: 0.6 * motionMultiplier, ease: 'expo.out', delay: 0.1 * motionMultiplier }
+        { y: 16, opacity: 0, scale: 0.98 },
+        { y: 0, opacity: 1, scale: 1, duration: 0.5 * motionMultiplier, ease: 'expo.out', delay: 0.1 * motionMultiplier }
       );
     }
   }, [entry, motionMultiplier]);
@@ -129,8 +140,9 @@ export const SidePanel: React.FC<SidePanelProps> = ({
           top: 0,
           right: 0,
           bottom: 0,
-          width: isStudioMode ? '820px' : '480px',
-          maxWidth: '94vw',
+          width: isStudioMode ? '88vw' : '56vw',
+          minWidth: isStudioMode ? '840px' : '580px',
+          maxWidth: '96vw',
           zIndex: 40,
           transform: 'translateX(104%)',
           background: 'var(--rail, #1d2d3d)',
@@ -168,7 +180,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({
   };
 
   const metadataList = [
-    { k: 'Format', v: KINDS[entry.type]?.[0] || entry.type },
+    { k: 'Format', v: KINDS[entry.type]?.[0] || entry.type.toUpperCase() },
     { k: 'Pool', v: entry.cat },
     { k: 'Source', v: entry.author },
     { k: 'Added', v: entry.date },
@@ -212,6 +224,13 @@ export const SidePanel: React.FC<SidePanelProps> = ({
     }
   };
 
+  const filteredPackList = pack
+    ? pack.list.filter((f) => {
+        if (!fileFilter.trim()) return true;
+        return f.path.toLowerCase().includes(fileFilter.toLowerCase().trim());
+      })
+    : [];
+
   return (
     <div
       ref={panelRef}
@@ -221,8 +240,9 @@ export const SidePanel: React.FC<SidePanelProps> = ({
         top: 0,
         right: 0,
         bottom: 0,
-        width: isStudioMode ? '820px' : '480px',
-        maxWidth: '94vw',
+        width: isStudioMode ? '88vw' : '56vw',
+        minWidth: isStudioMode ? '840px' : '580px',
+        maxWidth: '96vw',
         zIndex: 40,
         transform: 'translateX(104%)',
         background: 'var(--rail, #1d2d3d)',
@@ -233,15 +253,15 @@ export const SidePanel: React.FC<SidePanelProps> = ({
         overflow: 'hidden'
       }}
     >
-      {/* Panel Header */}
+      {/* Panel Top Header */}
       <div
         style={{
           flex: 'none',
-          padding: '20px 22px 14px',
+          padding: '16px 20px 12px',
           borderBottom: '1px solid rgba(148,188,227,.18)',
           display: 'flex',
           flexDirection: 'column',
-          gap: '9px'
+          gap: '8px'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
@@ -255,15 +275,16 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 color: '#94bce3'
               }}
             >
-              {KINDS[entry.type]?.[0]} · {entry.cat}
+              {KINDS[entry.type]?.[0] || entry.type} · {entry.cat}
             </div>
             <div
               style={{
                 fontFamily: "'Barlow Condensed', sans-serif",
                 fontWeight: 700,
-                fontSize: '27px',
-                lineHeight: 1.08,
-                wordBreak: 'break-word'
+                fontSize: '26px',
+                lineHeight: 1.1,
+                wordBreak: 'break-word',
+                marginTop: '1px'
               }}
             >
               {entry.title}
@@ -272,12 +293,12 @@ export const SidePanel: React.FC<SidePanelProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <button
               onClick={() => setIsStudioMode(!isStudioMode)}
-              title={isStudioMode ? 'Collapse to standard dock (480px)' : 'Expand to Studio mode (820px)'}
+              title={isStudioMode ? 'Collapse to standard dock (56vw)' : 'Expand to Studio mode (88vw)'}
               style={{
                 height: '32px',
-                padding: '0 10px',
+                padding: '0 11px',
                 border: '1px solid rgba(148,188,227,.2)',
-                borderRadius: '11px',
+                borderRadius: '10px',
                 cursor: 'pointer',
                 background: isStudioMode ? 'rgba(148,188,227,.35)' : 'rgba(148,188,227,.14)',
                 color: isStudioMode ? '#ffffff' : '#b5d9fd',
@@ -288,7 +309,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 gap: '5px'
               }}
             >
-              <span>{isStudioMode ? '⇲ Dock' : '⇱ Studio'}</span>
+              <span>{isStudioMode ? '⇲ 56vw' : '⇱ 88vw Studio'}</span>
             </button>
             <button
               onClick={onClose}
@@ -297,7 +318,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 width: '32px',
                 height: '32px',
                 border: 0,
-                borderRadius: '11px',
+                borderRadius: '10px',
                 cursor: 'pointer',
                 background: 'rgba(148,188,227,.16)',
                 color: '#e9edf2',
@@ -310,79 +331,146 @@ export const SidePanel: React.FC<SidePanelProps> = ({
           </div>
         </div>
 
-        {/* Tags */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-          <span
+        {/* Tab Navigation: Preview (Default, Full Area) · File Info · Package Contents · Specimen */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            marginTop: '4px',
+            background: 'rgba(16,22,29,.6)',
+            padding: '3px',
+            borderRadius: '10px',
+            border: '1px solid rgba(148,188,227,.12)',
+            width: 'fit-content'
+          }}
+        >
+          <button
+            onClick={() => setActiveTab('preview')}
             style={{
-              padding: '3px 9px',
-              borderRadius: '99px',
+              padding: '5px 12px',
+              borderRadius: '7px',
+              border: 0,
+              cursor: 'pointer',
+              background: activeTab === 'preview' ? 'rgba(148,188,227,.25)' : 'transparent',
+              color: activeTab === 'preview' ? '#ffffff' : 'rgba(233,237,242,.65)',
               fontFamily: 'ui-monospace, Menlo, monospace',
-              fontSize: '9px',
-              letterSpacing: '.08em',
+              fontSize: '10.5px',
+              fontWeight: activeTab === 'preview' ? 600 : 400,
+              letterSpacing: '.06em',
               textTransform: 'uppercase',
-              background: 'rgba(148,188,227,.14)',
-              color: '#b5d9fd',
-              border: '1px solid rgba(148,188,227,.26)'
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'background 0.15s, color 0.15s'
             }}
           >
-            {entry.cat}
-          </span>
-          {entry.deps &&
-            entry.deps.split(' · ').map((d) => (
+            <span>👁️</span>
+            <span>Preview</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('info')}
+            style={{
+              padding: '5px 12px',
+              borderRadius: '7px',
+              border: 0,
+              cursor: 'pointer',
+              background: activeTab === 'info' ? 'rgba(148,188,227,.25)' : 'transparent',
+              color: activeTab === 'info' ? '#ffffff' : 'rgba(233,237,242,.65)',
+              fontFamily: 'ui-monospace, Menlo, monospace',
+              fontSize: '10.5px',
+              fontWeight: activeTab === 'info' ? 600 : 400,
+              letterSpacing: '.06em',
+              textTransform: 'uppercase',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'background 0.15s, color 0.15s'
+            }}
+          >
+            <span>📋</span>
+            <span>File Info</span>
+          </button>
+
+          {isZip && (
+            <button
+              onClick={() => setActiveTab('files')}
+              style={{
+                padding: '5px 12px',
+                borderRadius: '7px',
+                border: 0,
+                cursor: 'pointer',
+                background: activeTab === 'files' ? 'rgba(148,188,227,.25)' : 'transparent',
+                color: activeTab === 'files' ? '#ffffff' : 'rgba(233,237,242,.65)',
+                fontFamily: 'ui-monospace, Menlo, monospace',
+                fontSize: '10.5px',
+                fontWeight: activeTab === 'files' ? 600 : 400,
+                letterSpacing: '.06em',
+                textTransform: 'uppercase',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'background 0.15s, color 0.15s'
+              }}
+            >
+              <span>📦</span>
+              <span>Files</span>
               <span
-                key={d}
                 style={{
-                  padding: '3px 9px',
-                  borderRadius: '99px',
-                  fontFamily: 'ui-monospace, Menlo, monospace',
                   fontSize: '9px',
-                  letterSpacing: '.08em',
-                  textTransform: 'uppercase',
-                  background: 'rgba(148,188,227,.14)',
-                  color: '#b5d9fd',
-                  border: '1px solid rgba(148,188,227,.26)'
+                  background: 'rgba(148,188,227,.2)',
+                  padding: '1px 5px',
+                  borderRadius: '99px'
                 }}
               >
-                {d}
+                {pack ? pack.list.length : entry.fileCount || 1}
               </span>
-            ))}
-          {entry.exts &&
-            entry.exts.map((x) => (
-              <span
-                key={x}
-                style={{
-                  padding: '3px 9px',
-                  borderRadius: '99px',
-                  fontFamily: 'ui-monospace, Menlo, monospace',
-                  fontSize: '9px',
-                  letterSpacing: '.08em',
-                  textTransform: 'uppercase',
-                  background: 'rgba(148,188,227,.14)',
-                  color: '#b5d9fd',
-                  border: '1px solid rgba(148,188,227,.26)'
-                }}
-              >
-                .{x}
-              </span>
-            ))}
+            </button>
+          )}
+
+          {isFont && (
+            <button
+              onClick={() => setActiveTab('specimen')}
+              style={{
+                padding: '5px 12px',
+                borderRadius: '7px',
+                border: 0,
+                cursor: 'pointer',
+                background: activeTab === 'specimen' ? 'rgba(148,188,227,.25)' : 'transparent',
+                color: activeTab === 'specimen' ? '#ffffff' : 'rgba(233,237,242,.65)',
+                fontFamily: 'ui-monospace, Menlo, monospace',
+                fontSize: '10.5px',
+                fontWeight: activeTab === 'specimen' ? 600 : 400,
+                letterSpacing: '.06em',
+                textTransform: 'uppercase',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'background 0.15s, color 0.15s'
+              }}
+            >
+              <span>🔤</span>
+              <span>Specimen</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Scrollable Body */}
-      <div
-        data-scroll="1"
-        style={{
-          flex: 1,
-          minHeight: 0,
-          overflowY: 'auto',
-          padding: '18px 22px 26px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px'
-        }}
-      >
-        {/* Universal Multi-Format Preview Studio */}
-        <div data-sandbox="1">
+      {/* Main Panel Content Area */}
+      {activeTab === 'preview' && (
+        <div
+          data-sandbox="1"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            height: '100%',
+            padding: '12px 16px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
+          }}
+        >
           <UniversalPreview
             entry={entry}
             pack={pack}
@@ -394,41 +482,280 @@ export const SidePanel: React.FC<SidePanelProps> = ({
             motionMultiplier={motionMultiplier}
           />
         </div>
+      )}
 
-        {/* Font Specimen Input */}
-        {isFont && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {activeTab === 'info' && (
+        <div
+          data-scroll="1"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            padding: '20px 22px 28px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px'
+          }}
+        >
+          {/* Metadata Table */}
+          <div
+            style={{
+              borderRadius: '13px',
+              border: '1px solid rgba(148,188,227,.2)',
+              overflow: 'hidden',
+              background: 'rgba(16,22,29,.4)'
+            }}
+          >
             <div
               style={{
+                padding: '9px 13px',
                 fontFamily: 'ui-monospace, Menlo, monospace',
                 fontSize: '9.5px',
-                letterSpacing: '.14em',
+                letterSpacing: '.12em',
                 textTransform: 'uppercase',
-                color: 'rgba(233,237,242,.5)'
+                color: '#94bce3',
+                background: 'rgba(148,188,227,.1)',
+                borderBottom: '1px solid rgba(148,188,227,.15)'
               }}
             >
-              Type your own specimen
+              File Properties & Metadata
             </div>
-            <input
-              value={specimenText}
-              onChange={(e) => onSpecimenChange(e.target.value)}
+            {metadataList.map((m) => (
+              <div
+                key={m.k}
+                style={{
+                  display: 'flex',
+                  gap: '12px',
+                  padding: '9px 14px',
+                  borderBottom: '1px solid rgba(148,188,227,.08)'
+                }}
+              >
+                <span
+                  style={{
+                    width: '110px',
+                    flex: 'none',
+                    fontFamily: 'ui-monospace, Menlo, monospace',
+                    fontSize: '9.5px',
+                    letterSpacing: '.1em',
+                    textTransform: 'uppercase',
+                    color: 'rgba(233,237,242,.45)'
+                  }}
+                >
+                  {m.k}
+                </span>
+                <span
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    fontFamily: 'ui-monospace, Menlo, monospace',
+                    fontSize: '11px',
+                    color: 'rgba(233,237,242,.85)',
+                    wordBreak: 'break-all'
+                  }}
+                >
+                  {m.v}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Tags & Categories */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            <span
               style={{
-                width: '100%',
-                padding: '10px 13px',
-                borderRadius: '11px',
-                border: '1px solid rgba(148,188,227,.28)',
-                background: 'rgba(148,188,227,.08)',
+                padding: '4px 10px',
+                borderRadius: '99px',
+                fontFamily: 'ui-monospace, Menlo, monospace',
+                fontSize: '9.5px',
+                letterSpacing: '.08em',
+                textTransform: 'uppercase',
+                background: 'rgba(148,188,227,.14)',
+                color: '#b5d9fd',
+                border: '1px solid rgba(148,188,227,.26)'
+              }}
+            >
+              Pool: {entry.cat}
+            </span>
+            {entry.deps &&
+              entry.deps.split(' · ').map((d) => (
+                <span
+                  key={d}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '99px',
+                    fontFamily: 'ui-monospace, Menlo, monospace',
+                    fontSize: '9.5px',
+                    letterSpacing: '.08em',
+                    textTransform: 'uppercase',
+                    background: 'rgba(148,188,227,.14)',
+                    color: '#b5d9fd',
+                    border: '1px solid rgba(148,188,227,.26)'
+                  }}
+                >
+                  {d}
+                </span>
+              ))}
+            {entry.exts &&
+              entry.exts.map((x) => (
+                <span
+                  key={x}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '99px',
+                    fontFamily: 'ui-monospace, Menlo, monospace',
+                    fontSize: '9.5px',
+                    letterSpacing: '.08em',
+                    textTransform: 'uppercase',
+                    background: 'rgba(148,188,227,.14)',
+                    color: '#b5d9fd',
+                    border: '1px solid rgba(148,188,227,.26)'
+                  }}
+                >
+                  .{x}
+                </span>
+              ))}
+          </div>
+
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
+            <button
+              onClick={handleCopyOpen}
+              style={{
+                flex: 1,
+                padding: '11px',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                border: '1px solid #416180',
+                color: '#f2f2f3',
+                fontFamily: "'Barlow Condensed', sans-serif",
+                fontSize: '14px',
+                fontWeight: 600,
+                letterSpacing: '.05em',
+                textTransform: 'uppercase',
+                background: 'linear-gradient(180deg, #6b91b6, #5980a6)',
+                boxShadow: '0 2px 0 #2c455d, inset 0 1px 0 rgba(255,255,255,.24)',
+                transition: 'transform 0.1s, box-shadow 0.1s'
+              }}
+              onMouseDown={(e) => {
+                e.currentTarget.style.transform = 'translateY(2px)';
+                e.currentTarget.style.boxShadow = '0 0 0 #2c455d';
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 2px 0 #2c455d, inset 0 1px 0 rgba(255,255,255,.24)';
+              }}
+            >
+              {copied
+                ? 'Copied'
+                : entry.type === 'code' || (pack && isIn('text', packSel || ''))
+                ? 'Copy source'
+                : 'Copy path'}
+            </button>
+            <button
+              onClick={handleDownload}
+              title="Download asset or package file"
+              style={{
+                padding: '11px 16px',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                border: '1px solid rgba(148,188,227,.3)',
+                background: 'rgba(148,188,227,.12)',
+                color: '#b5d9fd',
+                fontFamily: "'Barlow Condensed', sans-serif",
+                fontSize: '14px',
+                fontWeight: 600,
+                letterSpacing: '.05em',
+                textTransform: 'uppercase',
+                transition: 'background 0.18s'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.22)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.12)')}
+            >
+              Export ↓
+            </button>
+            <button
+              onClick={onNextInPool}
+              style={{
+                flex: 1,
+                padding: '11px',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                border: '1px solid rgba(148,188,227,.3)',
+                background: 'transparent',
+                color: '#b5d9fd',
+                fontFamily: "'Barlow Condensed', sans-serif",
+                fontSize: '14px',
+                fontWeight: 600,
+                letterSpacing: '.05em',
+                textTransform: 'uppercase',
+                transition: 'background 0.18s'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.14)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            >
+              Next in pool ›
+            </button>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'files' && isZip && (
+        <div
+          data-scroll="1"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            padding: '16px 20px 24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}
+        >
+          {/* Search inside package */}
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              value={fileFilter}
+              onChange={(e) => setFileFilter(e.target.value)}
+              placeholder="Search files inside package…"
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                borderRadius: '9px',
+                border: '1px solid rgba(148,188,227,.24)',
+                background: 'rgba(148,188,227,.07)',
                 color: '#e9edf2',
-                fontFamily: 'Barlow, sans-serif',
-                fontSize: '14px'
+                fontFamily: 'ui-monospace, Menlo, monospace',
+                fontSize: '11px'
               }}
             />
+            {fileFilter && (
+              <button
+                onClick={() => setFileFilter('')}
+                style={{
+                  padding: '0 10px',
+                  borderRadius: '8px',
+                  border: 0,
+                  cursor: 'pointer',
+                  background: 'rgba(148,188,227,.15)',
+                  color: '#b5d9fd',
+                  fontFamily: 'ui-monospace, monospace',
+                  fontSize: '11px'
+                }}
+              >
+                Clear
+              </button>
+            )}
           </div>
-        )}
 
-        {/* Package File Tree */}
-        {isZip && (
-          <div style={{ borderRadius: '13px', border: '1px solid rgba(148,188,227,.2)', overflow: 'hidden' }}>
+          <div
+            style={{
+              borderRadius: '13px',
+              border: '1px solid rgba(148,188,227,.2)',
+              overflow: 'hidden',
+              background: 'rgba(16,22,29,.4)'
+            }}
+          >
             <div
               style={{
                 padding: '9px 13px',
@@ -437,23 +764,17 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 letterSpacing: '.12em',
                 textTransform: 'uppercase',
                 color: 'rgba(233,237,242,.5)',
-                background: 'rgba(148,188,227,.08)'
+                background: 'rgba(148,188,227,.08)',
+                display: 'flex',
+                justifyContent: 'space-between'
               }}
             >
-              {pack ? `Package · ${pack.list.length} files · click any to preview` : 'Package contents'}
+              <span>{pack ? `${filteredPackList.length} of ${pack.list.length} files` : 'Files'}</span>
+              <span>Click file to preview</span>
             </div>
-            <div data-scroll="1" style={{ maxHeight: '300px', overflowY: 'auto' }}>
-              {(pack
-                ? pack.list.slice().sort((a, b) => a.path.localeCompare(b.path)).slice(0, 500)
-                : [
-                    { path: 'index.html', size: 2150 },
-                    { path: 'style.css', size: 6553 },
-                    { path: 'main.js', size: 12083 },
-                    { path: 'vendor/gsap.min.js', size: 72704 },
-                    { path: 'assets/cover.png', size: 188416 },
-                    { path: 'readme.md', size: 921 }
-                  ]
-              ).map((f) => {
+
+            <div style={{ maxHeight: 'calc(100vh - 240px)', overflowY: 'auto' }}>
+              {filteredPackList.map((f) => {
                 const lastSlash = f.path.lastIndexOf('/');
                 const dir = lastSlash >= 0 ? f.path.slice(0, lastSlash + 1) : '';
                 const name = f.path.slice(lastSlash + 1);
@@ -462,15 +783,20 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 return (
                   <div
                     key={f.path}
-                    onClick={() => setPackSel(f.path)}
+                    onClick={() => {
+                      setPackSel(f.path);
+                      setActiveTab('preview');
+                    }}
                     style={{
                       display: 'flex',
+                      alignItems: 'center',
                       gap: '10px',
-                      padding: '6px 13px',
+                      padding: '8px 14px',
                       fontFamily: 'ui-monospace, Menlo, monospace',
-                      fontSize: '11px',
-                      color: 'rgba(233,237,242,.85)',
+                      fontSize: '11.5px',
+                      color: 'rgba(233,237,242,.88)',
                       cursor: 'pointer',
+                      borderBottom: '1px solid rgba(148,188,227,.06)',
                       background: isSelected ? 'rgba(148,188,227,.22)' : 'transparent',
                       transition: 'background 0.15s'
                     }}
@@ -490,137 +816,111 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                         textOverflow: 'ellipsis'
                       }}
                     >
-                      <span style={{ color: 'rgba(148,188,227,.6)' }}>{dir}</span>
-                      {name}
+                      <span style={{ color: 'rgba(148,188,227,.55)' }}>{dir}</span>
+                      <strong style={{ color: isSelected ? '#ffffff' : '#b5d9fd' }}>{name}</strong>
                     </span>
-                    <span style={{ flex: 'none', color: 'rgba(148,188,227,.7)' }}>
+                    <span
+                      style={{
+                        flex: 'none',
+                        color: 'rgba(148,188,227,.7)',
+                        fontSize: '10.5px'
+                      }}
+                    >
                       {fmtSize(f.size)}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '9.5px',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        background: 'rgba(148,188,227,.15)',
+                        color: '#b5d9fd'
+                      }}
+                    >
+                      View ›
                     </span>
                   </div>
                 );
               })}
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Metadata Table */}
-        <div style={{ borderRadius: '13px', border: '1px solid rgba(148,188,227,.2)', overflow: 'hidden' }}>
-          {metadataList.map((m) => (
+      {activeTab === 'specimen' && isFont && (
+        <div
+          data-scroll="1"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            padding: '20px 22px 28px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px'
+          }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div
-              key={m.k}
               style={{
-                display: 'flex',
-                gap: '12px',
-                padding: '8px 13px',
-                borderBottom: '1px solid rgba(148,188,227,.1)'
+                fontFamily: 'ui-monospace, Menlo, monospace',
+                fontSize: '9.5px',
+                letterSpacing: '.14em',
+                textTransform: 'uppercase',
+                color: '#94bce3'
               }}
             >
-              <span
-                style={{
-                  width: '104px',
-                  flex: 'none',
-                  fontFamily: 'ui-monospace, Menlo, monospace',
-                  fontSize: '9.5px',
-                  letterSpacing: '.1em',
-                  textTransform: 'uppercase',
-                  color: 'rgba(233,237,242,.45)'
-                }}
-              >
-                {m.k}
-              </span>
-              <span
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  fontFamily: 'ui-monospace, Menlo, monospace',
-                  fontSize: '11px',
-                  color: 'rgba(233,237,242,.85)',
-                  wordBreak: 'break-all'
-                }}
-              >
-                {m.v}
-              </span>
+              Type Custom Specimen Text
             </div>
-          ))}
-        </div>
+            <input
+              value={specimenText}
+              onChange={(e) => onSpecimenChange(e.target.value)}
+              placeholder="Type specimen text…"
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: '11px',
+                border: '1px solid rgba(148,188,227,.28)',
+                background: 'rgba(148,188,227,.08)',
+                color: '#e9edf2',
+                fontFamily: 'Barlow, sans-serif',
+                fontSize: '15px'
+              }}
+            />
+          </div>
 
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={handleCopyOpen}
+          {/* Size Waterfall */}
+          <div
             style={{
-              flex: 1,
-              padding: '11px',
-              borderRadius: '12px',
-              cursor: 'pointer',
-              border: '1px solid #416180',
-              color: '#f2f2f3',
-              fontFamily: "'Barlow Condensed', sans-serif",
-              fontSize: '14px',
-              fontWeight: 600,
-              letterSpacing: '.05em',
-              textTransform: 'uppercase',
-              background: 'linear-gradient(180deg, #6b91b6, #5980a6)',
-              boxShadow: '0 2px 0 #2c455d, inset 0 1px 0 rgba(255,255,255,.24)',
-              transition: 'transform 0.1s, box-shadow 0.1s'
-            }}
-            onMouseDown={(e) => {
-              e.currentTarget.style.transform = 'translateY(2px)';
-              e.currentTarget.style.boxShadow = '0 0 0 #2c455d';
-            }}
-            onMouseUp={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 2px 0 #2c455d, inset 0 1px 0 rgba(255,255,255,.24)';
+              borderRadius: '13px',
+              border: '1px solid rgba(148,188,227,.2)',
+              padding: '16px',
+              background: 'rgba(16,22,29,.4)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px'
             }}
           >
-            {copied ? 'Copied' : entry.type === 'code' || (pack && isIn('text', packSel || '')) ? 'Copy source' : 'Copy path'}
-          </button>
-          <button
-            onClick={handleDownload}
-            title="Download asset or package file"
-            style={{
-              padding: '11px 16px',
-              borderRadius: '12px',
-              cursor: 'pointer',
-              border: '1px solid rgba(148,188,227,.3)',
-              background: 'rgba(148,188,227,.12)',
-              color: '#b5d9fd',
-              fontFamily: "'Barlow Condensed', sans-serif",
-              fontSize: '14px',
-              fontWeight: 600,
-              letterSpacing: '.05em',
-              textTransform: 'uppercase',
-              transition: 'background 0.18s'
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.22)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.12)')}
-          >
-            Export ↓
-          </button>
-          <button
-            onClick={onNextInPool}
-            style={{
-              flex: 1,
-              padding: '11px',
-              borderRadius: '12px',
-              cursor: 'pointer',
-              border: '1px solid rgba(148,188,227,.3)',
-              background: 'transparent',
-              color: '#b5d9fd',
-              fontFamily: "'Barlow Condensed', sans-serif",
-              fontSize: '14px',
-              fontWeight: 600,
-              letterSpacing: '.05em',
-              textTransform: 'uppercase',
-              transition: 'background 0.18s'
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.14)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-          >
-            Next in pool ›
-          </button>
+            {[16, 22, 32, 48, 64].map((sz) => (
+              <div key={sz} style={{ borderBottom: '1px solid rgba(148,188,227,.08)', paddingBottom: '10px' }}>
+                <div
+                  style={{
+                    fontFamily: 'ui-monospace, Menlo, monospace',
+                    fontSize: '9px',
+                    color: 'rgba(148,188,227,.6)',
+                    marginBottom: '4px'
+                  }}
+                >
+                  {sz}px
+                </div>
+                <div style={{ fontSize: `${sz}px`, lineHeight: 1.1, wordBreak: 'break-word' }}>
+                  {specimenText || 'Archive Specimen Typography'}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

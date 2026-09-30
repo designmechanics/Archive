@@ -28,21 +28,29 @@ export const IngestModal: React.FC<IngestModalProps> = ({
     if (e.target.files && e.target.files.length > 0) {
       onIngestFiles(e.target.files);
       e.target.value = '';
+      onClose();
     }
   };
 
   const handleNativeDir = async () => {
-    if (onScanNativeFolder) {
+    if ('showDirectoryPicker' in window && onScanNativeFolder) {
       setScanning(true);
       try {
         await onScanNativeFolder();
         onClose();
+        return;
       } catch (err) {
-        console.warn('Native folder scan canceled or failed', err);
+        if ((err as Error).name === 'AbortError') {
+          setScanning(false);
+          return;
+        }
+        console.warn('Native folder scan canceled or failed, using file dialog fallback:', err);
       } finally {
         setScanning(false);
       }
-    } else if (dirInputRef.current) {
+    }
+    
+    if (dirInputRef.current) {
       dirInputRef.current.click();
     }
   };
