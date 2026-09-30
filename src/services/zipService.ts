@@ -4,6 +4,7 @@ import { AssetEntry, ZipFileInfo, ZipPack } from '../types';
 import { extOf, fmtSize, isIn, MIME, typeFromExt, EXT } from '../data/seedData';
 import { savePackBlob, getPackBlob } from './db';
 import { generatePdfThumbnail, generateVideoThumbnail, persistThumbnailToDisk } from './thumbnailService';
+import { api } from './api';
 
 // Cache for active pack objects in memory
 const packRegistry: Record<string, ZipPack> = {};
@@ -536,4 +537,129 @@ export function pickDefaultFile(pack: ZipPack): string | null {
     sorted[0];
 
   return hit ? hit.path : null;
+}
+
+/**
+ * Checks whether an asset entry represents a ZIP archive package containing multiple files
+ */
+export function isZipArchive(entry?: AssetEntry | null): boolean {
+  if (!entry) return false;
+  if (entry.isZipInnerFile) return false;
+  if (entry.type === 'zip') return true;
+  if (entry.packId) return true;
+  const t = (entry.title || '').toLowerCase();
+  const p = (entry.filePath || '').toLowerCase();
+  if (t.endsWith('.zip') || p.endsWith('.zip')) return true;
+  if (entry.fileCount && entry.fileCount > 1) return true;
+  return false;
+}
+
+/**
+ * Extracts and maps all files inside a ZIP archive into first-class AssetEntry items
+ * so they can be viewed, filtered, and previewed individually in the main views.
+ */
+export async function extractZipEntries(parentZip: AssetEntry): Promise<AssetEntry[]> {
+  if (!parentZip) return [];
+
+  // 1. Try to get in-memory pack or restore from IndexedDB
+  let pack: ZipPack | null = null;
+  if (parentZip.packId) {
+    pack = getPack(parentZip.packId) || (await restorePackFromDB(parentZip.packId));
+  }
+  if (!pack && parentZip.id) {
+    pack = getPack(parentZip.id) || (await restorePackFromDB(parentZip.id));
+  }
+
+  // If in-memory pack available (browser upload or cached blob):
+  if (pack && pack.list && pack.list.length > 0) {
+    const results: AssetEntry[] = [];
+    for (let i = 0; i < pack.list.length; i++) {
+      const f = pack.list[i];
+      const ext = extOf(f.path);
+      const type = typeFromExt(ext);
+      const fileName = f.path.split('/').pop() || f.path;
+
+      let thumb: string | null = null;
+      if (isIn('img', f.path) && f.size < 25_000_000 && pack.blob) {
+        try {
+          const b = await pack.blob(f.path);
+          if (b && b.size > 0) {
+            thumb = URL.createObjectURL(b);
+          }
+        } catch {}
+      } else if (ext === 'svg') {
+        try {
+          const svgText = await pack.text(f.path);
+          thumb = `data:image/svg+xml;utf8,${encodeURIComponent(svgText)}`;
+        } catch {}
+      }
+
+      results.push({
+        id: `${parentZip.id}::${f.path}`,
+        title: fileName,
+        cat: parentZip.cat,
+        type,
+        author: `${parentZip.title} › ${f.path.includes('/') ? f.path.substring(0, f.path.lastIndexOf('/')) : 'root'}`,
+        date: parentZip.date,
+        deps: '1 item',
+        size: fmtSize(f.size),
+        fileCount: 1,
+        exts: [ext],
+        thumb,
+        packId: parentZip.packId || parentZip.id,
+        filePath: f.path,
+        search: `${fileName} ${f.path} ${parentZip.title} ${type} ${ext}`,
+        demo: '',
+        isUserUploaded: true,
+        isZipInnerFile: true,
+        zipParentId: parentZip.id,
+        zipParentTitle: parentZip.title,
+        zipInnerPath: f.path
+      });
+    }
+    return results;
+  }
+
+  // 2. If disk-based archive on server:
+  try {
+    const assetData = await api.getAssetById(parentZip.id);
+    if (assetData && assetData.files && assetData.files.length > 0) {
+      const zipPath = parentZip.filePath || '';
+      return assetData.files.map((f: any) => {
+        const ext = extOf(f.path);
+        const type = typeFromExt(ext);
+        const fileName = f.path.split('/').pop() || f.path;
+        const thumbUrl = (isIn('img', f.path) || ext === 'svg')
+          ? `/api/file?path=${encodeURIComponent(zipPath)}&entry=${encodeURIComponent(f.path)}`
+          : null;
+
+        return {
+          id: `${parentZip.id}::${f.path}`,
+          title: fileName,
+          cat: parentZip.cat,
+          type,
+          author: `${parentZip.title} › ${f.path.includes('/') ? f.path.substring(0, f.path.lastIndexOf('/')) : 'root'}`,
+          date: parentZip.date,
+          deps: '1 item',
+          size: fmtSize(f.size),
+          fileCount: 1,
+          exts: [ext],
+          thumb: thumbUrl,
+          packId: parentZip.packId || parentZip.id,
+          filePath: f.path,
+          search: `${fileName} ${f.path} ${parentZip.title} ${type} ${ext}`,
+          demo: '',
+          isUserUploaded: true,
+          isZipInnerFile: true,
+          zipParentId: parentZip.id,
+          zipParentTitle: parentZip.title,
+          zipInnerPath: f.path
+        };
+      });
+    }
+  } catch (err) {
+    console.warn('Could not query disk archive files from SQLite:', err);
+  }
+
+  return [];
 }

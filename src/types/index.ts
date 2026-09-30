@@ -29,6 +29,15 @@ export interface AssetEntry {
   isUserUploaded?: boolean;
   filePath?: string | null;
   folderId?: string | null;
+  isZipInnerFile?: boolean;
+  zipParentId?: string;
+  zipParentTitle?: string;
+  zipInnerPath?: string;
+}
+
+export interface ActiveZipArchive {
+  parent: AssetEntry;
+  innerEntries: AssetEntry[];
 }
 
 export type ViewMode =

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import gsap from 'gsap';
-import { AssetEntry, Density, ThemeMode, ViewMode, WatchedFolder, Pool, MaxPerPage } from './types';
+import { AssetEntry, Density, ThemeMode, ViewMode, WatchedFolder, Pool, MaxPerPage, ActiveZipArchive } from './types';
 import { CATS, KINDS, THEMES } from './data/seedData';
 import {
   addWatchedFolder,
@@ -27,7 +27,9 @@ import { indexingEngine } from './services/indexingEngine';
 import {
   createEntryFromPack,
   createPackFromBlob,
-  createPackFromSingleFile
+  createPackFromSingleFile,
+  extractZipEntries,
+  isZipArchive
 } from './services/zipService';
 import { ensureThumbnailForEntry } from './services/thumbnailService';
 import { Rail } from './components/Rail';
@@ -110,6 +112,35 @@ export const App: React.FC = () => {
   const handleToggleDeferFolderIngestion = (val: boolean) => {
     setDeferFolderIngestion(val);
     localStorage.setItem('archive.deferFolderIngestion', String(val));
+  };
+
+  // Active ZIP archive drill-down view state
+  const [activeZipArchive, setActiveZipArchive] = useState<ActiveZipArchive | null>(null);
+
+  const handleOpenZipContents = async (entry: AssetEntry) => {
+    try {
+      const inners = await extractZipEntries(entry);
+      if (inners.length > 0) {
+        setActiveZipArchive({
+          parent: entry,
+          innerEntries: inners
+        });
+        setFocusIndex(0);
+        setCurrentPage(1);
+        setOpenId(null);
+      } else {
+        setOpenId(entry.id);
+      }
+    } catch (err) {
+      console.warn('Failed to extract zip entries:', err);
+      setOpenId(entry.id);
+    }
+  };
+
+  const handleCloseZipContents = () => {
+    setActiveZipArchive(null);
+    setFocusIndex(0);
+    setCurrentPage(1);
   };
 
   const dragCounterRef = useRef(0);
@@ -212,6 +243,7 @@ export const App: React.FC = () => {
 
       if (e.key === 'Escape') {
         if (openId) setOpenId(null);
+        else if (activeZipArchive) handleCloseZipContents();
         else if (modalOpen) setModalOpen(false);
         else if (settingsOpen) setSettingsOpen(false);
         return;
@@ -287,6 +319,30 @@ export const App: React.FC = () => {
   // Filtered and sorted entries
   const filteredEntries = useMemo(() => {
     const q = query.trim().toLowerCase();
+
+    // If active ZIP archive drill-down view is open:
+    if (activeZipArchive) {
+      let vis = activeZipArchive.innerEntries;
+      if (q) {
+        vis = vis.filter((e) => {
+          const haystack = (
+            e.title +
+            ' ' +
+            e.cat +
+            ' ' +
+            (KINDS[e.type]?.[0] || '') +
+            ' ' +
+            (e.search || '')
+          ).toLowerCase();
+          return haystack.includes(q);
+        });
+      }
+      if (seed > 0) {
+        vis = vis.slice().sort(() => Math.random() - 0.5);
+      }
+      return vis;
+    }
+
     const disabledFolders = folders.filter((f) => f.enabled === false);
     const ingestingFolders = deferFolderIngestion ? folders.filter((f) => f.isIngesting) : [];
 
@@ -332,7 +388,7 @@ export const App: React.FC = () => {
     }
 
     return vis;
-  }, [entries, query, selectedPool, selectedFolder, folders, seed, deferFolderIngestion]);
+  }, [entries, query, selectedPool, selectedFolder, folders, seed, deferFolderIngestion, activeZipArchive]);
 
   // Pagination & Max Per Page logic
   const totalPages = useMemo(() => {
@@ -830,8 +886,13 @@ export const App: React.FC = () => {
 
   // Active open entry
   const openEntry = useMemo(() => {
+    if (!openId) return null;
+    if (activeZipArchive) {
+      const inner = activeZipArchive.innerEntries.find((e) => e.id === openId);
+      if (inner) return inner;
+    }
     return entries.find((e) => e.id === openId) || null;
-  }, [entries, openId]);
+  }, [entries, openId, activeZipArchive]);
 
   // Previous in pool handler
   const handlePrevInPool = () => {
@@ -940,7 +1001,7 @@ export const App: React.FC = () => {
             setSeed(0);
             setCurrentPage(1);
           }}
-          totalCount={entries.length}
+          totalCount={activeZipArchive ? activeZipArchive.innerEntries.length : entries.length}
           filteredCount={filteredEntries.length}
           selectedPool={selectedPool}
           selectedFolder={selectedFolder}
@@ -966,7 +1027,6 @@ export const App: React.FC = () => {
           accent={accent}
         />
 
-
         {/* Toolbar Row */}
         <Toolbar
           view={view}
@@ -989,15 +1049,169 @@ export const App: React.FC = () => {
           }}
         />
 
+        {/* Archive Contents Active Header / Exit Bar */}
+        {activeZipArchive && (
+          <div
+            data-zip-banner="1"
+            style={{
+              flex: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '12px 24px',
+              background: 'linear-gradient(90deg, rgba(29, 45, 61, 0.96) 0%, rgba(20, 32, 45, 0.94) 100%)',
+              borderBottom: '1px solid rgba(148, 188, 227, 0.35)',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.35)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              zIndex: 15,
+              animation: 'slideDownZipBanner 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+              <div
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '11px',
+                  background: 'rgba(148, 188, 227, 0.16)',
+                  border: '1px solid rgba(148, 188, 227, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flex: 'none',
+                  fontSize: '20px'
+                }}
+              >
+                📦
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span
+                    style={{
+                      fontFamily: 'ui-monospace, Menlo, monospace',
+                      fontSize: '9.5px',
+                      letterSpacing: '.14em',
+                      textTransform: 'uppercase',
+                      color: '#94bce3',
+                      fontWeight: 700
+                    }}
+                  >
+                    Archive Contents
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: 'ui-monospace, Menlo, monospace',
+                      fontSize: '9px',
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      background: 'rgba(56, 239, 125, 0.16)',
+                      border: '1px solid rgba(56, 239, 125, 0.35)',
+                      color: '#38ef7d',
+                      fontWeight: 700
+                    }}
+                  >
+                    {activeZipArchive.innerEntries.length} ITEMS
+                  </span>
+                </div>
+                <div
+                  style={{
+                    fontFamily: "'Barlow Condensed', sans-serif",
+                    fontSize: '21px',
+                    fontWeight: 700,
+                    color: '#ffffff',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    lineHeight: 1.15
+                  }}
+                  title={activeZipArchive.parent.title}
+                >
+                  {activeZipArchive.parent.title}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 'none' }}>
+              {/* Big Matching UI Close Icon Button */}
+              <button
+                onClick={handleCloseZipContents}
+                title="Close Archive View & Return to Library (Esc)"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '9px 18px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(255, 102, 119, 0.5)',
+                  background: 'linear-gradient(180deg, rgba(255, 102, 119, 0.18), rgba(255, 102, 119, 0.1))',
+                  color: '#ff8899',
+                  fontFamily: "'Barlow Condensed', sans-serif",
+                  fontSize: '16px',
+                  fontWeight: 700,
+                  letterSpacing: '.06em',
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 14px rgba(255, 102, 119, 0.2)',
+                  transition: 'all 0.18s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'linear-gradient(180deg, rgba(255, 102, 119, 0.35), rgba(255, 102, 119, 0.2))';
+                  e.currentTarget.style.borderColor = '#ff6677';
+                  e.currentTarget.style.color = '#ffffff';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 4px 18px rgba(255, 102, 119, 0.35)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'linear-gradient(180deg, rgba(255, 102, 119, 0.18), rgba(255, 102, 119, 0.1))';
+                  e.currentTarget.style.borderColor = 'rgba(255, 102, 119, 0.5)';
+                  e.currentTarget.style.color = '#ff8899';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 2px 14px rgba(255, 102, 119, 0.2)';
+                }}
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <span>Close Archive View</span>
+                <span
+                  style={{
+                    fontSize: '10px',
+                    fontFamily: 'ui-monospace, Menlo, monospace',
+                    padding: '2px 5px',
+                    borderRadius: '4px',
+                    background: 'rgba(0, 0, 0, 0.35)',
+                    color: 'rgba(255, 255, 255, 0.75)',
+                    marginLeft: '2px'
+                  }}
+                >
+                  ESC
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Stage / Card Layout Area */}
         <Stage
           entries={pagedEntries}
-          allEntries={entries}
+          allEntries={activeZipArchive ? activeZipArchive.innerEntries : entries}
           view={view}
           density={density}
           focusIndex={focusIndex}
           onFocusChange={setFocusIndex}
           onSelectEntry={(id) => setOpenId(id)}
+          onOpenZipContents={handleOpenZipContents}
           selectedIds={selectedIds}
           onToggleSelect={handleToggleSelect}
           stars={stars}
@@ -1033,6 +1247,7 @@ export const App: React.FC = () => {
         specimenText={specimen}
         onSpecimenChange={setSpecimen}
         motionMultiplier={motionMultiplier}
+        onOpenZipContents={handleOpenZipContents}
       />
 
       {/* Fullscreen Drop Overlay */}

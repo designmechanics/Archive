@@ -1,6 +1,7 @@
 import React from 'react';
 import { AssetEntry } from '../types';
 import { KINDS } from '../data/seedData';
+import { isZipArchive } from '../services/zipService';
 
 interface ListViewProps {
   entries: AssetEntry[];
@@ -8,6 +9,7 @@ interface ListViewProps {
   onToggleStar: (id: string, e: React.MouseEvent) => void;
   onSelectEntry: (id: string) => void;
   accent: string;
+  onOpenZipContents?: (entry: AssetEntry) => void;
 }
 
 export const ListView: React.FC<ListViewProps> = ({
@@ -15,7 +17,8 @@ export const ListView: React.FC<ListViewProps> = ({
   stars,
   onToggleStar,
   onSelectEntry,
-  accent
+  accent,
+  onOpenZipContents
 }) => {
   return (
     <div
@@ -59,7 +62,13 @@ export const ListView: React.FC<ListViewProps> = ({
           <div
             key={e.id}
             data-row={e.id}
-            onClick={() => onSelectEntry(e.id)}
+            onClick={() => {
+              if (isZipArchive(e) && !e.isZipInnerFile && onOpenZipContents) {
+                onOpenZipContents(e);
+              } else {
+                onSelectEntry(e.id);
+              }
+            }}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -138,10 +147,11 @@ export const ListView: React.FC<ListViewProps> = ({
                 fontSize: '9.5px',
                 letterSpacing: '.08em',
                 textTransform: 'uppercase',
-                color: '#416180'
+                color: isZipArchive(e) && !e.isZipInnerFile ? '#38ef7d' : '#416180',
+                fontWeight: isZipArchive(e) && !e.isZipInnerFile ? 700 : 400
               }}
             >
-              {KINDS[e.type]?.[0] || e.type}
+              {isZipArchive(e) && !e.isZipInnerFile ? `📦 ZIP · ${e.fileCount || ''}` : (KINDS[e.type]?.[0] || e.type)}
             </span>
 
             {/* Pool */}

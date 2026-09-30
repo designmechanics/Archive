@@ -1,6 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import JSZip from 'jszip';
 
 import {
   queryAssets,
@@ -59,10 +60,43 @@ const MIME_TYPES = {
   '.ttf': 'font/ttf',
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
+  '.avif': 'image/avif',
   '.zip': 'application/zip',
   '.pdf': 'application/pdf',
   '.txt': 'text/plain'
 };
+
+/**
+ * Handle streaming an individual file from inside a ZIP archive on disk
+ */
+async function handleZipEntryStream(req, res, zipPath, innerPath) {
+  if (!fs.existsSync(zipPath)) {
+    res.statusCode = 404;
+    return res.end('Archive not found');
+  }
+  try {
+    const data = await fs.promises.readFile(zipPath);
+    const zip = await JSZip.loadAsync(data);
+    const file = zip.file(innerPath);
+    if (!file) {
+      res.statusCode = 404;
+      return res.end('File not found in archive');
+    }
+    const ext = path.extname(innerPath).toLowerCase();
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    const buffer = await file.async('nodebuffer');
+
+    res.writeHead(200, {
+      'Content-Length': buffer.length,
+      'Content-Type': contentType,
+      'Accept-Ranges': 'bytes'
+    });
+    return res.end(buffer);
+  } catch (err) {
+    res.statusCode = 500;
+    return res.end('Error reading archive entry: ' + err.message);
+  }
+}
 
 function sendJson(res, data, statusCode = 200) {
   res.statusCode = statusCode;
@@ -335,6 +369,9 @@ export async function handleApiRequest(req, res, next) {
       }
       if (!targetFilePath) {
         return sendJson(res, { error: 'Path or id parameter required' }, 400);
+      }
+      if (query.entry) {
+        return handleZipEntryStream(req, res, targetFilePath, String(query.entry));
       }
       return handleFileStream(req, res, targetFilePath);
     }

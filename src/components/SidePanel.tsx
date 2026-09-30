@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import gsap from 'gsap';
 import { AssetEntry, ZipPack } from '../types';
 import { KINDS, fmtSize, isIn } from '../data/seedData';
-import { generatePreviewDoc, getPack, pickDefaultFile, restorePackFromDB } from '../services/zipService';
+import { generatePreviewDoc, getPack, isZipArchive, pickDefaultFile, restorePackFromDB } from '../services/zipService';
 import { UniversalPreview } from './preview/UniversalPreview';
 
 interface SidePanelProps {
@@ -13,6 +13,7 @@ interface SidePanelProps {
   specimenText: string;
   onSpecimenChange: (txt: string) => void;
   motionMultiplier: number;
+  onOpenZipContents?: (entry: AssetEntry) => void;
 }
 
 type PanelTab = 'preview' | 'info' | 'files' | 'specimen';
@@ -24,7 +25,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({
   onNextInPool,
   specimenText,
   onSpecimenChange,
-  motionMultiplier
+  motionMultiplier,
+  onOpenZipContents
 }) => {
   const [pack, setPack] = useState<ZipPack | null>(null);
   const [packSel, setPackSel] = useState<string | null>(null);
@@ -94,8 +96,12 @@ export const SidePanel: React.FC<SidePanelProps> = ({
       if (!active) return;
       setPack(p);
       if (p) {
-        const def = pickDefaultFile(p);
-        setPackSel(def);
+        if (entry.isZipInnerFile && entry.zipInnerPath) {
+          setPackSel(entry.zipInnerPath);
+        } else {
+          const def = pickDefaultFile(p);
+          setPackSel(def);
+        }
       }
     };
     load();
@@ -104,6 +110,13 @@ export const SidePanel: React.FC<SidePanelProps> = ({
       active = false;
     };
   }, [entry]);
+
+  // Sync packSel if entry.zipInnerPath updates
+  useEffect(() => {
+    if (entry?.isZipInnerFile && entry.zipInnerPath) {
+      setPackSel(entry.zipInnerPath);
+    }
+  }, [entry?.id, entry?.zipInnerPath]);
 
   // Generate preview document when packSel, pack, or specimenText changes
   useEffect(() => {
@@ -383,6 +396,38 @@ export const SidePanel: React.FC<SidePanelProps> = ({
             >
               <span>{isStudioMode ? '⇲ 56vw' : '⇱ 88vw Studio'}</span>
             </button>
+            {isZip && !entry.isZipInnerFile && onOpenZipContents && (
+              <button
+                onClick={() => {
+                  onOpenZipContents(entry);
+                  onClose();
+                }}
+                title="Browse Archive Contents in Stage view"
+                style={{
+                  height: '32px',
+                  padding: '0 12px',
+                  border: '1px solid rgba(56,239,125,.4)',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  background: 'rgba(56,239,125,.14)',
+                  color: '#38ef7d',
+                  fontFamily: "'Barlow Condensed', sans-serif",
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  letterSpacing: '.04em',
+                  textTransform: 'uppercase',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s'
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(56,239,125,.28)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(56,239,125,.14)')}
+              >
+                <span>📦</span>
+                <span>Open in Stage</span>
+              </button>
+            )}
             <button
               onClick={onClose}
               style={{

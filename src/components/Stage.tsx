@@ -3,6 +3,7 @@ import gsap from 'gsap';
 import { AssetEntry, Density, ViewMode, WatchedFolder } from '../types';
 import { KINDS } from '../data/seedData';
 import { ListView } from './ListView';
+import { isZipArchive } from '../services/zipService';
 
 interface StageProps {
   entries: AssetEntry[];
@@ -26,6 +27,7 @@ interface StageProps {
   query?: string;
   selectedPool?: string | null;
   selectedFolder?: WatchedFolder | null;
+  onOpenZipContents?: (entry: AssetEntry) => void;
 }
 
 export const Stage: React.FC<StageProps> = ({
@@ -49,7 +51,8 @@ export const Stage: React.FC<StageProps> = ({
   onClearFilters,
   query,
   selectedPool,
-  selectedFolder
+  selectedFolder,
+  onOpenZipContents
 }) => {
   const wrapRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -95,7 +98,7 @@ export const Stage: React.FC<StageProps> = ({
     }, 1400);
   };
 
-  // Card click handler - opens preview in ALL views
+  // Card click handler - opens zip contents for zip archives, or preview in ALL views
   const handleCardClick = (e: AssetEntry, ev: React.MouseEvent) => {
     if (hasMovedRef.current || isDraggingRef.current) return;
     if (ev.metaKey || ev.ctrlKey || ev.shiftKey) {
@@ -106,7 +109,11 @@ export const Stage: React.FC<StageProps> = ({
     if (idx >= 0) {
       onFocusChange(idx);
     }
-    onSelectEntry(e.id);
+    if (isZipArchive(e) && !e.isZipInnerFile && onOpenZipContents) {
+      onOpenZipContents(e);
+    } else {
+      onSelectEntry(e.id);
+    }
   };
 
   // Drag handling on stage with movement threshold (so clicks are never eaten)
@@ -511,6 +518,7 @@ export const Stage: React.FC<StageProps> = ({
           onToggleStar={onToggleStar}
           onSelectEntry={onSelectEntry}
           accent={accent}
+          onOpenZipContents={onOpenZipContents}
         />
       ) : allEntries.length === 0 ? (
         <div
@@ -820,19 +828,52 @@ export const Stage: React.FC<StageProps> = ({
                           position: 'absolute',
                           left: '10px',
                           top: '9px',
-                          padding: '3px 7px',
+                          padding: '3px 8px',
                           borderRadius: '7px',
-                          background: 'rgba(29,45,61,.82)',
-                          color: '#e9edf2',
+                          background: isZipArchive(e) && !e.isZipInnerFile ? 'rgba(56,239,125,.22)' : 'rgba(29,45,61,.85)',
+                          border: isZipArchive(e) && !e.isZipInnerFile ? '1px solid rgba(56,239,125,.45)' : '1px solid rgba(255,255,255,.08)',
+                          color: isZipArchive(e) && !e.isZipInnerFile ? '#38ef7d' : '#e9edf2',
                           fontFamily: 'ui-monospace, Menlo, monospace',
                           fontSize: '9px',
+                          fontWeight: isZipArchive(e) && !e.isZipInnerFile ? 700 : 400,
                           letterSpacing: '.1em',
-                          textTransform: 'uppercase'
+                          textTransform: 'uppercase',
+                          zIndex: 2
                         }}
                       >
-                        {KINDS[e.type]?.[0] || e.type}
-                        {e.fileCount > 1 ? ` · ${e.fileCount} files` : ''}
+                        {isZipArchive(e) && !e.isZipInnerFile
+                          ? `📦 ZIP · ${e.fileCount || 'Multiple'} files`
+                          : (KINDS[e.type]?.[0] || e.type)}
                       </span>
+
+                      {/* Explore Archive prompt bar on zip archives */}
+                      {isZipArchive(e) && !e.isZipInnerFile && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            bottom: '8px',
+                            left: '10px',
+                            right: '10px',
+                            padding: '4px 10px',
+                            borderRadius: '7px',
+                            background: 'rgba(15,23,42,0.85)',
+                            backdropFilter: 'blur(8px)',
+                            WebkitBackdropFilter: 'blur(8px)',
+                            border: '1px solid rgba(56,239,125,0.3)',
+                            color: '#b5d9fd',
+                            fontFamily: 'ui-monospace, Menlo, monospace',
+                            fontSize: '9.5px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            letterSpacing: '.04em',
+                            zIndex: 2
+                          }}
+                        >
+                          <span style={{ color: '#38ef7d', fontWeight: 600 }}>Explore Archive</span>
+                          <span style={{ fontSize: '11px', color: '#38ef7d' }}>›</span>
+                        </div>
+                      )}
 
                       {/* Star Button */}
                       <span
