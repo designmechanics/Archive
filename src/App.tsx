@@ -164,10 +164,23 @@ export const App: React.FC = () => {
   // Keyboard navigation & Shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
+
       if (e.key === 'Escape') {
         if (openId) setOpenId(null);
         else if (modalOpen) setModalOpen(false);
         else if (settingsOpen) setSettingsOpen(false);
+        return;
+      }
+
+      if (openId) {
+        if (e.key === 'ArrowRight' || e.key === ']') {
+          handleNextInPool();
+          return;
+        } else if (e.key === 'ArrowLeft' || e.key === '[') {
+          handlePrevInPool();
+          return;
+        }
       }
 
       const isCarousel = ['coverflow', 'strip', 'radial', 'filmstrip', 'peel'].includes(view);
@@ -543,6 +556,18 @@ export const App: React.FC = () => {
     return entries.find((e) => e.id === openId) || null;
   }, [entries, openId]);
 
+  // Previous in pool handler
+  const handlePrevInPool = () => {
+    if (!openEntry || filteredEntries.length === 0) return;
+    const curIdx = filteredEntries.findIndex((e) => e.id === openEntry.id);
+    const prevIdx = (curIdx - 1 + filteredEntries.length) % filteredEntries.length;
+    const prevEntry = filteredEntries[prevIdx];
+    if (prevEntry) {
+      setOpenId(prevEntry.id);
+      setFocusIndex(prevIdx);
+    }
+  };
+
   // Next in pool handler
   const handleNextInPool = () => {
     if (!openEntry || filteredEntries.length === 0) return;
@@ -696,6 +721,7 @@ export const App: React.FC = () => {
       <SidePanel
         entry={openEntry}
         onClose={() => setOpenId(null)}
+        onPrevInPool={handlePrevInPool}
         onNextInPool={handleNextInPool}
         specimenText={specimen}
         onSpecimenChange={setSpecimen}

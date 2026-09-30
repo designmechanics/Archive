@@ -8,6 +8,7 @@ import { UniversalPreview } from './preview/UniversalPreview';
 interface SidePanelProps {
   entry: AssetEntry | null;
   onClose: () => void;
+  onPrevInPool?: () => void;
   onNextInPool: () => void;
   specimenText: string;
   onSpecimenChange: (txt: string) => void;
@@ -19,6 +20,7 @@ type PanelTab = 'preview' | 'info' | 'files' | 'specimen';
 export const SidePanel: React.FC<SidePanelProps> = ({
   entry,
   onClose,
+  onPrevInPool,
   onNextInPool,
   specimenText,
   onSpecimenChange,
@@ -291,6 +293,56 @@ export const SidePanel: React.FC<SidePanelProps> = ({
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {onPrevInPool && (
+              <button
+                onClick={onPrevInPool}
+                title="Previous asset (‹ or Left Arrow)"
+                style={{
+                  height: '32px',
+                  width: '32px',
+                  border: '1px solid rgba(148,188,227,.2)',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  background: 'rgba(148,188,227,.12)',
+                  color: '#b5d9fd',
+                  fontFamily: 'ui-monospace, Menlo, monospace',
+                  fontSize: '15px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'background 0.15s, border-color 0.15s'
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.24)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.12)')}
+              >
+                ‹
+              </button>
+            )}
+            {onNextInPool && (
+              <button
+                onClick={onNextInPool}
+                title="Next asset (› or Right Arrow)"
+                style={{
+                  height: '32px',
+                  width: '32px',
+                  border: '1px solid rgba(148,188,227,.2)',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  background: 'rgba(148,188,227,.12)',
+                  color: '#b5d9fd',
+                  fontFamily: 'ui-monospace, Menlo, monospace',
+                  fontSize: '15px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'background 0.15s, border-color 0.15s'
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.24)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.12)')}
+              >
+                ›
+              </button>
+            )}
             <button
               onClick={() => setIsStudioMode(!isStudioMode)}
               title={isStudioMode ? 'Collapse to standard dock (56vw)' : 'Expand to Studio mode (88vw)'}
@@ -465,22 +517,113 @@ export const SidePanel: React.FC<SidePanelProps> = ({
             flex: 1,
             minHeight: 0,
             height: '100%',
-            padding: '12px 16px 16px',
+            padding: '12px 16px 14px',
             display: 'flex',
             flexDirection: 'column',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            gap: '10px'
           }}
         >
-          <UniversalPreview
-            entry={entry}
-            pack={pack}
-            packSel={packSel}
-            packDoc={packDoc}
-            specimenText={specimenText}
-            isStudioMode={isStudioMode}
-            onToggleStudioMode={() => setIsStudioMode(!isStudioMode)}
-            motionMultiplier={motionMultiplier}
-          />
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <UniversalPreview
+              entry={entry}
+              pack={pack}
+              packSel={packSel}
+              packDoc={packDoc}
+              specimenText={specimenText}
+              isStudioMode={isStudioMode}
+              onToggleStudioMode={() => setIsStudioMode(!isStudioMode)}
+              motionMultiplier={motionMultiplier}
+            />
+          </div>
+
+          {/* Navigation Controls in Preview Tab: Previous and Next */}
+          <div
+            style={{
+              flex: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'
+            }}
+          >
+            <button
+              onClick={onPrevInPool}
+              title="Navigate to previous asset in current pool / view (Left Arrow)"
+              style={{
+                flex: 1,
+                padding: '9px 16px',
+                borderRadius: '11px',
+                cursor: 'pointer',
+                border: '1px solid rgba(148,188,227,.28)',
+                background: 'rgba(24,36,50,.85)',
+                color: '#b5d9fd',
+                fontFamily: "'Barlow Condensed', sans-serif",
+                fontSize: '14px',
+                fontWeight: 600,
+                letterSpacing: '.06em',
+                textTransform: 'uppercase',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'background 0.18s, border-color 0.18s, transform 0.15s, box-shadow 0.18s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(148,188,227,.2)';
+                e.currentTarget.style.borderColor = '#94bce3';
+                e.currentTarget.style.boxShadow = '0 4px 14px rgba(29,45,61,.3)';
+                e.currentTarget.style.transform = 'translateX(-2px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(24,36,50,.85)';
+                e.currentTarget.style.borderColor = 'rgba(148,188,227,.28)';
+                e.currentTarget.style.boxShadow = 'none';
+                e.currentTarget.style.transform = 'translateX(0)';
+              }}
+            >
+              <span style={{ fontSize: '16px', lineHeight: 1 }}>‹</span>
+              <span>Previous</span>
+            </button>
+
+            <button
+              onClick={onNextInPool}
+              title="Navigate to next asset in current pool / view (Right Arrow)"
+              style={{
+                flex: 1,
+                padding: '9px 16px',
+                borderRadius: '11px',
+                cursor: 'pointer',
+                border: '1px solid rgba(148,188,227,.28)',
+                background: 'rgba(24,36,50,.85)',
+                color: '#b5d9fd',
+                fontFamily: "'Barlow Condensed', sans-serif",
+                fontSize: '14px',
+                fontWeight: 600,
+                letterSpacing: '.06em',
+                textTransform: 'uppercase',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'background 0.18s, border-color 0.18s, transform 0.15s, box-shadow 0.18s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(148,188,227,.2)';
+                e.currentTarget.style.borderColor = '#94bce3';
+                e.currentTarget.style.boxShadow = '0 4px 14px rgba(29,45,61,.3)';
+                e.currentTarget.style.transform = 'translateX(2px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(24,36,50,.85)';
+                e.currentTarget.style.borderColor = 'rgba(148,188,227,.28)';
+                e.currentTarget.style.boxShadow = 'none';
+                e.currentTarget.style.transform = 'translateX(0)';
+              }}
+            >
+              <span>Next</span>
+              <span style={{ fontSize: '16px', lineHeight: 1 }}>›</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -655,6 +798,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({
               onClick={handleDownload}
               title="Download asset or package file"
               style={{
+                flex: 1,
                 padding: '11px 16px',
                 borderRadius: '12px',
                 cursor: 'pointer',
@@ -672,28 +816,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({
               onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.12)')}
             >
               Export ↓
-            </button>
-            <button
-              onClick={onNextInPool}
-              style={{
-                flex: 1,
-                padding: '11px',
-                borderRadius: '12px',
-                cursor: 'pointer',
-                border: '1px solid rgba(148,188,227,.3)',
-                background: 'transparent',
-                color: '#b5d9fd',
-                fontFamily: "'Barlow Condensed', sans-serif",
-                fontSize: '14px',
-                fontWeight: 600,
-                letterSpacing: '.05em',
-                textTransform: 'uppercase',
-                transition: 'background 0.18s'
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.14)')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-            >
-              Next in pool ›
             </button>
           </div>
         </div>
