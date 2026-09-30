@@ -183,7 +183,7 @@ export async function scanDirectoryOnDisk(targetDir, { maxDepth = 12 } = {}) {
         const ext = path.extname(ent.name).toLowerCase();
         // Check creative asset extensions
         if (
-          /\.(zip|tar|gz|7z|rar|html?|css|scss|m?jsx?|tsx?|json|svg|png|jpe?g|gif|webp|avif|bmp|tiff?|mp4|webm|mov|mkv|mp3|wav|flac|aac|ogg|otf|ttf|woff2?|psd|psb|ai|eps|prproj|aep|blend|obj|fbx|ico)$/i.test(
+          /\.(zip|tar|gz|7z|rar|html?|css|scss|m?jsx?|tsx?|json|svg|png|jpe?g|gif|webp|avif|bmp|tiff?|mp4|webm|mov|mkv|mp3|wav|flac|aac|ogg|otf|ttf|woff2?|psd|psb|ai|eps|prproj|aep|blend|obj|fbx|ico|pdf|md)$/i.test(
             ent.name
           )
         ) {

@@ -344,6 +344,16 @@ export function upsertAsset(asset, innerFiles = []) {
       updated_at = excluded.updated_at
   `);
 
+  const THUMBNAILS_DIR = path.resolve(__dirname, '..', '.thumbnails');
+  let finalThumb = asset.thumb || null;
+  if (!finalThumb) {
+    const safeId = String(asset.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const thumbFile = path.join(THUMBNAILS_DIR, `${safeId}.jpg`);
+    if (fs.existsSync(thumbFile)) {
+      finalThumb = `/api/thumbnail/${safeId}.jpg`;
+    }
+  }
+
   const tx = db.transaction(() => {
     stmt.run(
       asset.id,
@@ -356,7 +366,7 @@ export function upsertAsset(asset, innerFiles = []) {
       asset.size || '0 B',
       asset.fileCount || 1,
       JSON.stringify(asset.exts || []),
-      asset.thumb || null,
+      finalThumb,
       asset.packId || null,
       asset.filePath || null,
       asset.search || '',
@@ -410,8 +420,17 @@ export function upsertAssetsBulk(assets) {
       updated_at = excluded.updated_at
   `);
 
+  const THUMBNAILS_DIR = path.resolve(__dirname, '..', '.thumbnails');
   const tx = db.transaction((list) => {
     for (const asset of list) {
+      let finalThumb = asset.thumb || null;
+      if (!finalThumb) {
+        const safeId = String(asset.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+        const thumbFile = path.join(THUMBNAILS_DIR, `${safeId}.jpg`);
+        if (fs.existsSync(thumbFile)) {
+          finalThumb = `/api/thumbnail/${safeId}.jpg`;
+        }
+      }
       stmt.run(
         asset.id,
         asset.title || 'Untitled Asset',
@@ -423,7 +442,7 @@ export function upsertAssetsBulk(assets) {
         asset.size || '0 B',
         asset.fileCount || 1,
         JSON.stringify(asset.exts || []),
-        asset.thumb || null,
+        finalThumb,
         asset.packId || null,
         asset.filePath || null,
         asset.search || '',

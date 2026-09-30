@@ -27,6 +27,7 @@ import {
   createPackFromBlob,
   createPackFromSingleFile
 } from './services/zipService';
+import { ensureThumbnailForEntry } from './services/thumbnailService';
 import { Rail } from './components/Rail';
 import { Header } from './components/Header';
 import { Toolbar } from './components/Toolbar';
@@ -75,6 +76,25 @@ export const App: React.FC = () => {
     const init = async () => {
       const loadedEntries = await loadEntries();
       setEntries(loadedEntries);
+
+      // Auto-heal thumbnails for assets without snapshots (PDFs, videos, images)
+      const missing = loadedEntries.filter((e) => !e.thumb);
+      if (missing.length > 0) {
+        setTimeout(async () => {
+          for (const item of missing) {
+            try {
+              const thumbUrl = await ensureThumbnailForEntry(item);
+              if (thumbUrl) {
+                setEntries((prev) =>
+                  prev.map((x) => (x.id === item.id ? { ...x, thumb: thumbUrl } : x))
+                );
+              }
+            } catch (err) {
+              console.warn('Auto-thumbnail error for asset:', item.id, err);
+            }
+          }
+        }, 300);
+      }
 
       const stats = await getDatabaseStatus();
       setDbStats(stats);
@@ -449,6 +469,19 @@ export const App: React.FC = () => {
       setDbStats(stats);
       const updatedFolders = await getWatchedFolders();
       setFolders(updatedFolders);
+
+      // Auto-generate thumbnails for fresh disk assets missing thumbnails
+      const missing = freshAssets.filter((e) => !e.thumb);
+      for (const item of missing) {
+        try {
+          const thumbUrl = await ensureThumbnailForEntry(item);
+          if (thumbUrl) {
+            setEntries((prev) =>
+              prev.map((x) => (x.id === item.id ? { ...x, thumb: thumbUrl } : x))
+            );
+          }
+        } catch {}
+      }
     });
   };
 

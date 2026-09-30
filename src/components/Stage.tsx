@@ -538,9 +538,9 @@ export const Stage: React.FC<StageProps> = ({
                   + Ingest Zips & Files
                 </button>
               )}
-              {onScanNativeFolder && (
+              {(onOpenModal || onScanNativeFolder) && (
                 <button
-                  onClick={onScanNativeFolder}
+                  onClick={onOpenModal || onScanNativeFolder}
                   style={{
                     padding: '10px 18px',
                     borderRadius: '12px',

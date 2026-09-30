@@ -130,6 +130,24 @@ export const api = {
   },
 
   /**
+   * Saves a thumbnail snapshot into .thumbnails on disk and references it in SQLite
+   */
+  async saveThumbnail(id: string, dataUrl: string): Promise<string | null> {
+    try {
+      const res = await fetch(`${API_BASE}/thumbnail`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, dataUrl })
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.thumbUrl || null;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
    * Delete single asset
    */
   async deleteAsset(id: string): Promise<void> {

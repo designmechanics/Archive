@@ -18,6 +18,10 @@ backups/
 *.sqlite
 *.sqlite3
 
+# Thumbnail storage directory
+.thumbnails/*
+!.thumbnails/.gitkeep
+
 
 # Logs
 logs/

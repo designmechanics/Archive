@@ -285,9 +285,7 @@ export const IngestModal: React.FC<IngestModalProps> = ({
         </div>
 
         {/* Action 2: Browser Directory Picker */}
-        <button
-          onClick={handleNativeDir}
-          disabled={scanning}
+        <label
           style={{
             padding: '13px 16px',
             borderRadius: '12px',
@@ -310,6 +308,16 @@ export const IngestModal: React.FC<IngestModalProps> = ({
             e.currentTarget.style.background = 'var(--surface, #182636)';
           }}
         >
+          <input
+            ref={dirInputRef}
+            type="file"
+            // @ts-ignore
+            webkitdirectory=""
+            directory=""
+            multiple
+            onChange={handleFiles}
+            style={{ display: 'none' }}
+          />
           <div>
             <div
               style={{
@@ -319,7 +327,7 @@ export const IngestModal: React.FC<IngestModalProps> = ({
                 textTransform: 'uppercase'
               }}
             >
-              {scanning ? 'Scanning Folder…' : '📁 Select Folder via Browser File Dialog'}
+              📁 Select Folder via Browser File Dialog
             </div>
             <div
               style={{
@@ -329,23 +337,11 @@ export const IngestModal: React.FC<IngestModalProps> = ({
                 marginTop: '2px'
               }}
             >
-              Native File System Access API picker
+              Native OS directory dialog (recursively indexes all assets)
             </div>
           </div>
           <span style={{ fontSize: '18px' }}>›</span>
-        </button>
-
-        {/* Hidden directory input fallback */}
-        <input
-          ref={dirInputRef}
-          type="file"
-          // @ts-ignore
-          webkitdirectory=""
-          directory=""
-          multiple
-          onChange={handleFiles}
-          style={{ display: 'none' }}
-        />
+        </label>
 
         {/* Action 3: Drop / Choose Zips and Files */}
         <label

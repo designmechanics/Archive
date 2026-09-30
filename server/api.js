@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 
 import {
   queryAssets,
@@ -22,11 +23,19 @@ import {
   addPool,
   updatePool,
   deletePool,
+  getDatabase,
   BACKUP_DIR,
   DB_PATH
 } from './db.js';
 
 import { scanDirectoryOnDisk, scannerState } from './scanner.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const THUMBNAILS_DIR = path.resolve(__dirname, '..', '.thumbnails');
+if (!fs.existsSync(THUMBNAILS_DIR)) {
+  fs.mkdirSync(THUMBNAILS_DIR, { recursive: true });
+}
 
 // MIME types lookup
 const MIME_TYPES = {
@@ -307,13 +316,54 @@ export async function handleApiRequest(req, res, next) {
       return sendJson(res, { success: true, status: scannerState });
     }
 
-    // 8. Stream file from disk
+    // 8. Stream file from disk (by path or by asset ID)
     if (pathname === '/api/file' && req.method === 'GET') {
-      const targetFilePath = query.path ? String(query.path) : null;
+      let targetFilePath = query.path ? String(query.path) : null;
+      if (!targetFilePath && query.id) {
+        const asset = getAssetById(String(query.id));
+        if (asset && asset.filePath) {
+          targetFilePath = asset.filePath;
+        }
+      }
       if (!targetFilePath) {
-        return sendJson(res, { error: 'Path parameter required' }, 400);
+        return sendJson(res, { error: 'Path or id parameter required' }, 400);
       }
       return handleFileStream(req, res, targetFilePath);
+    }
+
+    // 8.5 Save thumbnail to disk folder (.thumbnails) & update SQLite reference
+    if (pathname === '/api/thumbnail' && req.method === 'POST') {
+      const body = await parseBody(req);
+      if (!body.id || !body.dataUrl) {
+        return sendJson(res, { error: 'id and dataUrl required' }, 400);
+      }
+      const safeId = String(body.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filename = `${safeId}.jpg`;
+      const targetPath = path.join(THUMBNAILS_DIR, filename);
+
+      const base64Data = body.dataUrl.replace(/^data:image\/\w+;base64,/, '');
+      await fs.promises.writeFile(targetPath, Buffer.from(base64Data, 'base64'));
+
+      const thumbUrl = `/api/thumbnail/${filename}`;
+      const db = getDatabase();
+      db.prepare('UPDATE assets SET thumb = ? WHERE id = ?').run(thumbUrl, body.id);
+
+      return sendJson(res, { success: true, thumbUrl });
+    }
+
+    const thumbMatch = pathname.match(/^\/api\/thumbnail\/([^/]+)$/);
+    if (thumbMatch && req.method === 'GET') {
+      const filename = decodeURIComponent(thumbMatch[1]);
+      const targetPath = path.join(THUMBNAILS_DIR, filename);
+      if (!fs.existsSync(targetPath)) {
+        res.statusCode = 404;
+        return res.end('Thumbnail not found');
+      }
+      res.writeHead(200, {
+        'Content-Type': 'image/jpeg',
+        'Cache-Control': 'public, max-age=31536000, immutable'
+      });
+      return fs.createReadStream(targetPath).pipe(res);
     }
 
     // 9. Key/Value Settings

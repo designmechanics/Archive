@@ -3,7 +3,7 @@ import JSZip from 'jszip';
 import { AssetEntry, ZipFileInfo, ZipPack } from '../types';
 import { extOf, fmtSize, isIn, MIME, typeFromExt, EXT } from '../data/seedData';
 import { savePackBlob, getPackBlob } from './db';
-import { generatePdfThumbnail } from './thumbnailService';
+import { generatePdfThumbnail, generateVideoThumbnail, persistThumbnailToDisk } from './thumbnailService';
 
 // Cache for active pack objects in memory
 const packRegistry: Record<string, ZipPack> = {};
@@ -20,7 +20,10 @@ export async function restorePackFromDB(id: string): Promise<ZipPack | null> {
   if (packRegistry[id]) return packRegistry[id];
   const stored = await getPackBlob(id);
   if (!stored) return null;
-  const pack = await createPackFromBlob(stored.name, stored.blob);
+  const isZip = /\.zip$/i.test(stored.name);
+  const pack = isZip
+    ? await createPackFromBlob(stored.name, stored.blob)
+    : createPackFromSingleFile(new File([stored.blob], stored.name));
   packRegistry[id] = pack;
   return pack;
 }
@@ -229,6 +232,46 @@ export async function createEntryFromPack(pack: ZipPack, isZip: boolean): Promis
       } catch (e) {
         console.warn('PDF thumbnail generation failed for pack entry:', e);
       }
+    }
+  }
+
+  // If no thumbnail yet and this is a video or contains a video, generate video frame snapshot
+  if (!thumb) {
+    const isSingleVid = isIn('vid', pack.name);
+    const vidFile = isSingleVid
+      ? null
+      : list.find((f) => isIn('vid', f.path) && f.size < 100_000_000);
+
+    if (isSingleVid) {
+      try {
+        const blob = pack.rawBlob || (typeof pack.blob === 'function' ? await pack.blob(pack.name) : null);
+        if (blob) {
+          thumb = await generateVideoThumbnail(blob);
+        }
+      } catch (e) {
+        console.warn('Video thumbnail generation failed for single file:', e);
+      }
+    } else if (vidFile && typeof pack.blob === 'function') {
+      try {
+        const blob = await pack.blob(vidFile.path);
+        if (blob) {
+          thumb = await generateVideoThumbnail(blob);
+        }
+      } catch (e) {
+        console.warn('Video thumbnail generation failed for pack entry:', e);
+      }
+    }
+  }
+
+  // Persist thumbnail to local .thumbnails folder on disk and reference in SQLite
+  if (thumb && thumb.startsWith('data:')) {
+    try {
+      const persistedUrl = await persistThumbnailToDisk(id, thumb);
+      if (persistedUrl) {
+        thumb = persistedUrl;
+      }
+    } catch (e) {
+      console.warn('Could not persist thumbnail to disk:', e);
     }
   }
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import gsap from 'gsap';
 import { AssetEntry, ZipPack } from '../../types';
+import { getPackBlob } from '../../services/db';
 import { detectFormat, PreviewFormat } from './types';
 import { ImageViewer } from './ImageViewer';
 import { VideoViewer } from './VideoViewer';
@@ -49,11 +50,18 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
       return detectFormat(ext, packSel);
     }
 
+    // Check title extension directly
+    const titleExt = (entry.title || '').split('.').pop() || '';
+    if (titleExt) {
+      const titleFmt = detectFormat(titleExt, entry.title);
+      if (titleFmt && titleFmt !== 'code') return titleFmt;
+    }
+
     // Check entry extensions
     if (entry.exts && entry.exts.length > 0) {
       for (const ext of entry.exts) {
         const fmt = detectFormat(ext, entry.title);
-        if (fmt) return fmt;
+        if (fmt && fmt !== 'code') return fmt;
       }
     }
 
@@ -94,20 +102,28 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
     }
   }, [activeFormat, packSel, motionMultiplier]);
 
+  const activeBlobUrlRef = React.useRef<string | null>(null);
+
+  // Clean up blob URL ONLY on component unmount
+  useEffect(() => {
+    return () => {
+      if (activeBlobUrlRef.current && activeBlobUrlRef.current.startsWith('blob:')) {
+        URL.revokeObjectURL(activeBlobUrlRef.current);
+        activeBlobUrlRef.current = null;
+      }
+    };
+  }, []);
+
   // Load content or create blob URLs
   useEffect(() => {
     let isCancelled = false;
-
-    // Clean up previous blob URL
-    if (mediaBlobUrl) {
-      URL.revokeObjectURL(mediaBlobUrl);
-      setMediaBlobUrl(null);
-    }
 
     const loadContent = async () => {
       setIsLoading(true);
 
       try {
+        let blobToUse: Blob | null = null;
+
         if (pack && packSel) {
           // If viewing text/code-based formats
           if (
@@ -124,18 +140,74 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
 
           // If viewing media/binary formats
           if (typeof pack.blob === 'function') {
-            const blob = await pack.blob(packSel);
-            if (blob && !isCancelled) {
-              const url = URL.createObjectURL(blob);
-              setMediaBlobUrl(url);
-              setIsLoading(false);
-              return;
+            blobToUse = await pack.blob(packSel);
+          }
+        }
+
+        // Direct rawBlob from pack (for loose files or single packs)
+        if (!blobToUse && pack?.rawBlob) {
+          blobToUse = pack.rawBlob;
+        }
+
+        // Direct fallback from IndexedDB packs/blobs store if pack object wasn't in memory
+        if (!blobToUse && entry.packId) {
+          const stored = await getPackBlob(entry.packId);
+          if (stored?.blob) {
+            blobToUse = stored.blob;
+          }
+        }
+        if (!blobToUse && entry.id) {
+          const stored = await getPackBlob(entry.id);
+          if (stored?.blob) {
+            blobToUse = stored.blob;
+          }
+        }
+
+        // If we have a blob and format is media/pdf
+        if (blobToUse && !isCancelled) {
+          if (['image', 'video', 'audio', '3d', 'pdf'].includes(activeFormat)) {
+            const newUrl = URL.createObjectURL(blobToUse);
+            if (activeBlobUrlRef.current && activeBlobUrlRef.current.startsWith('blob:') && activeBlobUrlRef.current !== newUrl) {
+              URL.revokeObjectURL(activeBlobUrlRef.current);
             }
+            activeBlobUrlRef.current = newUrl;
+            setMediaBlobUrl(newUrl);
+            setIsLoading(false);
+            return;
+          } else if (typeof blobToUse.text === 'function') {
+            const txt = await blobToUse.text();
+            if (!isCancelled) {
+              setContentString(txt);
+              setIsLoading(false);
+            }
+            return;
+          }
+        }
+
+        // Direct fallback: if no in-memory blob, but file is available on server /api/file
+        if (!blobToUse && entry.id && !isCancelled) {
+          if (['image', 'video', 'audio', '3d', 'pdf'].includes(activeFormat)) {
+            const streamUrl = `/api/file?id=${encodeURIComponent(entry.id)}`;
+            setMediaBlobUrl(streamUrl);
+            setIsLoading(false);
+            return;
+          } else if (['code', 'markdown', 'doc', 'json', 'css', 'html', 'vector'].includes(activeFormat)) {
+            try {
+              const res = await fetch(`/api/file?id=${encodeURIComponent(entry.id)}`);
+              if (res.ok) {
+                const txt = await res.text();
+                if (!isCancelled) {
+                  setContentString(txt);
+                  setIsLoading(false);
+                  return;
+                }
+              }
+            } catch {}
           }
         }
 
         // Fallback for mock/prototype entry without zip pack
-        if (!pack) {
+        if (!pack && !blobToUse) {
           if (entry.demo) {
             setContentString(entry.demo);
           } else if (entry.type === 'font') {
@@ -168,15 +240,6 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
       isCancelled = true;
     };
   }, [pack, packSel, entry, activeFormat, specimenText]);
-
-  // Clean up blob URL on unmount
-  useEffect(() => {
-    return () => {
-      if (mediaBlobUrl) {
-        URL.revokeObjectURL(mediaBlobUrl);
-      }
-    };
-  }, [mediaBlobUrl]);
 
   // List of format badges/alternatives available for this asset
   const availableFormats = useMemo<PreviewFormat[]>(() => {
