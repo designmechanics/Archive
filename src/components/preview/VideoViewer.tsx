@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import gsap from 'gsap';
 
 interface VideoViewerProps {
@@ -19,6 +19,75 @@ export const VideoViewer: React.FC<VideoViewerProps> = ({ src, name }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [stageSize, setStageSize] = useState<{ width: number; height: number } | null>(null);
+
+  // Dynamically observe stage size so the video is always 100% contained without clipping
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          setStageSize({ width, height });
+        }
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Ensure resolution is picked up if video metadata was already available
+  useEffect(() => {
+    if (videoRef.current) {
+      if (videoRef.current.videoWidth > 0 && videoRef.current.videoHeight > 0) {
+        setResolution({
+          w: videoRef.current.videoWidth,
+          h: videoRef.current.videoHeight
+        });
+        setDuration(videoRef.current.duration || 0);
+      }
+    }
+  }, [src]);
+
+  // Exact aspect-fit calculation guaranteeing the entire video is shown without truncation
+  const fitStyle = useMemo<React.CSSProperties>(() => {
+    if (!resolution || !stageSize || stageSize.width === 0 || stageSize.height === 0) {
+      return {
+        maxWidth: '100%',
+        maxHeight: '100%',
+        width: 'auto',
+        height: '100%',
+        objectFit: 'contain'
+      };
+    }
+
+    const stageRatio = stageSize.width / stageSize.height;
+    const videoRatio = resolution.w / resolution.h;
+
+    if (videoRatio < stageRatio) {
+      // Portrait (e.g. 9:16) / taller than stage: bound strictly to stage height so entire video is shown
+      const targetHeight = Math.floor(stageSize.height);
+      const targetWidth = Math.round(targetHeight * videoRatio);
+      return {
+        height: `${targetHeight}px`,
+        width: `${targetWidth}px`,
+        maxWidth: '100%',
+        maxHeight: '100%'
+      };
+    } else {
+      // Landscape (e.g. 16:9) / wider than stage: bound strictly to stage width
+      const targetWidth = Math.floor(stageSize.width);
+      const targetHeight = Math.round(targetWidth / videoRatio);
+      return {
+        width: `${targetWidth}px`,
+        height: `${targetHeight}px`,
+        maxWidth: '100%',
+        maxHeight: '100%'
+      };
+    }
+  }, [resolution, stageSize]);
 
   useEffect(() => {
     if (controlsRef.current) {
@@ -97,6 +166,7 @@ export const VideoViewer: React.FC<VideoViewerProps> = ({ src, name }) => {
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
+        minHeight: 0,
         background: '#090e13',
         borderRadius: '14px',
         overflow: 'hidden',
@@ -105,6 +175,7 @@ export const VideoViewer: React.FC<VideoViewerProps> = ({ src, name }) => {
     >
       {/* Video Stage */}
       <div
+        ref={stageRef}
         style={{
           flex: 1,
           minHeight: 0,
@@ -120,15 +191,15 @@ export const VideoViewer: React.FC<VideoViewerProps> = ({ src, name }) => {
         }}
         onClick={togglePlay}
       >
-        {/* Aspect-fit container: binds play icon directly to the active video frame */}
+        {/* Aspect-fit container: dynamically calculated from stage contentRect and video aspect ratio */}
         <div
           style={{
             position: 'relative',
-            maxWidth: '100%',
-            maxHeight: '100%',
-            display: 'inline-flex',
+            ...fitStyle,
+            display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            flex: 'none'
           }}
         >
           <video
@@ -137,13 +208,15 @@ export const VideoViewer: React.FC<VideoViewerProps> = ({ src, name }) => {
             loop={loop}
             onTimeUpdate={handleTimeUpdate}
             onLoadedMetadata={handleLoadedMetadata}
+            onLoadedData={handleLoadedMetadata}
+            onCanPlay={handleLoadedMetadata}
             onEnded={() => setIsPlaying(false)}
             playsInline
             style={{
+              width: '100%',
+              height: '100%',
               maxWidth: '100%',
               maxHeight: '100%',
-              width: 'auto',
-              height: 'auto',
               objectFit: 'contain',
               borderRadius: '8px',
               boxShadow: '0 8px 32px rgba(0,0,0,0.65)',
@@ -224,13 +297,14 @@ export const VideoViewer: React.FC<VideoViewerProps> = ({ src, name }) => {
         ref={controlsRef}
         style={{
           flex: 'none',
-          padding: '10px 14px',
+          padding: '8px 12px',
           background: 'rgba(24,36,50,.96)',
           borderTop: '1px solid rgba(148,188,227,.12)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          flexWrap: 'wrap',
+          flexWrap: 'nowrap',
+          overflowX: 'auto',
           gap: '8px'
         }}
       >
