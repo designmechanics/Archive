@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useLayoutEffect, useRef } from 'react';
 import { WatchedFolder, Pool } from '../types';
 
 interface RailProps {
@@ -69,6 +69,50 @@ export const Rail: React.FC<RailProps> = ({
         { id: 'p12', name: 'Experiments', color: '#e879f9' }
       ];
 
+  const brandContainerRef = useRef<HTMLDivElement>(null);
+  const brandTextRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const container = brandContainerRef.current;
+    const text = brandTextRef.current;
+    if (!container || !text) return;
+
+    const fit = () => {
+      if (!container || !text) return;
+      const containerWidth = container.clientWidth;
+      if (containerWidth <= 0) return;
+
+      const currentSize = parseFloat(window.getComputedStyle(text).fontSize) || 48;
+      const currentWidth = text.getBoundingClientRect().width;
+      if (currentWidth > 0) {
+        let targetSize = (containerWidth / currentWidth) * currentSize;
+        text.style.fontSize = `${targetSize}px`;
+
+        // Secondary check to guarantee no subpixel overflow
+        const adjustedWidth = text.getBoundingClientRect().width;
+        if (adjustedWidth > containerWidth && adjustedWidth > 0) {
+          targetSize = (containerWidth / adjustedWidth) * targetSize;
+          text.style.fontSize = `${targetSize}px`;
+        }
+      }
+    };
+
+    fit();
+
+    if (document.fonts?.ready) {
+      document.fonts.ready.then(fit);
+    }
+
+    const ro = new ResizeObserver(() => fit());
+    ro.observe(container);
+
+    window.addEventListener('resize', fit);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', fit);
+    };
+  }, []);
+
   return (
     <aside
       data-rail="1"
@@ -86,19 +130,32 @@ export const Rail: React.FC<RailProps> = ({
       }}
     >
       {/* Brand Header */}
-      <div style={{ padding: '22px 20px 16px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+      <div style={{ padding: '22px 20px 16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <div
-          data-intro="1"
+          ref={brandContainerRef}
           style={{
-            fontFamily: "'Barlow Condensed', sans-serif",
-            fontWeight: 700,
-            fontSize: '27px',
-            letterSpacing: '.02em',
-            lineHeight: 1,
-            textTransform: 'uppercase'
+            width: '100%',
+            overflow: 'hidden',
+            lineHeight: 1
           }}
         >
-          Archive
+          <div
+            ref={brandTextRef}
+            data-intro="1"
+            style={{
+              fontFamily: "'Barlow Condensed', sans-serif",
+              fontWeight: 700,
+              fontSize: '48px',
+              letterSpacing: '0.01em',
+              lineHeight: 0.9,
+              textTransform: 'uppercase',
+              display: 'inline-block',
+              whiteSpace: 'nowrap',
+              width: 'fit-content'
+            }}
+          >
+            ARCHIVE
+          </div>
         </div>
         <div
           data-intro="1"
