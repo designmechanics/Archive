@@ -581,7 +581,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({
           style={{
             flex: 1,
             minHeight: 0,
-            height: '100%',
             padding: '12px 16px 14px',
             display: 'flex',
             flexDirection: 'column',

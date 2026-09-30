@@ -107,51 +107,80 @@ export const VideoViewer: React.FC<VideoViewerProps> = ({ src, name }) => {
       <div
         style={{
           flex: 1,
+          minHeight: 0,
+          minWidth: 0,
           position: 'relative',
-          display: 'grid',
-          placeItems: 'center',
-          background: '#000000',
-          cursor: 'pointer'
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#04070a',
+          cursor: 'pointer',
+          padding: '12px 16px',
+          overflow: 'hidden'
         }}
         onClick={togglePlay}
       >
-        <video
-          ref={videoRef}
-          src={src}
-          loop={loop}
-          onTimeUpdate={handleTimeUpdate}
-          onLoadedMetadata={handleLoadedMetadata}
-          onEnded={() => setIsPlaying(false)}
+        {/* Aspect-fit container: binds play icon directly to the active video frame */}
+        <div
           style={{
+            position: 'relative',
             maxWidth: '100%',
             maxHeight: '100%',
-            objectFit: 'contain'
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center'
           }}
-        />
-
-        {/* Center Play Overlay Icon if paused */}
-        {!isPlaying && (
-          <div
+        >
+          <video
+            ref={videoRef}
+            src={src}
+            loop={loop}
+            onTimeUpdate={handleTimeUpdate}
+            onLoadedMetadata={handleLoadedMetadata}
+            onEnded={() => setIsPlaying(false)}
+            playsInline
             style={{
-              position: 'absolute',
-              width: '64px',
-              height: '64px',
-              borderRadius: '50%',
-              background: 'rgba(29,45,61,.75)',
-              border: '2px solid rgba(148,188,227,.4)',
-              color: '#b5d9fd',
-              display: 'grid',
-              placeItems: 'center',
-              fontSize: '26px',
-              boxShadow: '0 8px 30px rgba(0,0,0,.6)',
-              pointerEvents: 'none',
-              transform: 'scale(1)',
-              transition: 'transform 0.15s ease'
+              maxWidth: '100%',
+              maxHeight: '100%',
+              width: 'auto',
+              height: 'auto',
+              objectFit: 'contain',
+              borderRadius: '8px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.65)',
+              display: 'block'
             }}
-          >
-            ▶
-          </div>
-        )}
+          />
+
+          {/* Center Play Overlay Icon if paused - centered to video frame */}
+          {!isPlaying && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '64px',
+                height: '64px',
+                borderRadius: '50%',
+                background: 'rgba(15, 23, 42, 0.78)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                border: '2px solid rgba(148, 188, 227, 0.45)',
+                color: '#b5d9fd',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '24px',
+                boxShadow: '0 8px 30px rgba(0,0,0,.6)',
+                pointerEvents: 'none',
+                paddingLeft: '3px',
+                transition: 'transform 0.15s ease'
+              }}
+            >
+              ▶
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Scrub Timeline */}
@@ -159,6 +188,7 @@ export const VideoViewer: React.FC<VideoViewerProps> = ({ src, name }) => {
         ref={timelineRef}
         onClick={handleSeek}
         style={{
+          flex: 'none',
           height: '10px',
           background: 'rgba(148,188,227,.12)',
           position: 'relative',
@@ -193,6 +223,7 @@ export const VideoViewer: React.FC<VideoViewerProps> = ({ src, name }) => {
       <div
         ref={controlsRef}
         style={{
+          flex: 'none',
           padding: '10px 14px',
           background: 'rgba(24,36,50,.96)',
           borderTop: '1px solid rgba(148,188,227,.12)',
