@@ -655,12 +655,16 @@ export const Stage: React.FC<StageProps> = ({
     exiting: string | null;
     dir: number;
     axis: 'Y' | 'X';
+    exitSide: number;
+    returnSide: number;
     animKey: number;
   }>({
     current: '',
     exiting: null,
     dir: 1,
     axis: 'Y',
+    exitSide: -1,
+    returnSide: 1,
     animKey: 0
   });
 
@@ -680,11 +684,16 @@ export const Stage: React.FC<StageProps> = ({
     currentWatermarkRef.current = mark;
     const dir = lastDirRef.current;
     const axis: 'Y' | 'X' = view === 'filmstrip' ? 'X' : 'Y';
+    const lastExitedIdx = Math.max(0, focusIndex - 1);
+    const exitSide = (lastExitedIdx % 2 === 0) ? -1 : 1;
+    const returnSide = (focusIndex % 2 === 0) ? -1 : 1;
     setWatermarkState((prev) => ({
       current: mark,
       exiting: oldMark || null,
       dir,
       axis,
+      exitSide,
+      returnSide,
       animKey: prev.animKey + 1
     }));
   };
@@ -902,8 +911,7 @@ export const Stage: React.FC<StageProps> = ({
         );
       } else if (view === 'peel') {
         // Peel: card peels off with alternating side of exit (left, right, repeat)
-        const lastExitedIdx = Math.max(0, focusIndex - 1);
-        const exitSide = (lastExitedIdx % 2 === 0) ? -1 : 1; // 0 -> LEFT (-1), 1 -> RIGHT (+1)...
+        const exitSide = watermarkState.exitSide;
 
         if (dir === 1) {
           gsap.fromTo(
@@ -924,7 +932,7 @@ export const Stage: React.FC<StageProps> = ({
             }
           );
         } else {
-          const returnSide = (focusIndex % 2 === 0) ? -1 : 1;
+          const returnSide = watermarkState.returnSide;
           gsap.fromTo(
             exitEl,
             { opacity: 1, x: 0, y: 0, rotateZ: 0, scale: 1 },
@@ -1049,9 +1057,8 @@ export const Stage: React.FC<StageProps> = ({
         );
       } else if (view === 'peel') {
         // Peel: incoming letter reveals from underneath (dir=1) or returns from the peeled side (dir=-1)
-        const lastExitedIdx = Math.max(0, focusIndex - 1);
-        const exitSide = (lastExitedIdx % 2 === 0) ? -1 : 1;
-        const returnSide = (focusIndex % 2 === 0) ? -1 : 1;
+        const exitSide = watermarkState.exitSide;
+        const returnSide = watermarkState.returnSide;
 
         if (dir === 1) {
           gsap.fromTo(
@@ -1180,7 +1187,7 @@ export const Stage: React.FC<StageProps> = ({
         );
       }
     }
-  }, [watermarkState.animKey, motionMultiplier, view, focusIndex]);
+  }, [watermarkState.animKey, motionMultiplier, view]);
 
   const isFilmstrip = view === 'filmstrip';
 
