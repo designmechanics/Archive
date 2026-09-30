@@ -366,26 +366,28 @@ export const Stage: React.FC<StageProps> = ({
 
       if (view === 'filmstrip') {
         // Filmstrip: related to display area vh; card centered vertically at cy; vertical strip at 33% width
-        const ch2 = Math.max(300, Math.min(680, Math.round(displayH * 0.48)));
+        // vStep = ch2 + gap prevents 3D card planes from overlapping and intersecting
+        const ch2 = Math.max(300, Math.min(640, Math.round(displayH * 0.45)));
         const cw2 = Math.round(ch2 * 0.72);
         const cxFilm = Math.round(W * 0.33 - cw2 / 2);
         const cy = Math.round((displayH - ch2) / 2);
-        const vStep = Math.round(displayH * 0.28);
+        const gap = Math.max(22, Math.round(displayH * 0.028));
+        const vStep = ch2 + gap;
 
         entries.forEach((e, i) => {
           const d = i - focus;
           const ad = Math.abs(d);
           T[e.id] = {
-            x: cxFilm + ad * 14,
+            x: cxFilm,
             y: cy + d * vStep,
             w: cw2,
             h: ch2,
             rY: 0,
-            rX: -Math.max(-38, Math.min(38, d * 14)),
+            rX: -Math.max(-28, Math.min(28, d * 12)),
             rZ: 0,
-            z: -ad * 120,
-            s: 1 - Math.min(ad * 0.05, 0.35),
-            o: ad > 4 ? 0 : 1,
+            z: -ad * 100,
+            s: 1 - Math.min(ad * 0.04, 0.25),
+            o: ad > 3 ? 0 : 1,
             zi: 200 - ad * 2
           };
         });
