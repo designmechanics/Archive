@@ -701,13 +701,16 @@ export const Stage: React.FC<StageProps> = ({
             className="watermark-glyph"
             style={{
               fontSize:
-                watermark.length <= 2
-                  ? 'min(38vw, 42vh)'
+                watermark.length === 1
+                  ? '98vh'
+                  : watermark.length <= 2
+                  ? 'min(98vh, 85vw)'
                   : watermark.length <= 4
-                  ? 'min(22vw, 26vh)'
+                  ? 'min(45vw, 48vh)'
                   : watermark.length <= 8
-                  ? 'min(14vw, 16vh)'
-                  : 'min(9vw, 11vh)'
+                  ? 'min(24vw, 26vh)'
+                  : 'min(14vw, 16vh)',
+              lineHeight: watermark.length <= 2 ? 0.78 : 0.88
             }}
           >
             {watermark}
