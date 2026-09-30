@@ -1,5 +1,6 @@
 import React, { useLayoutEffect, useRef } from 'react';
 import { WatchedFolder, Pool, AssetEntry } from '../types';
+import { isZipArchive } from '../services/zipService';
 
 interface RailProps {
   totalCount: number;
@@ -28,6 +29,7 @@ interface RailProps {
   entries?: AssetEntry[];
   viewedHistory?: string[];
   onSelectEntry?: (id: string) => void;
+  onOpenZipContents?: (entry: AssetEntry) => void;
 }
 
 export const Rail: React.FC<RailProps> = ({
@@ -56,7 +58,8 @@ export const Rail: React.FC<RailProps> = ({
   pools = [],
   entries = [],
   viewedHistory = [],
-  onSelectEntry
+  onSelectEntry,
+  onOpenZipContents
 }) => {
   const poolList = pools.length > 0
     ? pools
@@ -494,9 +497,12 @@ export const Rail: React.FC<RailProps> = ({
                       const transY = isFanOpen ? -Math.abs(offset) * 5 : 0;
                       const transX = isFanOpen ? offset * 8 : 0;
                       const hasThumb = !!item.thumb;
+                      const isZip = isZipArchive(item) && !item.isZipInnerFile;
                       const isVideo =
-                        item.type === 'video' ||
-                        (item.exts && ['mp4', 'webm', 'mov', 'm4v'].some((x) => item.exts.includes(x)));
+                        !isZip && (
+                          item.type === 'video' ||
+                          (item.exts && ['mp4', 'webm', 'mov', 'm4v'].some((x) => item.exts.includes(x)))
+                        );
 
                       return (
                         <div
@@ -504,16 +510,24 @@ export const Rail: React.FC<RailProps> = ({
                           data-mini="1"
                           onClick={(ev) => {
                             ev.stopPropagation();
-                            if (onSelectEntry) onSelectEntry(item.id);
+                            if (isZip && onOpenZipContents) {
+                              onOpenZipContents(item);
+                            } else if (onSelectEntry) {
+                              onSelectEntry(item.id);
+                            }
                           }}
-                          title={`${item.title} (${item.type.toUpperCase()}) — Click to preview`}
+                          title={
+                            isZip
+                              ? `${item.title} (ZIP Archive) — Click to view contents`
+                              : `${item.title} (${item.type.toUpperCase()}) — Click to preview`
+                          }
                           style={{
                             width: '42px',
                             height: '56px',
                             marginLeft: i === 0 ? 0 : '-12px',
                             flex: 'none',
                             borderRadius: '8px',
-                            border: '1.5px solid rgba(181,217,253,.35)',
+                            border: isZip ? '1.5px solid rgba(250,204,21,.55)' : '1.5px solid rgba(181,217,253,.35)',
                             background: hasThumb
                               ? `url(${item.thumb}) center/cover no-repeat`
                               : 'repeating-linear-gradient(135deg, rgba(148,188,227,.5) 0 3px, rgba(29,45,61,.1) 3px 7px)',
@@ -528,17 +542,41 @@ export const Rail: React.FC<RailProps> = ({
                           }}
                           onMouseEnter={(ev) => {
                             ev.currentTarget.style.zIndex = '50';
-                            ev.currentTarget.style.borderColor = '#38ef7d';
-                            ev.currentTarget.style.boxShadow = '0 8px 24px rgba(56,239,125,.35)';
+                            ev.currentTarget.style.borderColor = isZip ? '#facc15' : '#38ef7d';
+                            ev.currentTarget.style.boxShadow = isZip
+                              ? '0 8px 24px rgba(250,204,21,.45)'
+                              : '0 8px 24px rgba(56,239,125,.35)';
                             ev.currentTarget.style.transform = `translate(${transX}px, ${transY - 8}px) scale(1.18) rotate(${rotate}deg)`;
                           }}
                           onMouseLeave={(ev) => {
                             ev.currentTarget.style.zIndex = String(isFanOpen ? n - i : 1);
-                            ev.currentTarget.style.borderColor = 'rgba(181,217,253,.35)';
+                            ev.currentTarget.style.borderColor = isZip ? 'rgba(250,204,21,.55)' : 'rgba(181,217,253,.35)';
                             ev.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,.45)';
                             ev.currentTarget.style.transform = `translate(${transX}px, ${transY}px) rotate(${rotate}deg)`;
                           }}
                         >
+                          {/* Mini ZIP indicator badge */}
+                          {isZip && (
+                            <span
+                              style={{
+                                position: 'absolute',
+                                bottom: '2px',
+                                right: '2px',
+                                padding: '1px 3px',
+                                borderRadius: '3px',
+                                background: 'rgba(0,0,0,0.85)',
+                                color: '#facc15',
+                                fontSize: '6.5px',
+                                fontWeight: 700,
+                                fontFamily: 'ui-monospace, monospace',
+                                letterSpacing: '.06em',
+                                lineHeight: '8px'
+                              }}
+                            >
+                              ZIP
+                            </span>
+                          )}
+
                           {/* Mini Video / Format indicator */}
                           {isVideo && (
                             <span
@@ -572,12 +610,12 @@ export const Rail: React.FC<RailProps> = ({
                                 fontFamily: 'ui-monospace, monospace',
                                 fontSize: '8px',
                                 fontWeight: 700,
-                                color: '#b5d9fd',
+                                color: isZip ? '#facc15' : '#b5d9fd',
                                 textTransform: 'uppercase',
                                 background: 'rgba(15,23,42,0.6)'
                               }}
                             >
-                              {item.exts?.[0] || item.type.slice(0, 3)}
+                              {isZip ? 'ZIP' : item.exts?.[0] || item.type.slice(0, 3)}
                             </span>
                           )}
                         </div>

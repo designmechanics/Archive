@@ -95,6 +95,9 @@ export const App: React.FC = () => {
   } | null>(null);
   const notificationTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Active ZIP archive drill-down view state
+  const [activeZipArchive, setActiveZipArchive] = useState<ActiveZipArchive | null>(null);
+
   // Viewed history for pool fan preview (tracks last items opened/viewed)
   const [viewedHistory, setViewedHistory] = useState<string[]>(() => {
     try {
@@ -108,12 +111,22 @@ export const App: React.FC = () => {
   // Track viewed items whenever an entry is opened
   useEffect(() => {
     if (!openId) return;
+    const targetEntry = activeZipArchive
+      ? activeZipArchive.innerEntries.find((e) => e.id === openId)
+      : entries.find((e) => e.id === openId);
+
+    const idsToRecord: string[] = [openId];
+    if (targetEntry?.isZipInnerFile && (targetEntry.zipParentId || targetEntry.packId)) {
+      idsToRecord.push(targetEntry.zipParentId || targetEntry.packId!);
+    }
+
     setViewedHistory((prev) => {
-      const updated = [openId, ...prev.filter((id) => id !== openId)].slice(0, 200);
+      const filtered = prev.filter((id) => !idsToRecord.includes(id));
+      const updated = [...idsToRecord, ...filtered].slice(0, 200);
       localStorage.setItem('archive.viewedHistory', JSON.stringify(updated));
       return updated;
     });
-  }, [openId]);
+  }, [openId, activeZipArchive, entries]);
 
   const showFolderNotification = (folderName: string, count: number | string, folder?: WatchedFolder | null) => {
     if (notificationTimerRef.current) {
@@ -135,11 +148,15 @@ export const App: React.FC = () => {
     localStorage.setItem('archive.deferFolderIngestion', String(val));
   };
 
-  // Active ZIP archive drill-down view state
-  const [activeZipArchive, setActiveZipArchive] = useState<ActiveZipArchive | null>(null);
-
   const handleOpenZipContents = async (entry: AssetEntry) => {
     try {
+      // Record ZIP in viewed history so it is recognized as viewed in its pool
+      setViewedHistory((prev) => {
+        const updated = [entry.id, ...prev.filter((id) => id !== entry.id)].slice(0, 200);
+        localStorage.setItem('archive.viewedHistory', JSON.stringify(updated));
+        return updated;
+      });
+
       const inners = await extractZipEntries(entry);
       if (inners.length > 0) {
         setActiveZipArchive({
@@ -149,6 +166,7 @@ export const App: React.FC = () => {
         setFocusIndex(0);
         setCurrentPage(1);
         setOpenId(null);
+        setQuery('');
       } else {
         setOpenId(entry.id);
       }
@@ -797,6 +815,7 @@ export const App: React.FC = () => {
 
   // Select Watched Folder for Filtering
   const handleSelectFolder = (folder: WatchedFolder | null) => {
+    if (activeZipArchive) setActiveZipArchive(null);
     setSelectedFolder(folder);
     setFocusIndex(0);
     setSeed(0);
@@ -1022,6 +1041,7 @@ export const App: React.FC = () => {
         poolCounts={poolCounts}
         selectedPool={selectedPool}
         onSelectPool={(p) => {
+          if (activeZipArchive) setActiveZipArchive(null);
           setSelectedPool(p);
           setFocusIndex(0);
           setSeed(0);
@@ -1048,7 +1068,16 @@ export const App: React.FC = () => {
         onOpenSettings={() => setSettingsOpen(true)}
         entries={entries}
         viewedHistory={viewedHistory}
-        onSelectEntry={setOpenId}
+        onSelectEntry={(id) => {
+          if (activeZipArchive) {
+            const isInner = activeZipArchive.innerEntries.some((e) => e.id === id);
+            if (!isInner) {
+              setActiveZipArchive(null);
+            }
+          }
+          setOpenId(id);
+        }}
+        onOpenZipContents={handleOpenZipContents}
       />
 
       {/* Main Content Area */}
