@@ -3,6 +3,7 @@ import gsap from 'gsap';
 import { AssetEntry, ZipPack } from '../types';
 import { KINDS, fmtSize, isIn } from '../data/seedData';
 import { generatePreviewDoc, getPack, pickDefaultFile, restorePackFromDB } from '../services/zipService';
+import { UniversalPreview } from './preview/UniversalPreview';
 
 interface SidePanelProps {
   entry: AssetEntry | null;
@@ -24,9 +25,22 @@ export const SidePanel: React.FC<SidePanelProps> = ({
   const [pack, setPack] = useState<ZipPack | null>(null);
   const [packSel, setPackSel] = useState<string | null>(null);
   const [packDoc, setPackDoc] = useState<string | null>(null);
-  const [replayKey, setReplayKey] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [isStudioMode, setIsStudioMode] = useState(false);
   const panelRef = React.useRef<HTMLDivElement>(null);
+
+  // Animate studio width changes
+  useEffect(() => {
+    const p = panelRef.current;
+    if (!p) return;
+    const targetWidth = isStudioMode ? '820px' : '480px';
+    gsap.to(p, {
+      width: targetWidth,
+      duration: 0.45 * motionMultiplier,
+      ease: 'expo.out'
+    });
+  }, [isStudioMode, motionMultiplier]);
+
 
   // Animate panel slide in/out
   useEffect(() => {
@@ -115,8 +129,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({
           top: 0,
           right: 0,
           bottom: 0,
-          width: '470px',
-          maxWidth: '92vw',
+          width: isStudioMode ? '820px' : '480px',
+          maxWidth: '94vw',
           zIndex: 40,
           transform: 'translateX(104%)',
           background: 'var(--rail, #1d2d3d)',
@@ -132,80 +146,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({
 
   const isFont = entry.type === 'font' || (pack && isIn('font', packSel || ''));
   const isZip = entry.type === 'zip' || (pack && pack.list.length > 1);
-
-  // Build Sandbox Iframe content
-  let iframeContent: React.ReactNode = null;
-  if (entry.packId) {
-    const isTall = /\.html?$/i.test(packSel || '');
-    iframeContent = (
-      <iframe
-        key={`${entry.id}-${replayKey}-${packSel}`}
-        srcDoc={packDoc || '<body style="margin:0;height:100vh;display:grid;place-items:center;background:var(--bg,#f2f2f3);font:10px ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#416180">unpacking…</body>'}
-        title={entry.title}
-        sandbox="allow-scripts allow-pointer-lock"
-        style={{
-          display: 'block',
-          width: '100%',
-          height: isTall ? '340px' : '260px',
-          border: 0,
-          background: '#f2f2f3'
-        }}
-      />
-    );
-  } else {
-    let src = entry.demo;
-    let h = 250;
-
-    if (entry.type === 'font') {
-      src = `<style>
-        @import url("https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&display=swap");
-        body{margin:0;height:100%;display:grid;align-content:center;gap:6px;padding:20px;background:var(--bg,#f2f2f3);font-family:"Barlow Condensed",system-ui,sans-serif;color:var(--ink,#1d1f20)}
-      </style>
-      <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#5980a6;font-family:ui-monospace,monospace">specimen · substituted face</div>
-      <div style="font-size:46px;line-height:1.02">${specimenText}</div>
-      <div style="font-size:26px;opacity:.7">${specimenText}</div>
-      <div style="font-size:15px;opacity:.55">ABCDEFGHIJKLM 0123456789 &amp; @ # %</div>`;
-      h = 230;
-    } else if (entry.type === 'video' || entry.type === 'prproj') {
-      src = `<style>
-        body{margin:0;height:100%;background:var(--rail,#1d2d3d);display:grid;place-items:center;font-family:ui-monospace,monospace;color:#94bce3}
-        .f{width:88%;aspect-ratio:16/9;border-radius:12px;border:1px solid rgba(181,217,253,.3);background:repeating-linear-gradient(135deg,rgba(148,188,227,.22) 0 5px,rgba(29,45,61,.5) 5px 11px);display:grid;place-items:center;position:relative;overflow:hidden}
-        .p{width:52px;height:52px;border-radius:99px;background:rgba(242,242,243,.9);color:#1d2d3d;display:grid;place-items:center;font-size:17px}
-        .b{position:absolute;left:0;bottom:0;height:3px;background:#b5d9fd;animation:g 9s linear infinite}@keyframes g{from{width:0}to{width:100%}}
-      </style><div class="f"><div class="p">▶</div><div class="b"></div></div>`;
-      h = 210;
-    } else if (entry.type === 'svg' || entry.type === 'icon') {
-      src = `<style>
-        body{margin:0;height:100%;background:var(--bg,#f2f2f3);display:grid;place-items:center}
-        .s{width:120px;height:120px;border-radius:14px;border:1.5px solid #5980a6;position:relative;animation:z 4s ease-in-out infinite}
-        .s:after{content:"";position:absolute;inset:22px;border-radius:99px;border:1.5px solid #5980a6}
-        @keyframes z{0%,100%{transform:scale(1) rotate(0)}50%{transform:scale(1.3) rotate(45deg)}}
-      </style><div class="s"></div>`;
-      h = 210;
-    } else if (entry.type === 'psd' || entry.type === 'ai' || entry.type === 'photo') {
-      src = `<style>
-        body{margin:0;height:100%;background:var(--well,#e9e9ea);display:grid;place-items:center;font-family:ui-monospace,monospace}
-        .t{width:82%;aspect-ratio:4/3;border:1px solid rgba(var(--inkc,29,31,32),.2);background:repeating-linear-gradient(135deg,rgba(89,128,166,.24) 0 5px,rgba(89,128,166,.05) 5px 11px);display:grid;place-items:center;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:rgba(29,45,61,.5);text-align:center;padding:10px}
-      </style><div class="t">flattened preview · no live render</div>`;
-      h = 200;
-    }
-
-    iframeContent = (
-      <iframe
-        key={`${entry.id}-${replayKey}-${entry.type === 'font' ? specimenText : ''}`}
-        srcDoc={src}
-        title={entry.title}
-        sandbox="allow-scripts"
-        style={{
-          display: 'block',
-          width: '100%',
-          height: `${h}px`,
-          border: 0,
-          background: '#f2f2f3'
-        }}
-      />
-    );
-  }
 
   // Copy handler
   const handleCopyOpen = async () => {
@@ -281,8 +221,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({
         top: 0,
         right: 0,
         bottom: 0,
-        width: '470px',
-        maxWidth: '92vw',
+        width: isStudioMode ? '820px' : '480px',
+        maxWidth: '94vw',
         zIndex: 40,
         transform: 'translateX(104%)',
         background: 'var(--rail, #1d2d3d)',
@@ -329,23 +269,45 @@ export const SidePanel: React.FC<SidePanelProps> = ({
               {entry.title}
             </div>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              flex: 'none',
-              width: '32px',
-              height: '32px',
-              border: 0,
-              borderRadius: '11px',
-              cursor: 'pointer',
-              background: 'rgba(148,188,227,.16)',
-              color: '#e9edf2',
-              fontFamily: 'ui-monospace, Menlo, monospace',
-              fontSize: '13px'
-            }}
-          >
-            ✕
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              onClick={() => setIsStudioMode(!isStudioMode)}
+              title={isStudioMode ? 'Collapse to standard dock (480px)' : 'Expand to Studio mode (820px)'}
+              style={{
+                height: '32px',
+                padding: '0 10px',
+                border: '1px solid rgba(148,188,227,.2)',
+                borderRadius: '11px',
+                cursor: 'pointer',
+                background: isStudioMode ? 'rgba(148,188,227,.35)' : 'rgba(148,188,227,.14)',
+                color: isStudioMode ? '#ffffff' : '#b5d9fd',
+                fontFamily: 'ui-monospace, Menlo, monospace',
+                fontSize: '11px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+            >
+              <span>{isStudioMode ? '⇲ Dock' : '⇱ Studio'}</span>
+            </button>
+            <button
+              onClick={onClose}
+              style={{
+                flex: 'none',
+                width: '32px',
+                height: '32px',
+                border: 0,
+                borderRadius: '11px',
+                cursor: 'pointer',
+                background: 'rgba(148,188,227,.16)',
+                color: '#e9edf2',
+                fontFamily: 'ui-monospace, Menlo, monospace',
+                fontSize: '13px'
+              }}
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* Tags */}
@@ -419,68 +381,18 @@ export const SidePanel: React.FC<SidePanelProps> = ({
           gap: '16px'
         }}
       >
-        {/* Sandbox Frame Container */}
-        <div
-          data-sandbox="1"
-          style={{
-            borderRadius: '14px',
-            overflow: 'hidden',
-            border: '1px solid rgba(148,188,227,.22)',
-            background: 'var(--bg, #f2f2f3)'
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 12px',
-              background: 'rgba(148,188,227,.1)',
-              borderBottom: '1px solid rgba(148,188,227,.18)'
-            }}
-          >
-            <span style={{ width: '8px', height: '8px', borderRadius: '99px', background: '#94bce3' }} />
-            <span
-              style={{
-                flex: 1,
-                minWidth: 0,
-                fontFamily: 'ui-monospace, Menlo, monospace',
-                fontSize: '9.5px',
-                letterSpacing: '.1em',
-                textTransform: 'uppercase',
-                color: 'rgba(233,237,242,.7)',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis'
-              }}
-            >
-              {pack
-                ? `sandbox · ${packSel || 'unpacking…'}`
-                : entry.type === 'code'
-                ? 'sandbox · index.html + style.css + main.js'
-                : `${KINDS[entry.type]?.[1] || 'asset'} · preview`}
-            </span>
-            <span
-              onClick={() => setReplayKey((k) => k + 1)}
-              style={{
-                padding: '3px 9px',
-                borderRadius: '8px',
-                background: 'rgba(148,188,227,.18)',
-                color: '#e9edf2',
-                fontFamily: 'ui-monospace, Menlo, monospace',
-                fontSize: '9.5px',
-                letterSpacing: '.08em',
-                textTransform: 'uppercase',
-                cursor: 'pointer'
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = '#5980a6')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(148,188,227,.18)')}
-            >
-              Replay
-            </span>
-          </div>
-
-          {iframeContent}
+        {/* Universal Multi-Format Preview Studio */}
+        <div data-sandbox="1">
+          <UniversalPreview
+            entry={entry}
+            pack={pack}
+            packSel={packSel}
+            packDoc={packDoc}
+            specimenText={specimenText}
+            isStudioMode={isStudioMode}
+            onToggleStudioMode={() => setIsStudioMode(!isStudioMode)}
+            motionMultiplier={motionMultiplier}
+          />
         </div>
 
         {/* Font Specimen Input */}
