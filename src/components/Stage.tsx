@@ -56,8 +56,11 @@ export const Stage: React.FC<StageProps> = ({
 
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const isDraggingRef = useRef(false);
+  const hasMovedRef = useRef(false);
   const dragStartXRef = useRef(0);
+  const dragStartYRef = useRef(0);
   const dragStartFocusRef = useRef(0);
+  const capturedPointerIdRef = useRef<number | null>(null);
   const wheelAccRef = useRef(0);
 
   const isCarousel = ['coverflow', 'strip', 'radial', 'filmstrip', 'peel'].includes(view);
@@ -76,37 +79,49 @@ export const Stage: React.FC<StageProps> = ({
     }, 1400);
   };
 
-  // Card click handler
+  // Card click handler - opens preview in ALL views
   const handleCardClick = (e: AssetEntry, ev: React.MouseEvent) => {
+    if (hasMovedRef.current) return;
     if (ev.metaKey || ev.ctrlKey || ev.shiftKey) {
       onToggleSelect(e.id, ev);
       return;
     }
     const idx = entries.findIndex((x) => x.id === e.id);
-    if (isCarousel && idx !== focusIndex && idx >= 0) {
+    if (idx >= 0) {
       onFocusChange(idx);
-      return;
     }
     onSelectEntry(e.id);
   };
 
-  // Drag handling on stage
+  // Drag handling on stage with movement threshold (so clicks are never eaten)
   useEffect(() => {
     const st = stageRef.current;
     if (!st) return;
 
     const onPointerDown = (e: PointerEvent) => {
       if (!isCarousel) return;
-      isDraggingRef.current = true;
+      isDraggingRef.current = false;
+      hasMovedRef.current = false;
       dragStartXRef.current = e.clientX;
+      dragStartYRef.current = e.clientY;
       dragStartFocusRef.current = focusIndex;
-      try {
-        st.setPointerCapture(e.pointerId);
-      } catch {}
+      capturedPointerIdRef.current = null;
     };
 
     const onPointerMove = (e: PointerEvent) => {
-      if (!isDraggingRef.current || !isCarousel) return;
+      if (!isCarousel) return;
+      const dist = Math.hypot(e.clientX - dragStartXRef.current, e.clientY - dragStartYRef.current);
+      if (!isDraggingRef.current && dist > 7) {
+        isDraggingRef.current = true;
+        hasMovedRef.current = true;
+        try {
+          st.setPointerCapture(e.pointerId);
+          capturedPointerIdRef.current = e.pointerId;
+        } catch {}
+      }
+
+      if (!isDraggingRef.current) return;
+
       const delta = (dragStartXRef.current - e.clientX) / 110;
       const newFocus = Math.max(0, Math.min(entries.length - 1, Math.round(dragStartFocusRef.current + delta)));
       if (newFocus !== focusIndex) {
@@ -115,10 +130,16 @@ export const Stage: React.FC<StageProps> = ({
     };
 
     const onPointerUp = (e: PointerEvent) => {
+      if (capturedPointerIdRef.current !== null) {
+        try {
+          st.releasePointerCapture(capturedPointerIdRef.current);
+        } catch {}
+        capturedPointerIdRef.current = null;
+      }
       isDraggingRef.current = false;
-      try {
-        st.releasePointerCapture(e.pointerId);
-      } catch {}
+      setTimeout(() => {
+        hasMovedRef.current = false;
+      }, 80);
     };
 
     st.addEventListener('pointerdown', onPointerDown);
@@ -316,7 +337,7 @@ export const Stage: React.FC<StageProps> = ({
         return;
       }
 
-      el.style.pointerEvents = 'auto';
+      el.style.pointerEvents = t.o === 0 ? 'none' : 'auto';
       el.style.width = `${t.w}px`;
       el.style.height = `${t.h}px`;
       el.style.zIndex = String(t.zi);
@@ -622,6 +643,17 @@ export const Stage: React.FC<StageProps> = ({
         <div
           ref={stageRef}
           data-stage="1"
+          onClick={(ev) => {
+            if (hasMovedRef.current) return;
+            const cardEl = (ev.target as HTMLElement).closest('[data-card]') as HTMLElement;
+            if (cardEl) {
+              const id = cardEl.getAttribute('data-card');
+              const entry = entries.find((x) => x.id === id) || allEntries.find((x) => x.id === id);
+              if (entry) {
+                handleCardClick(entry, ev);
+              }
+            }
+          }}
           style={{
             position: 'relative',
             width: '100%',
@@ -644,6 +676,7 @@ export const Stage: React.FC<StageProps> = ({
                   else cardRefs.current.delete(e.id);
                 }}
                 data-card={e.id}
+                onClick={(ev) => handleCardClick(e, ev)}
                 style={{
                   position: 'absolute',
                   top: 0,
@@ -652,7 +685,8 @@ export const Stage: React.FC<StageProps> = ({
                   height: '300px',
                   opacity: 0,
                   transformStyle: 'preserve-3d',
-                  willChange: 'transform, opacity'
+                  willChange: 'transform, opacity',
+                  cursor: 'pointer'
                 }}
               >
                 <div data-reveal="1" style={{ width: '100%', height: '100%' }}>
