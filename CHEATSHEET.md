@@ -7,14 +7,15 @@ Quick-reference cheatsheet for developers and AI agents working on the Archive c
 ## 1. Quick Commands
 
 ```bash
-# Development (Runs Vite frontend + SQLite WAL backend at http://127.0.0.1:3000)
+# Development (Runs Vite frontend + SQLite WAL backend at http://127.0.0.1:6080)
 npm run dev
 
 # Production Build (TypeScript compilation + Rollup packaging)
 npm run build
 
-# Standalone Node Server (Serves dist + SQLite API on port 3001)
+# Standalone Node Server (Serves dist + SQLite API on port 6080)
 node server/standalone.js
+
 ```
 
 ---
@@ -101,7 +102,8 @@ All searches use SQLite's built-in FTS5 engine with Unicode61 and Porter stemmer
 Because SQLite stores the entire archive in a single file on disk:
 ```bash
 # 1. Vacuum / optimize to consolidate WAL log
-curl -X POST http://127.0.0.1:3000/api/db/optimize
+curl -X POST http://127.0.0.1:6080/api/db/optimize
+
 
 # 2. Simply copy archive.db to any backup drive or cloud storage
 copy D:\Archive\archive.db E:\Backups\archive_2026.db

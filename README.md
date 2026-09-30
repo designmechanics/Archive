@@ -20,7 +20,8 @@ npm run build
 npm run preview
 ```
 
-Server runs locally at `http://127.0.0.1:3000` (or `http://localhost:3000`).
+Server runs locally at `http://127.0.0.1:6080` (or `http://localhost:6080`).
+
 
 ---
 

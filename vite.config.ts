@@ -5,8 +5,9 @@ import { archiveBackendPlugin } from './server/vitePlugin.js';
 export default defineConfig({
   plugins: [react(), archiveBackendPlugin()],
   server: {
-    port: 3000,
+    port: Number(process.env.PORT) || 6080,
     open: false,
   }
 });
+
 

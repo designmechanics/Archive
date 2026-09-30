@@ -125,8 +125,9 @@ function handleFileStream(req, res, filePath) {
  * Express/Connect-compatible middleware for API routes
  */
 export async function handleApiRequest(req, res, next) {
-  const parsedUrl = new URL(req.url, 'http://127.0.0.1:3000');
+  const parsedUrl = new URL(req.url, 'http://localhost');
   const pathname = parsedUrl.pathname || '';
+
   const query = Object.fromEntries(parsedUrl.searchParams.entries());
 
 
