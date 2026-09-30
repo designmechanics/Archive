@@ -484,6 +484,7 @@ export const Rail: React.FC<RailProps> = ({
         {folders.map((f) => {
           const isSelected = selectedFolder?.id === f.id;
           const isEnabled = f.enabled !== false;
+          const isIngesting = !!f.isIngesting;
           const folderCount = folderCounts?.[f.id] ?? f.count;
 
           return (
@@ -492,12 +493,15 @@ export const Rail: React.FC<RailProps> = ({
               data-intro="1"
               data-folder={f.id}
               onClick={() => {
+                if (isIngesting) return;
                 if (onSelectFolder) {
                   onSelectFolder(isSelected ? null : f);
                 }
               }}
               title={
-                isEnabled
+                isIngesting
+                  ? `Ingesting ${f.path}… Assets will appear once complete.`
+                  : isEnabled
                   ? `Filter by ${f.path} (Click to toggle filter)`
                   : `${f.path} is disabled (assets hidden)`
               }
@@ -509,22 +513,28 @@ export const Rail: React.FC<RailProps> = ({
                 borderRadius: '10px',
                 background: isSelected
                   ? 'rgba(148,188,227,.24)'
+                  : isIngesting
+                  ? 'rgba(250,204,21,.08)'
                   : isEnabled
                   ? 'rgba(148,188,227,.06)'
                   : 'rgba(255,255,255,.02)',
                 border: isSelected
                   ? '1px solid rgba(148,188,227,.4)'
+                  : isIngesting
+                  ? '1px dashed rgba(250,204,21,.35)'
                   : '1px solid transparent',
                 marginBottom: '4px',
-                cursor: 'pointer',
-                opacity: isEnabled ? 1 : 0.5,
+                cursor: isIngesting ? 'wait' : 'pointer',
+                opacity: isIngesting ? 0.6 : isEnabled ? 1 : 0.45,
+                animation: isIngesting ? 'idxpulse 1.6s ease-in-out infinite' : 'none',
+                pointerEvents: isIngesting ? 'none' : 'auto',
                 transition: 'background 0.18s, border-color 0.18s, opacity 0.18s'
               }}
               onMouseEnter={(e) => {
-                if (!isSelected) e.currentTarget.style.background = 'rgba(148,188,227,.12)';
+                if (!isSelected && !isIngesting) e.currentTarget.style.background = 'rgba(148,188,227,.12)';
               }}
               onMouseLeave={(e) => {
-                if (!isSelected) {
+                if (!isSelected && !isIngesting) {
                   e.currentTarget.style.background = isEnabled ? 'rgba(148,188,227,.06)' : 'rgba(255,255,255,.02)';
                 }
               }}
@@ -533,16 +543,23 @@ export const Rail: React.FC<RailProps> = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (onToggleFolderEnabled) {
+                  if (!isIngesting && onToggleFolderEnabled) {
                     onToggleFolderEnabled(f.id, !isEnabled);
                   }
                 }}
-                title={isEnabled ? 'Active: Click to disable folder' : 'Disabled: Click to enable folder'}
+                disabled={isIngesting}
+                title={
+                  isIngesting
+                    ? 'Indexing in progress'
+                    : isEnabled
+                    ? 'Active: Click to disable folder'
+                    : 'Disabled: Click to enable folder'
+                }
                 style={{
                   background: 'transparent',
                   border: 0,
                   padding: '2px',
-                  cursor: 'pointer',
+                  cursor: isIngesting ? 'wait' : 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center'
@@ -553,9 +570,17 @@ export const Rail: React.FC<RailProps> = ({
                     width: '7px',
                     height: '7px',
                     borderRadius: '50%',
-                    background: isEnabled ? '#38ef7d' : '#6b7280',
-                    boxShadow: isEnabled ? '0 0 6px rgba(56,239,125,.7)' : 'none',
-                    animation: isEnabled ? 'idxpulse 2.4s ease-in-out infinite' : 'none',
+                    background: isIngesting ? '#facc15' : isEnabled ? '#38ef7d' : '#6b7280',
+                    boxShadow: isIngesting
+                      ? '0 0 8px rgba(250,204,21,.8)'
+                      : isEnabled
+                      ? '0 0 6px rgba(56,239,125,.7)'
+                      : 'none',
+                    animation: isIngesting
+                      ? 'idxpulse 0.9s ease-in-out infinite'
+                      : isEnabled
+                      ? 'idxpulse 2.4s ease-in-out infinite'
+                      : 'none',
                     transition: 'background 0.2s, box-shadow 0.2s'
                   }}
                 />
@@ -568,18 +593,41 @@ export const Rail: React.FC<RailProps> = ({
                   minWidth: 0,
                   fontFamily: 'ui-monospace, Menlo, monospace',
                   fontSize: '10px',
-                  color: isSelected ? '#ffffff' : isEnabled ? 'rgba(233,237,242,.85)' : 'rgba(233,237,242,.4)',
+                  color: isSelected
+                    ? '#ffffff'
+                    : isIngesting
+                    ? '#facc15'
+                    : isEnabled
+                    ? 'rgba(233,237,242,.85)'
+                    : 'rgba(233,237,242,.4)',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
-                  textDecoration: isEnabled ? 'none' : 'line-through'
+                  textDecoration: isEnabled || isIngesting ? 'none' : 'line-through'
                 }}
               >
                 {f.path}
               </span>
 
-              {/* Item count or OFF badge */}
-              {!isEnabled ? (
+              {/* Item count or INGESTING / OFF badge */}
+              {isIngesting ? (
+                <span
+                  style={{
+                    fontFamily: 'ui-monospace, Menlo, monospace',
+                    fontSize: '8px',
+                    padding: '1px 5px',
+                    borderRadius: '4px',
+                    background: 'rgba(250,204,21,.18)',
+                    color: '#facc15',
+                    border: '1px solid rgba(250,204,21,.35)',
+                    letterSpacing: '.06em',
+                    fontWeight: 700,
+                    textTransform: 'uppercase'
+                  }}
+                >
+                  INGESTING…
+                </span>
+              ) : !isEnabled ? (
                 <span
                   style={{
                     fontFamily: 'ui-monospace, Menlo, monospace',

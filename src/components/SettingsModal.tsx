@@ -16,6 +16,8 @@ interface SettingsModalProps {
   onRemoveFolder?: (id: string) => Promise<void> | void;
   onAddFolder?: (path: string) => Promise<void> | void;
   onToggleFolder?: (id: string, enabled: boolean) => Promise<void> | void;
+  deferFolderIngestion?: boolean;
+  onToggleDeferFolderIngestion?: (defer: boolean) => void;
   pools?: Pool[];
   onAddPool?: (pool: { name: string; description?: string; color?: string; sortOrder?: number }) => Promise<void>;
   onEditPool?: (id: string, updates: Partial<Pool>) => Promise<void>;
@@ -57,6 +59,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onRemoveFolder,
   onAddFolder,
   onToggleFolder,
+  deferFolderIngestion = true,
+  onToggleDeferFolderIngestion,
   pools = [],
   onAddPool,
   onEditPool,
@@ -955,6 +959,97 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* TAB 3: WATCHED FOLDERS */}
           {activeTab === 'folders' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Ingestion Mode Toggle Card */}
+              <div
+                style={{
+                  padding: '14px 16px',
+                  borderRadius: '12px',
+                  background: 'rgba(148,188,227,.07)',
+                  border: '1px solid rgba(148,188,227,.22)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '16px'
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  <div
+                    style={{
+                      fontFamily: "'Barlow Condensed', sans-serif",
+                      fontSize: '16px',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      color: '#b5d9fd',
+                      marginBottom: '3px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    <span>Stage Ingestion (Hold Until Complete)</span>
+                    <span
+                      style={{
+                        fontFamily: 'ui-monospace, Menlo, monospace',
+                        fontSize: '9px',
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        background: deferFolderIngestion ? 'rgba(56,239,125,.18)' : 'rgba(255,255,255,.08)',
+                        color: deferFolderIngestion ? '#38ef7d' : 'rgba(233,237,242,.5)',
+                        border: `1px solid ${deferFolderIngestion ? 'rgba(56,239,125,.4)' : 'rgba(255,255,255,.1)'}`,
+                        letterSpacing: '.06em'
+                      }}
+                    >
+                      {deferFolderIngestion ? 'ACTIVE' : 'OFF'}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: 'Barlow, sans-serif',
+                      fontSize: '12px',
+                      color: 'rgba(233,237,242,.65)',
+                      lineHeight: 1.4
+                    }}
+                  >
+                    When enabled, newly indexed watched folder assets remain hidden while ingesting and are staged in the background. The watched folder displays as ghosted until indexing is 100% complete, then unlocks and pops up a ready notification.
+                  </div>
+                </div>
+
+                {onToggleDeferFolderIngestion && (
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={deferFolderIngestion}
+                    onClick={() => onToggleDeferFolderIngestion(!deferFolderIngestion)}
+                    style={{
+                      width: '42px',
+                      height: '24px',
+                      borderRadius: '12px',
+                      background: deferFolderIngestion ? '#38ef7d' : 'rgba(255,255,255,.18)',
+                      border: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '2px',
+                      cursor: 'pointer',
+                      flex: 'none',
+                      transition: 'background 0.2s',
+                      boxShadow: deferFolderIngestion ? '0 0 10px rgba(56,239,125,.4)' : 'none'
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        borderRadius: '50%',
+                        background: '#ffffff',
+                        boxShadow: '0 1px 3px rgba(0,0,0,.35)',
+                        transform: deferFolderIngestion ? 'translateX(18px)' : 'translateX(0)',
+                        transition: 'transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2)'
+                      }}
+                    />
+                  </button>
+                )}
+              </div>
+
               <div>
                 <div
                   style={{
@@ -1044,6 +1139,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   >
                     {folders.map((f) => {
                       const isEnabled = f.enabled !== false;
+                      const isIngesting = !!f.isIngesting;
                       return (
                         <div
                           key={f.id}
@@ -1053,8 +1149,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             justifyContent: 'space-between',
                             padding: '12px 14px',
                             borderBottom: '1px solid rgba(148,188,227,.08)',
-                            opacity: isEnabled ? 1 : 0.65,
-                            background: isEnabled ? 'transparent' : 'rgba(0,0,0,0.15)',
+                            opacity: isIngesting ? 0.6 : isEnabled ? 1 : 0.45,
+                            background: isIngesting
+                              ? 'rgba(250,204,21,.05)'
+                              : isEnabled
+                              ? 'transparent'
+                              : 'rgba(0,0,0,0.15)',
+                            animation: isIngesting ? 'idxpulse 1.6s ease-in-out infinite' : 'none',
                             transition: 'opacity 0.2s, background 0.2s'
                           }}
                         >
@@ -1064,8 +1165,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 width: '8px',
                                 height: '8px',
                                 borderRadius: '50%',
-                                background: isEnabled ? '#38ef7d' : '#6b7280',
-                                boxShadow: isEnabled ? '0 0 6px rgba(56,239,125,.7)' : 'none',
+                                background: isIngesting ? '#facc15' : isEnabled ? '#38ef7d' : '#6b7280',
+                                boxShadow: isIngesting
+                                  ? '0 0 8px rgba(250,204,21,.8)'
+                                  : isEnabled
+                                  ? '0 0 6px rgba(56,239,125,.7)'
+                                  : 'none',
+                                animation: isIngesting
+                                  ? 'idxpulse 0.9s ease-in-out infinite'
+                                  : isEnabled
+                                  ? 'idxpulse 2.4s ease-in-out infinite'
+                                  : 'none',
                                 flex: 'none'
                               }}
                             />
@@ -1074,11 +1184,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 style={{
                                   fontFamily: 'ui-monospace, Menlo, monospace',
                                   fontSize: '11px',
-                                  color: isEnabled ? 'rgba(233,237,242,.95)' : 'rgba(233,237,242,.45)',
+                                  color: isIngesting
+                                    ? '#facc15'
+                                    : isEnabled
+                                    ? 'rgba(233,237,242,.95)'
+                                    : 'rgba(233,237,242,.45)',
                                   overflow: 'hidden',
                                   textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap',
-                                  textDecoration: isEnabled ? 'none' : 'line-through'
+                                  textDecoration: isEnabled || isIngesting ? 'none' : 'line-through'
                                 }}
                                 title={f.path}
                               >
@@ -1088,79 +1202,105 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 style={{
                                   fontFamily: 'ui-monospace, Menlo, monospace',
                                   fontSize: '9px',
-                                  color: isEnabled ? '#94bce3' : 'rgba(233,237,242,.35)',
+                                  color: isIngesting
+                                    ? '#facc15'
+                                    : isEnabled
+                                    ? '#94bce3'
+                                    : 'rgba(233,237,242,.35)',
                                   marginTop: '2px'
                                 }}
                               >
-                                {f.count} items {isEnabled ? '· Watching' : '· Disabled (hidden)'}
+                                {isIngesting
+                                  ? '⏳ Indexing in progress · Staged until complete'
+                                  : `${f.count} items ${isEnabled ? '· Watching' : '· Disabled (hidden)'}`}
                               </div>
                             </div>
                           </div>
 
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 'none' }}>
-                            {/* Enable/Disable Toggle button */}
-                            {onToggleFolder && (
-                              <button
-                                onClick={() => onToggleFolder(f.id, !isEnabled)}
+                            {isIngesting ? (
+                              <span
                                 style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '6px',
-                                  padding: '5px 12px',
-                                  borderRadius: '20px',
-                                  background: isEnabled ? 'rgba(56,239,125,.14)' : 'rgba(255,255,255,.06)',
-                                  border: isEnabled ? '1px solid rgba(56,239,125,.35)' : '1px solid rgba(255,255,255,.1)',
-                                  color: isEnabled ? '#38ef7d' : 'rgba(233,237,242,.45)',
-                                  cursor: 'pointer',
-                                  fontSize: '10px',
                                   fontFamily: 'ui-monospace, Menlo, monospace',
-                                  fontWeight: 600,
-                                  letterSpacing: '.06em',
-                                  textTransform: 'uppercase',
-                                  transition: 'all 0.2s'
+                                  fontSize: '9px',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  background: 'rgba(250,204,21,.16)',
+                                  border: '1px solid rgba(250,204,21,.35)',
+                                  color: '#facc15',
+                                  fontWeight: 700,
+                                  textTransform: 'uppercase'
                                 }}
                               >
-                                <span
-                                  style={{
-                                    width: '18px',
-                                    height: '10px',
-                                    borderRadius: '6px',
-                                    background: isEnabled ? '#38ef7d' : 'rgba(255,255,255,.2)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    padding: '1px',
-                                    justifyContent: isEnabled ? 'flex-end' : 'flex-start'
-                                  }}
-                                >
-                                  <span
+                                Ghosted · Staged
+                              </span>
+                            ) : (
+                              <>
+                                {/* Enable/Disable Toggle button */}
+                                {onToggleFolder && (
+                                  <button
+                                    onClick={() => onToggleFolder(f.id, !isEnabled)}
                                     style={{
-                                      width: '8px',
-                                      height: '8px',
-                                      borderRadius: '50%',
-                                      background: '#ffffff'
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '6px',
+                                      padding: '5px 12px',
+                                      borderRadius: '20px',
+                                      background: isEnabled ? 'rgba(56,239,125,.14)' : 'rgba(255,255,255,.06)',
+                                      border: isEnabled ? '1px solid rgba(56,239,125,.35)' : '1px solid rgba(255,255,255,.1)',
+                                      color: isEnabled ? '#38ef7d' : 'rgba(233,237,242,.45)',
+                                      cursor: 'pointer',
+                                      fontSize: '10px',
+                                      fontFamily: 'ui-monospace, Menlo, monospace',
+                                      fontWeight: 600,
+                                      letterSpacing: '.06em',
+                                      textTransform: 'uppercase',
+                                      transition: 'all 0.2s'
                                     }}
-                                  />
-                                </span>
-                                {isEnabled ? 'Active' : 'Disabled'}
-                              </button>
-                            )}
+                                  >
+                                    <span
+                                      style={{
+                                        width: '18px',
+                                        height: '10px',
+                                        borderRadius: '6px',
+                                        background: isEnabled ? '#38ef7d' : 'rgba(255,255,255,.2)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        padding: '1px',
+                                        justifyContent: isEnabled ? 'flex-end' : 'flex-start'
+                                      }}
+                                    >
+                                      <span
+                                        style={{
+                                          width: '8px',
+                                          height: '8px',
+                                          borderRadius: '50%',
+                                          background: '#ffffff'
+                                        }}
+                                      />
+                                    </span>
+                                    {isEnabled ? 'Active' : 'Disabled'}
+                                  </button>
+                                )}
 
-                            {onRemoveFolder && (
-                              <button
-                                onClick={() => onRemoveFolder(f.id)}
-                                style={{
-                                  background: 'transparent',
-                                  border: 0,
-                                  color: '#ff6677',
-                                  cursor: 'pointer',
-                                  fontFamily: 'ui-monospace, Menlo, monospace',
-                                  fontSize: '13px',
-                                  padding: '4px'
-                                }}
-                                title="Remove watched folder"
-                              >
-                                ✕
-                              </button>
+                                {onRemoveFolder && (
+                                  <button
+                                    onClick={() => onRemoveFolder(f.id)}
+                                    style={{
+                                      background: 'transparent',
+                                      border: 0,
+                                      color: '#ff6677',
+                                      cursor: 'pointer',
+                                      fontFamily: 'ui-monospace, Menlo, monospace',
+                                      fontSize: '13px',
+                                      padding: '4px'
+                                    }}
+                                    title="Remove watched folder"
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+                              </>
                             )}
                           </div>
                         </div>

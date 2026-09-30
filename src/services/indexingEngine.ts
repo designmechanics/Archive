@@ -50,7 +50,8 @@ class IndexingEngine {
    */
   public async scanDiskFolder(
     folderPath: string,
-    onComplete?: (entries: AssetEntry[]) => void
+    onComplete?: (entries: AssetEntry[]) => void,
+    onError?: (error: any) => void
   ): Promise<void> {
     try {
       await api.scanFolder(folderPath);
@@ -82,6 +83,8 @@ class IndexingEngine {
           if (status.status === 'complete') {
             const freshAssets = await api.getAssets();
             if (onComplete) onComplete(freshAssets);
+          } else if (status.status === 'error') {
+            if (onError) onError(status.message);
           }
         }
       }, 400);
@@ -93,6 +96,7 @@ class IndexingEngine {
         currentFile: 'Disk scan failed',
         message: 'Failed to access path'
       });
+      if (onError) onError(err);
     }
   }
 

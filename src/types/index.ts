@@ -68,6 +68,8 @@ export interface WatchedFolder {
   path: string;
   count: string;
   enabled?: boolean;
+  isIngesting?: boolean;
+  ingestStatus?: 'scanning' | 'indexing' | 'complete' | 'error';
 }
 
 export interface Pool {

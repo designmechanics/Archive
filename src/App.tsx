@@ -80,6 +80,37 @@ export const App: React.FC = () => {
     return 64;
   });
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [deferFolderIngestion, setDeferFolderIngestion] = useState<boolean>(() => {
+    const saved = localStorage.getItem('archive.deferFolderIngestion');
+    return saved !== 'false';
+  });
+  const [folderNotification, setFolderNotification] = useState<{
+    id: string;
+    folderName: string;
+    count: number | string;
+    folder?: WatchedFolder | null;
+  } | null>(null);
+  const notificationTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const showFolderNotification = (folderName: string, count: number | string, folder?: WatchedFolder | null) => {
+    if (notificationTimerRef.current) {
+      clearTimeout(notificationTimerRef.current);
+    }
+    setFolderNotification({
+      id: 'notif_' + Date.now(),
+      folderName,
+      count,
+      folder
+    });
+    notificationTimerRef.current = setTimeout(() => {
+      setFolderNotification(null);
+    }, 6500);
+  };
+
+  const handleToggleDeferFolderIngestion = (val: boolean) => {
+    setDeferFolderIngestion(val);
+    localStorage.setItem('archive.deferFolderIngestion', String(val));
+  };
 
   const dragCounterRef = useRef(0);
   const nativeDirInputRef = useRef<HTMLInputElement>(null);
@@ -257,10 +288,15 @@ export const App: React.FC = () => {
   const filteredEntries = useMemo(() => {
     const q = query.trim().toLowerCase();
     const disabledFolders = folders.filter((f) => f.enabled === false);
+    const ingestingFolders = deferFolderIngestion ? folders.filter((f) => f.isIngesting) : [];
 
     let vis = entries.filter((e) => {
       // Exclude assets belonging to disabled watched folders
       if (disabledFolders.some((df) => isEntryInFolder(e, df))) {
+        return false;
+      }
+      // Exclude assets belonging to currently ingesting folders when deferFolderIngestion is active
+      if (ingestingFolders.some((inf) => isEntryInFolder(e, inf))) {
         return false;
       }
       // Filter by selectedFolder if one is chosen
@@ -296,7 +332,7 @@ export const App: React.FC = () => {
     }
 
     return vis;
-  }, [entries, query, selectedPool, selectedFolder, folders, seed]);
+  }, [entries, query, selectedPool, selectedFolder, folders, seed, deferFolderIngestion]);
 
   // Pagination & Max Per Page logic
   const totalPages = useMemo(() => {
@@ -490,20 +526,55 @@ export const App: React.FC = () => {
     if (firstFile?.webkitRelativePath) {
       topDir = firstFile.webkitRelativePath.split('/')[0];
       if (topDir) {
-        const updatedFolders = await addWatchedFolder(topDir, String(files.length));
-        setFolders(updatedFolders);
-        const match = updatedFolders.find((f) => f.path === topDir);
-        if (match) newFolderId = match.id;
+        const tempFolder: WatchedFolder = {
+          id: 'f_' + Date.now(),
+          path: topDir,
+          count: '…',
+          enabled: true,
+          isIngesting: true,
+          ingestStatus: 'scanning'
+        };
+        setFolders((prev) => [
+          tempFolder,
+          ...prev.filter((f) => f.path.toLowerCase() !== topDir!.toLowerCase())
+        ]);
       }
     }
+
+    const staged: AssetEntry[] = [];
 
     const newEntries = await indexingEngine.ingestFileList(
       files,
       (entry) => {
-        setEntries((prev) => [entry, ...prev]);
+        if (!deferFolderIngestion && !topDir) {
+          setEntries((prev) => [entry, ...prev]);
+        } else {
+          staged.push(entry);
+        }
       },
       { folderName: topDir, folderId: newFolderId }
     );
+
+    if (topDir) {
+      const updatedFolders = await addWatchedFolder(topDir, String(newEntries.length));
+      const readyFolders = updatedFolders.map((f) =>
+        f.path.toLowerCase() === topDir!.toLowerCase()
+          ? { ...f, isIngesting: false, ingestStatus: undefined }
+          : f
+      );
+      setFolders(readyFolders);
+
+      if (deferFolderIngestion || topDir) {
+        setEntries((prev) => [...staged, ...prev]);
+      }
+
+      const readyFolder = readyFolders.find(
+        (f) => f.path.toLowerCase() === topDir!.toLowerCase()
+      );
+      showFolderNotification(topDir, newEntries.length, readyFolder || null);
+    } else if (deferFolderIngestion && staged.length > 0) {
+      setEntries((prev) => [...staged, ...prev]);
+    }
 
     if (newEntries.length > 0) {
       setSelectedPool(null);
@@ -522,14 +593,69 @@ export const App: React.FC = () => {
       try {
         // @ts-ignore
         const dirHandle = await window.showDirectoryPicker();
-        const res = await indexingEngine.scanDirectoryPicker(dirHandle, (entry) => {
-          setEntries((prev) => [entry, ...prev]);
+        const folderName = dirHandle.name;
+
+        // Mark folder as ingesting in state immediately
+        setFolders((prev) => {
+          const existingIdx = prev.findIndex(
+            (f) => f.path.toLowerCase() === folderName.toLowerCase()
+          );
+          if (existingIdx >= 0) {
+            const copy = [...prev];
+            copy[existingIdx] = {
+              ...copy[existingIdx],
+              isIngesting: true,
+              ingestStatus: 'scanning'
+            };
+            return copy;
+          } else {
+            return [
+              {
+                id: 'f_' + Date.now(),
+                path: folderName,
+                count: '…',
+                enabled: true,
+                isIngesting: true,
+                ingestStatus: 'scanning'
+              },
+              ...prev
+            ];
+          }
         });
+
+        const staged: AssetEntry[] = [];
+
+        const res = await indexingEngine.scanDirectoryPicker(dirHandle, (entry) => {
+          if (!deferFolderIngestion) {
+            setEntries((prev) => [entry, ...prev]);
+          } else {
+            staged.push(entry);
+          }
+        });
+
         const updatedFolders = await addWatchedFolder(res.folder.path, res.folder.count);
-        setFolders(updatedFolders);
+        const readyFolders = updatedFolders.map((f) =>
+          f.path.toLowerCase() === res.folder.path.toLowerCase()
+            ? { ...f, isIngesting: false, ingestStatus: undefined }
+            : f
+        );
+        setFolders(readyFolders);
+
+        if (deferFolderIngestion && staged.length > 0) {
+          setEntries((prev) => [...staged, ...prev]);
+        }
+
+        const readyFolder = readyFolders.find(
+          (f) => f.path.toLowerCase() === res.folder.path.toLowerCase()
+        );
+        showFolderNotification(folderName, res.folder.count, readyFolder || res.folder);
         return;
       } catch (err) {
-        if ((err as Error).name === 'AbortError') return;
+        if ((err as Error).name === 'AbortError') {
+          // If aborted, clean up any ghosted placeholder that was added
+          setFolders((prev) => prev.filter((f) => !f.isIngesting || f.count !== '…'));
+          return;
+        }
         console.warn('Directory scan via showDirectoryPicker failed, using file dialog:', err);
       }
     }
@@ -540,10 +666,11 @@ export const App: React.FC = () => {
     }
   };
 
-  // Add Watched Folder
+  // Add Watched Folder - immediately scan and stage into library
   const handleAddFolder = async (folderPath: string) => {
-    const updated = await addWatchedFolder(folderPath, '0');
-    setFolders(updated);
+    const trimmed = folderPath.trim();
+    if (!trimmed) return;
+    await handleScanDiskFolder(trimmed);
   };
 
   // Select Watched Folder for Filtering
@@ -565,26 +692,83 @@ export const App: React.FC = () => {
 
   // Direct fast Node disk scan into SQLite archive.db
   const handleScanDiskFolder = async (folderPath: string) => {
-    indexingEngine.scanDiskFolder(folderPath, async (freshAssets) => {
-      setEntries(freshAssets);
-      const stats = await getDatabaseStatus();
-      setDbStats(stats);
-      const updatedFolders = await getWatchedFolders();
-      setFolders(updatedFolders);
+    const normPath = folderPath.trim();
+    if (!normPath) return;
 
-      // Auto-generate thumbnails for fresh disk assets missing thumbnails
-      const missing = freshAssets.filter((e) => !e.thumb);
-      for (const item of missing) {
-        try {
-          const thumbUrl = await ensureThumbnailForEntry(item);
-          if (thumbUrl) {
-            setEntries((prev) =>
-              prev.map((x) => (x.id === item.id ? { ...x, thumb: thumbUrl } : x))
-            );
-          }
-        } catch {}
+    // Mark or insert folder in folders list with isIngesting: true immediately
+    setFolders((prev) => {
+      const existingIdx = prev.findIndex(
+        (f) => f.path.toLowerCase() === normPath.toLowerCase()
+      );
+      if (existingIdx >= 0) {
+        const copy = [...prev];
+        copy[existingIdx] = {
+          ...copy[existingIdx],
+          isIngesting: true,
+          ingestStatus: 'scanning'
+        };
+        return copy;
+      } else {
+        const newFolder: WatchedFolder = {
+          id: 'f_' + Date.now(),
+          path: normPath,
+          count: '…',
+          enabled: true,
+          isIngesting: true,
+          ingestStatus: 'scanning'
+        };
+        return [newFolder, ...prev];
       }
     });
+
+    indexingEngine.scanDiskFolder(
+      normPath,
+      async (freshAssets) => {
+        const updatedFolders = await getWatchedFolders();
+        // Clear isIngesting flag on all returned folders
+        const clearedFolders = updatedFolders.map((f) => ({
+          ...f,
+          isIngesting: false,
+          ingestStatus: undefined
+        }));
+        setFolders(clearedFolders);
+
+        setEntries(freshAssets);
+        const stats = await getDatabaseStatus();
+        setDbStats(stats);
+
+        const matchedFolder = clearedFolders.find(
+          (f) => f.path.toLowerCase() === normPath.toLowerCase()
+        );
+        const folderBase = normPath.split(/[\\/]/).filter(Boolean).pop() || normPath;
+        const count = matchedFolder?.count || freshAssets.length;
+
+        showFolderNotification(folderBase, count, matchedFolder || null);
+
+        // Auto-generate thumbnails for fresh disk assets missing thumbnails
+        const missing = freshAssets.filter((e) => !e.thumb);
+        for (const item of missing) {
+          try {
+            const thumbUrl = await ensureThumbnailForEntry(item);
+            if (thumbUrl) {
+              setEntries((prev) =>
+                prev.map((x) => (x.id === item.id ? { ...x, thumb: thumbUrl } : x))
+              );
+            }
+          } catch {}
+        }
+      },
+      (error) => {
+        console.warn('Disk scan failed or aborted:', error);
+        setFolders((prev) =>
+          prev.map((f) =>
+            f.path.toLowerCase() === normPath.toLowerCase()
+              ? { ...f, isIngesting: false, ingestStatus: 'error' }
+              : f
+          )
+        );
+      }
+    );
   };
 
   // SQLite Database Optimize (VACUUM and PRAGMA optimize)
@@ -879,6 +1063,8 @@ export const App: React.FC = () => {
         onRemoveFolder={handleRemoveFolder}
         onAddFolder={handleAddFolder}
         onToggleFolder={handleToggleFolderEnabled}
+        deferFolderIngestion={deferFolderIngestion}
+        onToggleDeferFolderIngestion={handleToggleDeferFolderIngestion}
         pools={pools}
         onAddPool={handleAddPool}
         onEditPool={handleEditPool}
@@ -887,6 +1073,157 @@ export const App: React.FC = () => {
         motionMultiplier={motionMultiplier}
         onMotionChange={setMotionMultiplier}
       />
+
+      {/* Watched Folder Ready Notification Toast */}
+      {folderNotification && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            padding: '14px 18px',
+            borderRadius: '14px',
+            background: 'rgba(15, 23, 42, 0.94)',
+            border: '1px solid rgba(56, 239, 125, 0.45)',
+            boxShadow: '0 12px 36px rgba(0, 0, 0, 0.6), 0 0 24px rgba(56, 239, 125, 0.18)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            maxWidth: '440px',
+            animation: 'slideUpNotif 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+          }}
+        >
+          <div
+            style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '10px',
+              background: 'rgba(56, 239, 125, 0.15)',
+              border: '1px solid rgba(56, 239, 125, 0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flex: 'none'
+            }}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#38ef7d"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+              <polyline points="9 13 12 16 17 11"></polyline>
+            </svg>
+          </div>
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span
+                style={{
+                  fontFamily: "'Barlow Condensed', sans-serif",
+                  fontSize: '15px',
+                  fontWeight: 700,
+                  letterSpacing: '.04em',
+                  textTransform: 'uppercase',
+                  color: '#e9edf2'
+                }}
+              >
+                Watched Folder Available
+              </span>
+              <span
+                style={{
+                  fontSize: '9px',
+                  fontFamily: 'ui-monospace, Menlo, monospace',
+                  padding: '1px 6px',
+                  borderRadius: '4px',
+                  background: 'rgba(56, 239, 125, 0.18)',
+                  border: '1px solid rgba(56, 239, 125, 0.4)',
+                  color: '#38ef7d',
+                  fontWeight: 700,
+                  letterSpacing: '.04em'
+                }}
+              >
+                READY
+              </span>
+            </div>
+            <div
+              style={{
+                fontFamily: 'ui-monospace, Menlo, monospace',
+                fontSize: '11px',
+                color: 'rgba(233, 237, 242, 0.7)',
+                marginTop: '3px',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}
+              title={folderNotification.folderName}
+            >
+              <strong style={{ color: '#94bce3' }}>{folderNotification.folderName}</strong> is ready ({folderNotification.count} assets indexed)
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 'none' }}>
+            <button
+              onClick={() => {
+                if (folderNotification.folder) {
+                  handleSelectFolder(folderNotification.folder);
+                } else {
+                  const found = folders.find(
+                    (f) =>
+                      f.path.toLowerCase() === folderNotification.folderName.toLowerCase() ||
+                      f.path.toLowerCase().endsWith(folderNotification.folderName.toLowerCase())
+                  );
+                  if (found) handleSelectFolder(found);
+                }
+                setFolderNotification(null);
+              }}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: '1px solid rgba(56, 239, 125, 0.5)',
+                background: 'linear-gradient(135deg, #38ef7d, #11998e)',
+                color: '#020617',
+                fontFamily: "'Barlow Condensed', sans-serif",
+                fontSize: '13px',
+                fontWeight: 700,
+                letterSpacing: '.04em',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(56, 239, 125, 0.25)'
+              }}
+            >
+              View Folder
+            </button>
+
+            <button
+              onClick={() => setFolderNotification(null)}
+              style={{
+                background: 'transparent',
+                border: 0,
+                color: 'rgba(233, 237, 242, 0.45)',
+                cursor: 'pointer',
+                padding: '4px 6px',
+                fontFamily: 'ui-monospace, Menlo, monospace',
+                fontSize: '14px',
+                lineHeight: 1
+              }}
+              title="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Hidden Native OS Directory Picker Input */}
       <input
