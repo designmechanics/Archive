@@ -693,15 +693,25 @@ export const Stage: React.FC<StageProps> = ({
         overflow: 'hidden'
       }}
     >
-      {/* Background Watermark/Glyph at 10% opacity */}
+      {/* Background Watermark/Glyph at 10% opacity with handwriting overlay at 50% opacity, 25vh */}
       {watermark && (
         <div aria-hidden="true" className="watermark-backdrop">
           <span
-            key={watermark}
+            key={`glyph-${watermark}`}
             className="watermark-glyph"
             style={{
               fontSize: '128vh',
               lineHeight: 0.78
+            }}
+          >
+            {watermark}
+          </span>
+          <span
+            key={`script-${watermark}`}
+            className="watermark-script"
+            style={{
+              fontSize: '25vh',
+              opacity: 0.50
             }}
           >
             {watermark}
