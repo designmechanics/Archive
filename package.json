@@ -1,0 +1,30 @@
+{
+  "name": "archive-asset-library",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/jszip": "^3.4.0",
+    "@zip.js/zip.js": "^2.7.53",
+    "better-sqlite3": "^13.0.3",
+    "gsap": "^3.12.5",
+    "idb": "^8.0.0",
+    "jszip": "^3.10.2",
+    "lucide-react": "^0.475.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}
