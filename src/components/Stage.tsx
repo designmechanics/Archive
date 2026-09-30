@@ -846,6 +846,35 @@ export const Stage: React.FC<StageProps> = ({
                           : (KINDS[e.type]?.[0] || e.type)}
                       </span>
 
+                      {/* Video Play Indicator on video thumbnails */}
+                      {e.thumb && (e.type === 'video' || (e.exts && ['mp4', 'webm', 'mov', 'm4v'].some((x) => e.exts.includes(x)))) && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            bottom: '10px',
+                            right: '10px',
+                            width: '26px',
+                            height: '26px',
+                            borderRadius: '50%',
+                            background: 'rgba(15, 23, 42, 0.75)',
+                            backdropFilter: 'blur(6px)',
+                            WebkitBackdropFilter: 'blur(6px)',
+                            border: '1px solid rgba(255, 255, 255, 0.25)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#ffffff',
+                            fontSize: '10px',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                            pointerEvents: 'none',
+                            zIndex: 2,
+                            paddingLeft: '2px'
+                          }}
+                        >
+                          ▶
+                        </div>
+                      )}
+
                       {/* Explore Archive prompt bar on zip archives */}
                       {isZipArchive(e) && !e.isZipInnerFile && (
                         <div

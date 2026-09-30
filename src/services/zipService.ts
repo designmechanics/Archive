@@ -554,9 +554,66 @@ export function isZipArchive(entry?: AssetEntry | null): boolean {
   return false;
 }
 
+// In-memory cache for generated video thumbnails inside zip archives
+export const zipVideoThumbCache = new Map<string, string>();
+
 /**
- * Extracts and maps all files inside a ZIP archive into first-class AssetEntry items
- * so they can be viewed, filtered, and previewed individually in the main views.
+ * Generates and caches a video frame thumbnail for a specific inner video inside a zip archive
+ */
+export async function generateInnerZipVideoThumbnail(
+  entry: AssetEntry,
+  parentZip?: AssetEntry | null
+): Promise<string | null> {
+  const cacheKey = entry.id;
+  if (zipVideoThumbCache.has(cacheKey)) {
+    return zipVideoThumbCache.get(cacheKey)!;
+  }
+
+  const innerPath = entry.zipInnerPath || '';
+  const parentId = entry.zipParentId || entry.packId || parentZip?.id;
+
+  // 1. Try browser in-memory or IndexedDB pack
+  if (parentId) {
+    const pack = getPack(parentId) || (await restorePackFromDB(parentId));
+    if (pack && pack.blob && innerPath) {
+      try {
+        const blob = await pack.blob(innerPath);
+        if (blob && blob.size > 0 && blob.size < 250_000_000) {
+          const thumb = await generateVideoThumbnail(blob);
+          if (thumb) {
+            zipVideoThumbCache.set(cacheKey, thumb);
+            return thumb;
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to generate inner zip video thumbnail from blob:', err);
+      }
+    }
+  }
+
+  // 2. Try disk archive via server streaming
+  const diskZipPath = parentZip?.filePath || (entry.filePath && entry.filePath.endsWith('.zip') ? entry.filePath : null);
+  if (diskZipPath && innerPath) {
+    try {
+      const streamUrl = `/api/file?path=${encodeURIComponent(diskZipPath)}&entry=${encodeURIComponent(innerPath)}`;
+      const thumb = await generateVideoThumbnail(streamUrl);
+      if (thumb) {
+        zipVideoThumbCache.set(cacheKey, thumb);
+        persistThumbnailToDisk(entry.id, thumb).catch(() => {});
+        return thumb;
+      }
+    } catch (err) {
+      console.warn('Failed to generate inner zip video thumbnail from disk stream:', err);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Extracts and maps all individual files within a ZIP archive into first-class AssetEntry objects.
+ * Supports both browser-uploaded/in-memory ZipPacks and server-indexed disk ZIP archives.
+ * Generates instant thumbnails for images, SVGs, and MP4/video files inside the archive.
  */
 export async function extractZipEntries(parentZip: AssetEntry): Promise<AssetEntry[]> {
   if (!parentZip) return [];
@@ -578,9 +635,12 @@ export async function extractZipEntries(parentZip: AssetEntry): Promise<AssetEnt
       const ext = extOf(f.path);
       const type = typeFromExt(ext);
       const fileName = f.path.split('/').pop() || f.path;
+      const entryId = `${parentZip.id}::${f.path}`;
 
       let thumb: string | null = null;
-      if (isIn('img', f.path) && f.size < 25_000_000 && pack.blob) {
+      if (zipVideoThumbCache.has(entryId)) {
+        thumb = zipVideoThumbCache.get(entryId)!;
+      } else if (isIn('img', f.path) && f.size < 25_000_000 && pack.blob) {
         try {
           const b = await pack.blob(f.path);
           if (b && b.size > 0) {
@@ -595,7 +655,7 @@ export async function extractZipEntries(parentZip: AssetEntry): Promise<AssetEnt
       }
 
       results.push({
-        id: `${parentZip.id}::${f.path}`,
+        id: entryId,
         title: fileName,
         cat: parentZip.cat,
         type,
@@ -617,6 +677,31 @@ export async function extractZipEntries(parentZip: AssetEntry): Promise<AssetEnt
         zipInnerPath: f.path
       });
     }
+
+    // Pre-generate video thumbnails for up to 6 videos concurrently
+    const unthumbnailedVideos = results.filter(
+      (e) => !e.thumb && (e.type === 'video' || (e.exts && ['mp4', 'webm', 'mov', 'm4v'].some((x) => e.exts.includes(x))))
+    );
+    if (unthumbnailedVideos.length > 0 && pack.blob) {
+      const toGenerateNow = unthumbnailedVideos.slice(0, 6);
+      await Promise.all(
+        toGenerateNow.map(async (vEntry) => {
+          try {
+            const b = await pack!.blob!(vEntry.zipInnerPath!);
+            if (b && b.size > 0 && b.size < 250_000_000) {
+              const vThumb = await generateVideoThumbnail(b);
+              if (vThumb) {
+                vEntry.thumb = vThumb;
+                zipVideoThumbCache.set(vEntry.id, vThumb);
+              }
+            }
+          } catch (err) {
+            console.warn('Failed inner video thumbnail for', vEntry.title, err);
+          }
+        })
+      );
+    }
+
     return results;
   }
 
@@ -625,16 +710,21 @@ export async function extractZipEntries(parentZip: AssetEntry): Promise<AssetEnt
     const assetData = await api.getAssetById(parentZip.id);
     if (assetData && assetData.files && assetData.files.length > 0) {
       const zipPath = parentZip.filePath || '';
-      return assetData.files.map((f: any) => {
+      const results: AssetEntry[] = assetData.files.map((f: any) => {
         const ext = extOf(f.path);
         const type = typeFromExt(ext);
         const fileName = f.path.split('/').pop() || f.path;
-        const thumbUrl = (isIn('img', f.path) || ext === 'svg')
-          ? `/api/file?path=${encodeURIComponent(zipPath)}&entry=${encodeURIComponent(f.path)}`
-          : null;
+        const entryId = `${parentZip.id}::${f.path}`;
+
+        let thumbUrl: string | null = null;
+        if (zipVideoThumbCache.has(entryId)) {
+          thumbUrl = zipVideoThumbCache.get(entryId)!;
+        } else if (isIn('img', f.path) || ext === 'svg') {
+          thumbUrl = `/api/file?path=${encodeURIComponent(zipPath)}&entry=${encodeURIComponent(f.path)}`;
+        }
 
         return {
-          id: `${parentZip.id}::${f.path}`,
+          id: entryId,
           title: fileName,
           cat: parentZip.cat,
           type,
@@ -646,7 +736,7 @@ export async function extractZipEntries(parentZip: AssetEntry): Promise<AssetEnt
           exts: [ext],
           thumb: thumbUrl,
           packId: parentZip.packId || parentZip.id,
-          filePath: f.path,
+          filePath: zipPath,
           search: `${fileName} ${f.path} ${parentZip.title} ${type} ${ext}`,
           demo: '',
           isUserUploaded: true,
@@ -656,6 +746,32 @@ export async function extractZipEntries(parentZip: AssetEntry): Promise<AssetEnt
           zipInnerPath: f.path
         };
       });
+
+      // Pre-generate video thumbnails for up to 6 disk videos concurrently
+      const unthumbnailedDiskVideos = results.filter(
+        (e) => !e.thumb && (e.type === 'video' || (e.exts && ['mp4', 'webm', 'mov', 'm4v'].some((x) => e.exts.includes(x))))
+      );
+
+      if (unthumbnailedDiskVideos.length > 0 && zipPath) {
+        const toGenerateNow = unthumbnailedDiskVideos.slice(0, 6);
+        await Promise.all(
+          toGenerateNow.map(async (vEntry) => {
+            try {
+              const streamUrl = `/api/file?path=${encodeURIComponent(zipPath)}&entry=${encodeURIComponent(vEntry.zipInnerPath!)}`;
+              const vThumb = await generateVideoThumbnail(streamUrl);
+              if (vThumb) {
+                vEntry.thumb = vThumb;
+                zipVideoThumbCache.set(vEntry.id, vThumb);
+                persistThumbnailToDisk(vEntry.id, vThumb).catch(() => {});
+              }
+            } catch (err) {
+              console.warn('Failed disk inner video thumbnail for', vEntry.title, err);
+            }
+          })
+        );
+      }
+
+      return results;
     }
   } catch (err) {
     console.warn('Could not query disk archive files from SQLite:', err);

@@ -29,6 +29,7 @@ import {
   createPackFromBlob,
   createPackFromSingleFile,
   extractZipEntries,
+  generateInnerZipVideoThumbnail,
   isZipArchive
 } from './services/zipService';
 import { ensureThumbnailForEntry } from './services/thumbnailService';
@@ -142,6 +143,51 @@ export const App: React.FC = () => {
     setFocusIndex(0);
     setCurrentPage(1);
   };
+
+  // Progressive background video thumbnail generator for active zip archive
+  useEffect(() => {
+    if (!activeZipArchive) return;
+    const missing = activeZipArchive.innerEntries.filter(
+      (e) => !e.thumb && (e.type === 'video' || (e.exts && ['mp4', 'webm', 'mov', 'm4v'].some((x) => e.exts.includes(x))))
+    );
+    if (missing.length === 0) return;
+
+    let cancelled = false;
+
+    const processMissing = async () => {
+      // Process in concurrent batches of 2
+      for (let i = 0; i < missing.length; i += 2) {
+        if (cancelled) break;
+        const batch = missing.slice(i, i + 2);
+        await Promise.all(
+          batch.map(async (item) => {
+            try {
+              const thumbUrl = await generateInnerZipVideoThumbnail(item, activeZipArchive.parent);
+              if (thumbUrl && !cancelled) {
+                setActiveZipArchive((prev) => {
+                  if (!prev) return null;
+                  return {
+                    ...prev,
+                    innerEntries: prev.innerEntries.map((e) =>
+                      e.id === item.id ? { ...e, thumb: thumbUrl } : e
+                    )
+                  };
+                });
+              }
+            } catch (err) {
+              console.warn('Background inner video thumbnail error:', err);
+            }
+          })
+        );
+      }
+    };
+
+    processMissing();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeZipArchive?.parent.id]);
 
   const dragCounterRef = useRef(0);
   const nativeDirInputRef = useRef<HTMLInputElement>(null);

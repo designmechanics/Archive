@@ -102,9 +102,33 @@ export const ListView: React.FC<ListViewProps> = ({
                 border: '1px solid rgba(var(--inkc, 29,31,32), .12)',
                 background: e.thumb
                   ? `url(${e.thumb}) center/${(e.exts && e.exts.includes('pdf')) ? 'contain #ffffff' : 'cover'} no-repeat`
-                  : 'repeating-linear-gradient(135deg, rgba(89,128,166,.18) 0 3px, rgba(89,128,166,.04) 3px 7px)'
+                  : 'repeating-linear-gradient(135deg, rgba(89,128,166,.18) 0 3px, rgba(89,128,166,.04) 3px 7px)',
+                position: 'relative',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}
-            />
+            >
+              {e.thumb && (e.type === 'video' || (e.exts && ['mp4', 'webm', 'mov', 'm4v'].some((x) => e.exts.includes(x)))) && (
+                <span
+                  style={{
+                    fontSize: '8px',
+                    color: '#ffffff',
+                    background: 'rgba(0,0,0,0.65)',
+                    borderRadius: '50%',
+                    width: '14px',
+                    height: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingLeft: '1px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.4)'
+                  }}
+                >
+                  ▶
+                </span>
+              )}
+            </span>
 
             {/* Star button */}
             <span

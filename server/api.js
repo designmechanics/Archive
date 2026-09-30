@@ -86,6 +86,22 @@ async function handleZipEntryStream(req, res, zipPath, innerPath) {
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
     const buffer = await file.async('nodebuffer');
 
+    const range = req.headers.range;
+    if (range) {
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : buffer.length - 1;
+      const chunksize = end - start + 1;
+
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${buffer.length}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunksize,
+        'Content-Type': contentType
+      });
+      return res.end(buffer.subarray(start, end + 1));
+    }
+
     res.writeHead(200, {
       'Content-Length': buffer.length,
       'Content-Type': contentType,

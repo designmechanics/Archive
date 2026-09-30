@@ -101,13 +101,14 @@ export async function generatePdfThumbnail(
  * Attaches temporarily to DOM to ensure hardware frame decode on Chromium/Firefox/Safari.
  */
 export function generateVideoThumbnail(
-  fileOrBlob: Blob | File,
+  source: Blob | File | string,
   targetWidth = 420
 ): Promise<string | null> {
   return new Promise((resolve) => {
     try {
       const video = document.createElement('video');
-      const url = URL.createObjectURL(fileOrBlob);
+      const isStringUrl = typeof source === 'string';
+      const url = isStringUrl ? source : URL.createObjectURL(source);
       video.src = url;
       video.crossOrigin = 'anonymous';
       video.muted = true;
@@ -137,7 +138,9 @@ export function generateVideoThumbnail(
           if (video.parentNode) {
             video.parentNode.removeChild(video);
           }
-          URL.revokeObjectURL(url);
+          if (!isStringUrl) {
+            URL.revokeObjectURL(url);
+          }
         } catch {}
       };
 
@@ -168,9 +171,11 @@ export function generateVideoThumbnail(
       };
 
       video.onloadeddata = () => {
-        const duration = video.duration || 1;
-        const seekTime = Math.min(1.5, Math.max(0.1, duration * 0.15));
-        video.currentTime = seekTime;
+        const duration = (video.duration && !isNaN(video.duration) && isFinite(video.duration)) ? video.duration : 1;
+        const seekTime = Math.min(1.5, Math.max(0.05, duration * 0.15));
+        try {
+          video.currentTime = seekTime;
+        } catch {}
         // Prompt decoder initialization
         video.play().then(() => video.pause()).catch(() => {});
       };
@@ -269,6 +274,19 @@ export async function ensureThumbnailForEntry(entry: AssetEntry): Promise<string
   }
 
   try {
+    // 0. Inner ZIP file on disk via server streaming
+    if (entry.isZipInnerFile && entry.filePath && entry.zipInnerPath) {
+      const isVideo = /\.(mp4|webm|mov|mkv|m4v)$/i.test(entry.title || '') || entry.type === 'video' || (entry.exts && ['mp4', 'webm', 'mov'].some((x) => entry.exts.includes(x)));
+      if (isVideo) {
+        const streamUrl = `/api/file?path=${encodeURIComponent(entry.filePath)}&entry=${encodeURIComponent(entry.zipInnerPath)}`;
+        const snapshotDataUrl = await generateVideoThumbnail(streamUrl);
+        if (snapshotDataUrl) {
+          const persistedUrl = await persistThumbnailToDisk(entry.id, snapshotDataUrl);
+          return persistedUrl || snapshotDataUrl;
+        }
+      }
+    }
+
     // 1. Obtain binary blob from IndexedDB packs or server /api/file
     let blob: Blob | null = null;
     const lookupId = entry.packId || entry.id;
