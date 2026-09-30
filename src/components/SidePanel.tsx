@@ -234,9 +234,29 @@ export const SidePanel: React.FC<SidePanelProps> = ({
     : [];
 
   return (
-    <div
-      ref={panelRef}
-      data-panel="1"
+    <>
+      {/* Backdrop overlay: clicking anywhere to the left of the side panel closes the preview */}
+      <div
+        data-panel-backdrop="1"
+        onClick={onClose}
+        title="Click to close preview"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 38,
+          background: 'rgba(8, 14, 22, 0.42)',
+          backdropFilter: 'blur(2px)',
+          WebkitBackdropFilter: 'blur(2px)',
+          cursor: 'pointer',
+          animation: 'panelBackdropFadeIn 0.22s ease-out'
+        }}
+      />
+      <div
+        ref={panelRef}
+        data-panel="1"
       style={{
         position: 'fixed',
         top: 0,
@@ -1044,5 +1064,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({
         </div>
       )}
     </div>
+    </>
   );
 };
