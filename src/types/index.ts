@@ -44,6 +44,9 @@ export type ThemeMode = 'light' | 'mid' | 'dark';
 
 export type Density = 2 | 3 | 4 | 5 | 6 | 8;
 
+export type MaxPerPage = 'ALL' | 256 | 128 | 64 | 48 | 32 | 24 | 16;
+export const MAX_PER_PAGE_OPTIONS: MaxPerPage[] = ['ALL', 256, 128, 64, 48, 32, 24, 16];
+
 export interface ZipFileInfo {
   path: string;
   size: number;

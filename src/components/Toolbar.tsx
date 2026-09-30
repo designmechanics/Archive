@@ -1,5 +1,5 @@
-import React from 'react';
-import { Density, ViewMode } from '../types';
+import React, { useState, useRef, useEffect } from 'react';
+import { Density, ViewMode, MaxPerPage, MAX_PER_PAGE_OPTIONS } from '../types';
 
 interface ToolbarProps {
   view: ViewMode;
@@ -8,9 +8,15 @@ interface ToolbarProps {
   onDensityChange: (d: Density) => void;
   focusIndex: number;
   totalVisible: number;
+  totalCount?: number;
   onPrev: () => void;
   onNext: () => void;
   accent: string;
+  maxPerPage: MaxPerPage;
+  onMaxPerPageChange: (m: MaxPerPage) => void;
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (p: number) => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -20,10 +26,37 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onDensityChange,
   focusIndex,
   totalVisible,
+  totalCount,
   onPrev,
   onNext,
-  accent
+  accent,
+  maxPerPage,
+  onMaxPerPageChange,
+  currentPage,
+  totalPages,
+  onPageChange
 }) => {
+  const [maxMenuOpen, setMaxMenuOpen] = useState(false);
+  const maxMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close on outside click or Escape
+  useEffect(() => {
+    if (!maxMenuOpen) return;
+    const onMouseDown = (e: MouseEvent) => {
+      if (maxMenuRef.current && !maxMenuRef.current.contains(e.target as Node)) {
+        setMaxMenuOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMaxMenuOpen(false);
+    };
+    window.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [maxMenuOpen]);
   const VIEWS: [ViewMode, string, string][] = [
     ['grid', 'Grid', 'Density grid'],
     ['list', 'List', 'Dense table'],
@@ -147,6 +180,296 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           );
         })}
       </div>
+
+      {/* Maximum Per Page Toggle & Popover */}
+      <div
+        ref={maxMenuRef}
+        data-max-per-page="1"
+        style={{
+          position: 'relative',
+          display: 'inline-flex',
+          alignItems: 'center'
+        }}
+      >
+        <button
+          onClick={() => setMaxMenuOpen((prev) => !prev)}
+          title="Change maximum assets per page"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '7px 11px',
+            borderRadius: '13px',
+            cursor: 'pointer',
+            border: maxMenuOpen ? '1px solid #94bce3' : '1px solid rgba(var(--inkc, 29,31,32), .14)',
+            background: maxMenuOpen ? 'var(--tint, #eef6ff)' : 'var(--surface, #ffffff)',
+            color: 'var(--ink, #1d1f20)',
+            fontFamily: "'Barlow Condensed', sans-serif",
+            fontSize: '13.5px',
+            fontWeight: 600,
+            letterSpacing: '.05em',
+            textTransform: 'uppercase',
+            whiteSpace: 'nowrap',
+            boxShadow: '0 1px 2px rgba(43,43,45,.14)',
+            transition: 'background 0.18s, border-color 0.18s, box-shadow 0.18s'
+          }}
+          onMouseEnter={(e) => {
+            if (!maxMenuOpen) {
+              e.currentTarget.style.background = 'var(--tint, #eef6ff)';
+              e.currentTarget.style.borderColor = '#94bce3';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!maxMenuOpen) {
+              e.currentTarget.style.background = 'var(--surface, #ffffff)';
+              e.currentTarget.style.borderColor = 'rgba(var(--inkc, 29,31,32), .14)';
+            }
+          }}
+        >
+          <span
+            style={{
+              fontFamily: 'ui-monospace, Menlo, monospace',
+              fontSize: '9.5px',
+              letterSpacing: '.1em',
+              color: 'rgba(var(--inkc, 29,31,32), .55)'
+            }}
+          >
+            Max:
+          </span>
+          <span
+            style={{
+              fontWeight: 700,
+              fontFamily: maxPerPage === 'ALL' ? "'Barlow Condensed', sans-serif" : 'ui-monospace, Menlo, monospace',
+              fontSize: maxPerPage === 'ALL' ? '13px' : '12px',
+              color: maxPerPage === 'ALL' ? '#f87171' : 'var(--ink, #1d1f20)'
+            }}
+          >
+            {maxPerPage}
+          </span>
+          {maxPerPage === 'ALL' && (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '1px 5px',
+                borderRadius: '4px',
+                background: 'rgba(239, 68, 68, 0.16)',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                color: '#f87171',
+                fontFamily: 'ui-monospace, Menlo, monospace',
+                fontSize: '8.5px',
+                fontWeight: 700,
+                letterSpacing: '.08em',
+                lineHeight: 1.2
+              }}
+            >
+              DANGEROUS
+            </span>
+          )}
+          <span
+            style={{
+              fontSize: '8.5px',
+              opacity: 0.55,
+              transform: maxMenuOpen ? 'rotate(180deg)' : 'none',
+              transition: 'transform 0.18s'
+            }}
+          >
+            ▼
+          </span>
+        </button>
+
+        {/* Revealed Popover Selection Menu */}
+        {maxMenuOpen && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 'calc(100% + 6px)',
+              left: 0,
+              minWidth: '190px',
+              borderRadius: '13px',
+              background: 'var(--surface, #1e293b)',
+              color: 'var(--ink, #e9edf2)',
+              border: '1px solid rgba(148,188,227,.28)',
+              boxShadow: '0 14px 34px rgba(0,0,0,.45), 0 3px 8px rgba(0,0,0,.25)',
+              padding: '6px',
+              zIndex: 60,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '2px',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              animation: 'panelBackdropFadeIn 0.15s ease-out'
+            }}
+          >
+            <div
+              style={{
+                padding: '6px 9px 5px',
+                borderBottom: '1px solid rgba(148,188,227,.12)',
+                fontFamily: 'ui-monospace, Menlo, monospace',
+                fontSize: '9px',
+                letterSpacing: '.12em',
+                textTransform: 'uppercase',
+                color: '#94bce3',
+                marginBottom: '2px'
+              }}
+            >
+              Maximum Per Page
+            </div>
+
+            {MAX_PER_PAGE_OPTIONS.map((opt) => {
+              const isSelected = maxPerPage === opt;
+              const isAll = opt === 'ALL';
+              return (
+                <button
+                  key={String(opt)}
+                  onClick={() => {
+                    onMaxPerPageChange(opt);
+                    setMaxMenuOpen(false);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '7px 9px',
+                    borderRadius: '8px',
+                    border: 0,
+                    background: isSelected ? 'rgba(148,188,227,.18)' : 'transparent',
+                    color: isSelected ? '#ffffff' : 'var(--ink, #e9edf2)',
+                    cursor: 'pointer',
+                    fontFamily: isAll ? "'Barlow Condensed', sans-serif" : 'ui-monospace, Menlo, monospace',
+                    fontSize: isAll ? '13.5px' : '12px',
+                    fontWeight: isSelected ? 700 : 500,
+                    textAlign: 'left',
+                    transition: 'background 0.12s, color 0.12s'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.background = 'rgba(148,188,227,.1)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.background = 'transparent';
+                    }
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: isAll ? (isSelected ? '#fca5a5' : '#f87171') : 'inherit' }}>
+                      {opt}
+                    </span>
+                    {isAll ? (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          padding: '1px 5px',
+                          borderRadius: '4px',
+                          background: 'rgba(239, 68, 68, 0.22)',
+                          border: '1px solid rgba(239, 68, 68, 0.45)',
+                          color: '#f87171',
+                          fontFamily: 'ui-monospace, Menlo, monospace',
+                          fontSize: '8.5px',
+                          fontWeight: 700,
+                          letterSpacing: '.08em',
+                          textTransform: 'uppercase',
+                          lineHeight: 1.2
+                        }}
+                      >
+                        DANGEROUS
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '9.5px', color: 'rgba(var(--inkc, 233,237,242), .45)' }}>
+                        assets
+                      </span>
+                    )}
+                  </div>
+                  {isSelected && (
+                    <span style={{ color: '#94bce3', fontSize: '12px', fontWeight: 700 }}>
+                      ✓
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Page Navigation Controls (when totalPages > 1) */}
+      {totalPages > 1 && maxPerPage !== 'ALL' && (
+        <div
+          data-page-nav="1"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '3px',
+            padding: '3px 5px',
+            borderRadius: '13px',
+            background: 'var(--well, #e3e4e6)',
+            border: '1px solid rgba(var(--inkc, 29,31,32), .09)',
+            boxShadow: 'inset 0 2px 5px rgba(29,45,61,.09)'
+          }}
+        >
+          <button
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage <= 1}
+            title="Previous page"
+            style={{
+              width: '26px',
+              height: '26px',
+              borderRadius: '8px',
+              border: 0,
+              background: currentPage <= 1 ? 'transparent' : 'var(--surface, #ffffff)',
+              color: currentPage <= 1 ? 'rgba(var(--inkc, 29,31,32), .25)' : 'var(--ink, #1d1f20)',
+              cursor: currentPage <= 1 ? 'default' : 'pointer',
+              fontFamily: 'ui-monospace, Menlo, monospace',
+              fontSize: '12px',
+              boxShadow: currentPage <= 1 ? 'none' : '0 1px 2px rgba(43,43,45,.14)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'background 0.15s'
+            }}
+          >
+            ‹
+          </button>
+          <span
+            style={{
+              padding: '0 6px',
+              fontFamily: 'ui-monospace, Menlo, monospace',
+              fontSize: '10px',
+              letterSpacing: '.06em',
+              color: 'rgba(var(--inkc, 29,31,32), .7)',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage >= totalPages}
+            title="Next page"
+            style={{
+              width: '26px',
+              height: '26px',
+              borderRadius: '8px',
+              border: 0,
+              background: currentPage >= totalPages ? 'transparent' : 'var(--surface, #ffffff)',
+              color: currentPage >= totalPages ? 'rgba(var(--inkc, 29,31,32), .25)' : 'var(--ink, #1d1f20)',
+              cursor: currentPage >= totalPages ? 'default' : 'pointer',
+              fontFamily: 'ui-monospace, Menlo, monospace',
+              fontSize: '12px',
+              boxShadow: currentPage >= totalPages ? 'none' : '0 1px 2px rgba(43,43,45,.14)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'background 0.15s'
+            }}
+          >
+            ›
+          </button>
+        </div>
+      )}
 
       {/* Carousel Prev/Next & Focus Counter */}
       <div

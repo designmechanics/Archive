@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import gsap from 'gsap';
-import { AssetEntry, Density, ThemeMode, ViewMode, WatchedFolder, Pool } from './types';
+import { AssetEntry, Density, ThemeMode, ViewMode, WatchedFolder, Pool, MaxPerPage } from './types';
 import { CATS, KINDS, THEMES } from './data/seedData';
 import {
   addWatchedFolder,
@@ -70,6 +70,16 @@ export const App: React.FC = () => {
   const [accent, setAccent] = useState('#2c455d');
   const [motionMultiplier, setMotionMultiplier] = useState(1);
   const [dbStats, setDbStats] = useState<DatabaseStats | null>(null);
+  const [maxPerPage, setMaxPerPage] = useState<MaxPerPage>(() => {
+    const saved = localStorage.getItem('archive.maxPerPage');
+    if (saved === 'ALL') return 'ALL';
+    const parsed = saved ? parseInt(saved, 10) : 64;
+    if ([256, 128, 64, 48, 32, 24, 16].includes(parsed)) {
+      return parsed as MaxPerPage;
+    }
+    return 64;
+  });
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
   const dragCounterRef = useRef(0);
   const nativeDirInputRef = useRef<HTMLInputElement>(null);
@@ -287,6 +297,31 @@ export const App: React.FC = () => {
 
     return vis;
   }, [entries, query, selectedPool, selectedFolder, folders, seed]);
+
+  // Pagination & Max Per Page logic
+  const totalPages = useMemo(() => {
+    if (maxPerPage === 'ALL') return 1;
+    return Math.max(1, Math.ceil(filteredEntries.length / maxPerPage));
+  }, [filteredEntries.length, maxPerPage]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(Math.max(1, totalPages));
+    }
+  }, [currentPage, totalPages]);
+
+  const pagedEntries = useMemo(() => {
+    if (maxPerPage === 'ALL') return filteredEntries;
+    const start = (currentPage - 1) * maxPerPage;
+    return filteredEntries.slice(start, start + maxPerPage);
+  }, [filteredEntries, maxPerPage, currentPage]);
+
+  const handleMaxPerPageChange = (val: MaxPerPage) => {
+    setMaxPerPage(val);
+    setCurrentPage(1);
+    setFocusIndex(0);
+    localStorage.setItem('archive.maxPerPage', String(val));
+  };
 
   // Per-watched-folder live asset counts
   const folderCounts = useMemo(() => {
@@ -516,6 +551,7 @@ export const App: React.FC = () => {
     setSelectedFolder(folder);
     setFocusIndex(0);
     setSeed(0);
+    setCurrentPage(1);
   };
 
   // Toggle Watched Folder Enabled/Disabled
@@ -649,6 +685,7 @@ export const App: React.FC = () => {
     setSelectedPool(null);
     setSelectedFolder(null);
     setFocusIndex(0);
+    setCurrentPage(1);
   };
 
   const selectedCount = Object.keys(selectedIds).length;
@@ -677,6 +714,7 @@ export const App: React.FC = () => {
           setSelectedPool(p);
           setFocusIndex(0);
           setSeed(0);
+          setCurrentPage(1);
         }}
         onHoverPool={setHoverPool}
         fanPool={fanPool}
@@ -716,22 +754,28 @@ export const App: React.FC = () => {
             setQuery(q);
             setFocusIndex(0);
             setSeed(0);
+            setCurrentPage(1);
           }}
           totalCount={entries.length}
           filteredCount={filteredEntries.length}
           selectedPool={selectedPool}
           selectedFolder={selectedFolder}
-          onClearFolder={() => setSelectedFolder(null)}
+          onClearFolder={() => {
+            setSelectedFolder(null);
+            setCurrentPage(1);
+          }}
           theme={theme}
           onThemeChange={setTheme}
           onShuffle={() => {
             setSeed((s) => s + 1);
             setFocusIndex(0);
+            setCurrentPage(1);
           }}
           isShuffled={seed > 0}
           onRevertShuffle={() => {
             setSeed(0);
             setFocusIndex(0);
+            setCurrentPage(1);
           }}
           onOpenModal={() => setModalOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
@@ -746,15 +790,24 @@ export const App: React.FC = () => {
           density={density}
           onDensityChange={setDensity}
           focusIndex={focusIndex}
-          totalVisible={filteredEntries.length}
+          totalVisible={pagedEntries.length}
+          totalCount={filteredEntries.length}
           onPrev={() => setFocusIndex((f) => Math.max(0, f - 1))}
-          onNext={() => setFocusIndex((f) => Math.min(filteredEntries.length - 1, f + 1))}
+          onNext={() => setFocusIndex((f) => Math.min(pagedEntries.length - 1, f + 1))}
           accent={accent}
+          maxPerPage={maxPerPage}
+          onMaxPerPageChange={handleMaxPerPageChange}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={(p) => {
+            setCurrentPage(p);
+            setFocusIndex(0);
+          }}
         />
 
         {/* Stage / Card Layout Area */}
         <Stage
-          entries={filteredEntries}
+          entries={pagedEntries}
           allEntries={entries}
           view={view}
           density={density}
