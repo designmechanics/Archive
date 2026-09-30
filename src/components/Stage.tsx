@@ -1190,6 +1190,7 @@ export const Stage: React.FC<StageProps> = ({
   }, [watermarkState.animKey, motionMultiplier, view]);
 
   const isFilmstrip = view === 'filmstrip';
+  const isListView = view === 'list';
 
   return (
     <div
@@ -1239,6 +1240,7 @@ export const Stage: React.FC<StageProps> = ({
                   marginTop: '-13.5vh',
                   position: 'absolute',
                   left: 0,
+                  opacity: isListView ? 0.16 : 0.10,
                   transform: 'translateX(-50%) translateZ(0)'
                 }}
               >
@@ -1251,6 +1253,7 @@ export const Stage: React.FC<StageProps> = ({
                   position: 'absolute',
                   bottom: '2vh',
                   left: 0,
+                  opacity: isListView ? 0.55 : 0.50,
                   transform: 'translateX(-50%) translateZ(20px)'
                 }}
               >
@@ -1287,6 +1290,7 @@ export const Stage: React.FC<StageProps> = ({
                   marginTop: '-13.5vh',
                   position: 'absolute',
                   left: 0,
+                  opacity: isListView ? 0.16 : 0.10,
                   transform: 'translateX(-50%) translateZ(0)'
                 }}
               >
@@ -1299,6 +1303,7 @@ export const Stage: React.FC<StageProps> = ({
                   position: 'absolute',
                   bottom: '2vh',
                   left: 0,
+                  opacity: isListView ? 0.55 : 0.50,
                   transform: 'translateX(-50%) translateZ(20px)'
                 }}
               >

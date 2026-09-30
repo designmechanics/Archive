@@ -122,25 +122,30 @@ export const ListView: React.FC<ListViewProps> = ({
               }
             }}
             style={{
+              position: 'relative',
               display: 'flex',
               alignItems: 'center',
               gap: '14px',
               padding: '9px 14px',
               borderRadius: '13px',
-              background: 'var(--surface, #ffffff)',
-              border: '1px solid rgba(var(--inkc, 29,31,32), .1)',
+              background: 'rgba(23, 32, 44, 0.44)',
+              backdropFilter: 'brightness(2.1) contrast(1.28) saturate(1.1)',
+              WebkitBackdropFilter: 'brightness(2.1) contrast(1.28) saturate(1.1)',
+              border: '1px solid rgba(233, 237, 242, 0.09)',
               cursor: 'pointer',
-              boxShadow: '0 1px 2px rgba(43,43,45,.1)',
-              transition: 'box-shadow .24s, border-color .2s, transform .24s'
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.22)',
+              transition: 'background .2s, box-shadow .24s, border-color .2s, transform .24s'
             }}
             onMouseEnter={(el) => {
-              el.currentTarget.style.boxShadow = '0 10px 22px rgba(43,43,45,.14)';
+              el.currentTarget.style.background = 'rgba(38, 54, 72, 0.72)';
+              el.currentTarget.style.boxShadow = '0 10px 24px rgba(0, 0, 0, 0.35)';
               el.currentTarget.style.borderColor = '#94bce3';
-              el.currentTarget.style.transform = 'translateX(3px)';
+              el.currentTarget.style.transform = 'translateX(4px)';
             }}
             onMouseLeave={(el) => {
-              el.currentTarget.style.boxShadow = '0 1px 2px rgba(43,43,45,.1)';
-              el.currentTarget.style.borderColor = 'rgba(var(--inkc, 29,31,32), .1)';
+              el.currentTarget.style.background = 'rgba(23, 32, 44, 0.44)';
+              el.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.22)';
+              el.currentTarget.style.borderColor = 'rgba(233, 237, 242, 0.09)';
               el.currentTarget.style.transform = 'translateX(0)';
             }}
           >
