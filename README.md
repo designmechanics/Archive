@@ -85,11 +85,11 @@ Whether organizing tens of thousands of stock videos, raw vector brand marks, fo
 
 ```mermaid
 graph LR
-    Disk[Watched OS Folders / Drag-Drop ZIPs] --> Scanner[High-Speed Ingestion Engine]
-    Scanner --> SQLite[(SQLite WAL Database + FTS5)]
-    SQLite --> API[/api/assets & /api/stats]
-    API --> UI[React 18 Reactive State]
-    UI --> Stage[GSAP 3D Stage & Universal Previews]
+    Disk["Watched OS Folders / Drag-Drop ZIPs"] --> Scanner["High-Speed Ingestion Engine"]
+    Scanner --> SQLite[("SQLite WAL Database + FTS5")]
+    SQLite --> API["/api/assets & /api/stats"]
+    API --> UI["React 18 Reactive State"]
+    UI --> Stage["GSAP 3D Stage & Universal Previews"]
 ```
 
 ---
