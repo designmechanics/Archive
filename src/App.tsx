@@ -124,11 +124,15 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  // List View Columns (1 or 2). Default 2 Col on 1920+ displays, 1 Col under 1920px.
-  // User can manually override via toolbar toggle.
+  // List View Columns (1, 2, 3, or 4). Responsive defaults:
+  // 3440+ (Ultrawide/4K) -> 4 Col
+  // 2560+ (1440p / QHD) -> 3 Col
+  // 1920+ (1080p) -> 2 Col
+  // < 1920 -> 1 Col
+  // User can manually override via toolbar toggle (persisted to localStorage).
   const [userListColsOverride, setUserListColsOverride] = useState<ListColumns | null>(() => {
     const saved = localStorage.getItem('archive.listColumns');
-    if (saved === '1' || saved === '2') {
+    if (saved === '1' || saved === '2' || saved === '3' || saved === '4') {
       return parseInt(saved, 10) as ListColumns;
     }
     return null;
@@ -136,7 +140,7 @@ export const App: React.FC = () => {
 
   const listColumns: ListColumns = userListColsOverride !== null
     ? userListColsOverride
-    : (screenWidth >= 1920 ? 2 : 1);
+    : (screenWidth >= 3440 ? 4 : screenWidth >= 2560 ? 3 : screenWidth >= 1920 ? 2 : 1);
 
   const handleListColumnsChange = (cols: ListColumns) => {
     setUserListColsOverride(cols);

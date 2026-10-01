@@ -51,24 +51,91 @@ export const ListView: React.FC<ListViewProps> = ({
   // Fallback to 1 column if docked preview panel is taking half the screen
   const effectiveColumns: ListColumns = isPreviewOpen ? 1 : (listColumns || 1);
 
-  // Divide entries into column 1 and column 2 when dual column is active
-  const [col1, col2] = useMemo(() => {
-    if (effectiveColumns === 1 || entries.length <= 1) {
-      return [entries, []];
+  // Divide entries into 1, 2, 3, or 4 columns based on effectiveColumns and listOrder
+  const columnGroups = useMemo(() => {
+    if (effectiveColumns <= 1 || entries.length <= 1) {
+      return [entries];
     }
+    const count = effectiveColumns;
+    const groups: AssetEntry[][] = Array.from({ length: count }, () => []);
     if (listOrder === 'across') {
-      const c1: AssetEntry[] = [];
-      const c2: AssetEntry[] = [];
       entries.forEach((e, i) => {
-        if (i % 2 === 0) c1.push(e);
-        else c2.push(e);
+        groups[i % count].push(e);
       });
-      return [c1, c2];
     } else {
-      const half = Math.ceil(entries.length / 2);
-      return [entries.slice(0, half), entries.slice(half)];
+      const chunkSize = Math.ceil(entries.length / count);
+      for (let c = 0; c < count; c++) {
+        groups[c] = entries.slice(c * chunkSize, (c + 1) * chunkSize);
+      }
     }
+    return groups;
   }, [entries, effectiveColumns, listOrder]);
+
+  // Responsive column dimensions based on effective column count
+  const colSizes = useMemo(() => {
+    switch (effectiveColumns) {
+      case 4:
+        return {
+          gap: '7px',
+          padding: '5px 8px',
+          titleFont: '15px',
+          prevWidth: '32px',
+          prevHeight: '26px',
+          starWidth: '16px',
+          assetFlex: '1.4',
+          formatWidth: '58px',
+          sizeWidth: '50px',
+          poolFlex: '0.7',
+          sourceWidth: '64px',
+          dateWidth: '60px'
+        };
+      case 3:
+        return {
+          gap: '9px',
+          padding: '6px 10px',
+          titleFont: '15.5px',
+          prevWidth: '35px',
+          prevHeight: '28px',
+          starWidth: '18px',
+          assetFlex: '1.5',
+          formatWidth: '66px',
+          sizeWidth: '58px',
+          poolFlex: '0.75',
+          sourceWidth: '74px',
+          dateWidth: '68px'
+        };
+      case 2:
+        return {
+          gap: '10px',
+          padding: '7px 12px',
+          titleFont: '16px',
+          prevWidth: '38px',
+          prevHeight: '30px',
+          starWidth: '20px',
+          assetFlex: '1.6',
+          formatWidth: '76px',
+          sizeWidth: '66px',
+          poolFlex: '0.85',
+          sourceWidth: '86px',
+          dateWidth: '76px'
+        };
+      default:
+        return {
+          gap: '14px',
+          padding: '8px 14px',
+          titleFont: '17px',
+          prevWidth: '38px',
+          prevHeight: '30px',
+          starWidth: '20px',
+          assetFlex: '1.6',
+          formatWidth: '88px',
+          sizeWidth: '74px',
+          poolFlex: '0.85',
+          sourceWidth: '110px',
+          dateWidth: '84px'
+        };
+    }
+  }, [effectiveColumns]);
 
   const handleHeaderSort = (opt: SortOption) => {
     if (!onSortChange) return;
@@ -114,14 +181,15 @@ export const ListView: React.FC<ListViewProps> = ({
   const renderTableHeader = (colId: string, count?: number) => (
     <div
       key={`hdr-${colId}`}
+      data-list-header="1"
       style={{
         position: 'sticky',
         top: 0,
         zIndex: 15,
         display: 'flex',
         alignItems: 'center',
-        gap: effectiveColumns === 2 ? '10px' : '14px',
-        padding: effectiveColumns === 2 ? '7px 12px' : '8px 14px',
+        gap: colSizes.gap,
+        padding: colSizes.padding,
         marginBottom: '3px',
         borderRadius: '10px',
         borderBottom: isLight
@@ -146,14 +214,14 @@ export const ListView: React.FC<ListViewProps> = ({
         color: isLight ? 'rgba(15, 23, 42, 0.65)' : isMid ? 'rgba(15, 27, 39, 0.75)' : 'rgba(233, 237, 242, 0.65)'
       }}
     >
-      <span style={{ width: '38px', flex: 'none' }}>Prev</span>
-      <span style={{ width: '20px', flex: 'none', textAlign: 'center' }}>★</span>
+      <span style={{ width: colSizes.prevWidth, flex: 'none' }}>Prev</span>
+      <span style={{ width: colSizes.starWidth, flex: 'none', textAlign: 'center' }}>★</span>
 
       {/* Asset Title Column Header */}
       <span
         onClick={() => handleHeaderSort(sortOption === 'number' ? 'number' : 'name')}
         style={{
-          flex: '1.6',
+          flex: colSizes.assetFlex,
           minWidth: 0,
           cursor: onSortChange ? 'pointer' : 'default',
           display: 'flex',
@@ -175,7 +243,7 @@ export const ListView: React.FC<ListViewProps> = ({
       <span
         onClick={() => handleHeaderSort('type')}
         style={{
-          width: effectiveColumns === 2 ? '76px' : '88px',
+          width: colSizes.formatWidth,
           flex: 'none',
           cursor: onSortChange ? 'pointer' : 'default',
           display: 'flex',
@@ -197,7 +265,7 @@ export const ListView: React.FC<ListViewProps> = ({
       <span
         onClick={() => handleHeaderSort('size')}
         style={{
-          width: effectiveColumns === 2 ? '66px' : '74px',
+          width: colSizes.sizeWidth,
           flex: 'none',
           textAlign: 'right',
           cursor: onSortChange ? 'pointer' : 'default',
@@ -218,10 +286,10 @@ export const ListView: React.FC<ListViewProps> = ({
       </span>
 
       {/* Pool Column Header */}
-      <span style={{ flex: '0.85', minWidth: 0 }}>Pool</span>
+      <span style={{ flex: colSizes.poolFlex, minWidth: 0 }}>Pool</span>
 
       {/* Source Column Header */}
-      <span style={{ width: effectiveColumns === 2 ? '86px' : '110px', flex: 'none' }}>Source</span>
+      <span style={{ width: colSizes.sourceWidth, flex: 'none' }}>Source</span>
 
       {/* Date / Added / Mod / Age Column Header */}
       <span
@@ -231,7 +299,7 @@ export const ListView: React.FC<ListViewProps> = ({
           else handleHeaderSort('date_created');
         }}
         style={{
-          width: effectiveColumns === 2 ? '76px' : '84px',
+          width: colSizes.dateWidth,
           flex: 'none',
           textAlign: 'right',
           cursor: onSortChange ? 'pointer' : 'default',
@@ -253,8 +321,8 @@ export const ListView: React.FC<ListViewProps> = ({
         </span>
       </span>
 
-      {/* Column pill badge in dual column mode */}
-      {effectiveColumns === 2 && (
+      {/* Column pill badge in multi-column mode */}
+      {effectiveColumns > 1 && (
         <span
           style={{
             fontSize: '8.5px',
@@ -265,9 +333,9 @@ export const ListView: React.FC<ListViewProps> = ({
             flex: 'none',
             letterSpacing: '0.06em'
           }}
-          title={colId === 'col1' ? `Column 1 (${count ?? ''} items)` : `Column 2 (${count ?? ''} items)`}
+          title={`Column ${colId.replace('col', '')} (${count ?? ''} items)`}
         >
-          {colId === 'col1' ? 'Col 1' : 'Col 2'}
+          Col {colId.replace('col', '')}
         </span>
       )}
     </div>
@@ -290,8 +358,8 @@ export const ListView: React.FC<ListViewProps> = ({
           position: 'relative',
           display: 'flex',
           alignItems: 'center',
-          gap: effectiveColumns === 2 ? '10px' : '14px',
-          padding: effectiveColumns === 2 ? '7px 12px' : '9px 14px',
+          gap: colSizes.gap,
+          padding: colSizes.padding,
           borderRadius: '13px',
           background: isLight ? 'rgba(255, 255, 255, 0.72)' : 'rgba(23, 32, 44, 0.44)',
           backdropFilter: isLight ? 'contrast(1.18) saturate(1.1) brightness(1.08)' : 'brightness(2.1) contrast(1.28) saturate(1.1)',
@@ -317,8 +385,8 @@ export const ListView: React.FC<ListViewProps> = ({
         {/* Thumbnail preview badge */}
         <span
           style={{
-            width: '38px',
-            height: '30px',
+            width: colSizes.prevWidth,
+            height: colSizes.prevHeight,
             flex: 'none',
             borderRadius: '8px',
             border: '1px solid rgba(var(--inkc, 29,31,32), .12)',
@@ -358,7 +426,7 @@ export const ListView: React.FC<ListViewProps> = ({
         <span
           onClick={(ev) => onToggleStar(e.id, ev)}
           style={{
-            width: '20px',
+            width: colSizes.starWidth,
             flex: 'none',
             textAlign: 'center',
             fontSize: '13px',
@@ -373,11 +441,11 @@ export const ListView: React.FC<ListViewProps> = ({
         {/* Title / Asset */}
         <span
           style={{
-            flex: '1.6',
+            flex: colSizes.assetFlex,
             minWidth: 0,
             fontFamily: "'Barlow Condensed', sans-serif",
             fontWeight: isSortAsset ? 700 : 600,
-            fontSize: effectiveColumns === 2 ? '16px' : '17px',
+            fontSize: colSizes.titleFont,
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -409,7 +477,7 @@ export const ListView: React.FC<ListViewProps> = ({
         {/* Format */}
         <span
           style={{
-            width: effectiveColumns === 2 ? '76px' : '88px',
+            width: colSizes.formatWidth,
             flex: 'none',
             fontFamily: 'ui-monospace, Menlo, monospace',
             fontSize: '9.5px',
@@ -437,7 +505,7 @@ export const ListView: React.FC<ListViewProps> = ({
         {/* Size */}
         <span
           style={{
-            width: effectiveColumns === 2 ? '66px' : '74px',
+            width: colSizes.sizeWidth,
             flex: 'none',
             textAlign: 'right',
             fontFamily: 'ui-monospace, Menlo, monospace',
@@ -462,7 +530,7 @@ export const ListView: React.FC<ListViewProps> = ({
         {/* Pool */}
         <span
           style={{
-            flex: '0.85',
+            flex: colSizes.poolFlex,
             minWidth: 0,
             fontFamily: 'ui-monospace, Menlo, monospace',
             fontSize: '10px',
@@ -478,7 +546,7 @@ export const ListView: React.FC<ListViewProps> = ({
         {/* Source / Author */}
         <span
           style={{
-            width: effectiveColumns === 2 ? '86px' : '110px',
+            width: colSizes.sourceWidth,
             flex: 'none',
             fontFamily: 'ui-monospace, Menlo, monospace',
             fontSize: '10px',
@@ -494,7 +562,7 @@ export const ListView: React.FC<ListViewProps> = ({
         {/* Added / Mod / Age Date */}
         <span
           style={{
-            width: effectiveColumns === 2 ? '76px' : '84px',
+            width: colSizes.dateWidth,
             flex: 'none',
             textAlign: 'right',
             fontFamily: 'ui-monospace, Menlo, monospace',
@@ -534,46 +602,45 @@ export const ListView: React.FC<ListViewProps> = ({
     <div
       data-list={effectiveColumns}
       style={{
-        display: effectiveColumns === 2 ? 'grid' : 'flex',
-        gridTemplateColumns: effectiveColumns === 2 ? 'repeat(2, minmax(0, 1fr))' : undefined,
+        display: effectiveColumns > 1 ? 'grid' : 'flex',
+        gridTemplateColumns: effectiveColumns > 1 ? `repeat(${effectiveColumns}, minmax(0, 1fr))` : undefined,
         flexDirection: effectiveColumns === 1 ? 'column' : undefined,
-        gap: effectiveColumns === 2 ? '14px' : '5px',
+        gap: effectiveColumns >= 3 ? '10px' : (effectiveColumns === 2 ? '14px' : '5px'),
         width: '100%',
         paddingBottom: '80px',
         position: 'relative'
       }}
     >
-      {effectiveColumns === 2 ? (
-        <>
-          {/* Column 1 Table */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', minWidth: 0 }}>
-            {renderTableHeader('col1', col1.length)}
-            {col1.map((e) => renderRow(e))}
-          </div>
-
-          {/* Column 2 Table */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', minWidth: 0 }}>
-            {renderTableHeader('col2', col2.length)}
-            {col2.length > 0 ? (
-              col2.map((e) => renderRow(e))
-            ) : (
-              <div
-                style={{
-                  padding: '24px 16px',
-                  textAlign: 'center',
-                  fontFamily: 'ui-monospace, Menlo, monospace',
-                  fontSize: '11px',
-                  color: isLight ? 'rgba(15, 23, 42, 0.4)' : 'rgba(233, 237, 242, 0.4)',
-                  border: isLight ? '1px dashed rgba(15, 23, 42, 0.15)' : '1px dashed rgba(148, 188, 227, 0.15)',
-                  borderRadius: '12px',
-                  marginTop: '4px'
-                }}
-              >
-                No additional assets
-              </div>
-            )}
-          </div>
-        </>
+      {effectiveColumns > 1 ? (
+        columnGroups.map((colEntries, colIdx) => {
+          const colNum = colIdx + 1;
+          return (
+            <div
+              key={`col-${colNum}`}
+              style={{ display: 'flex', flexDirection: 'column', gap: '5px', minWidth: 0 }}
+            >
+              {renderTableHeader(`col${colNum}`, colEntries.length)}
+              {colEntries.length > 0 ? (
+                colEntries.map((e) => renderRow(e))
+              ) : (
+                <div
+                  style={{
+                    padding: '24px 16px',
+                    textAlign: 'center',
+                    fontFamily: 'ui-monospace, Menlo, monospace',
+                    fontSize: '11px',
+                    color: isLight ? 'rgba(15, 23, 42, 0.4)' : 'rgba(233, 237, 242, 0.4)',
+                    border: isLight ? '1px dashed rgba(15, 23, 42, 0.15)' : '1px dashed rgba(148, 188, 227, 0.15)',
+                    borderRadius: '12px',
+                    marginTop: '4px'
+                  }}
+                >
+                  No additional assets
+                </div>
+              )}
+            </div>
+          );
+        })
       ) : (
         <>
           {renderTableHeader('single', entries.length)}

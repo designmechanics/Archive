@@ -188,67 +188,37 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             >
               Columns
             </span>
-            <button
-              onClick={() => onListColumnsChange?.(1)}
-              title="Single Column Table"
-              style={{
-                padding: '6px 11px',
-                border: 0,
-                borderRadius: '9px',
-                cursor: 'pointer',
-                fontFamily: "'Barlow Condensed', sans-serif",
-                fontSize: '12px',
-                fontWeight: 600,
-                letterSpacing: '.04em',
-                textTransform: 'uppercase',
-                color: listColumns === 1 ? '#f2f2f3' : 'rgba(var(--inkc, 29,31,32), .65)',
-                background: listColumns === 1 ? accent : 'transparent',
-                boxShadow: listColumns === 1 ? '0 1px 3px rgba(0,0,0,.2)' : 'none',
-                transition: 'background 0.18s, color 0.18s'
-              }}
-            >
-              1 Col
-            </button>
-            <button
-              onClick={() => onListColumnsChange?.(2)}
-              title="Dual Column Table (Side-by-side on 1920+ displays)"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '6px 11px',
-                border: 0,
-                borderRadius: '9px',
-                cursor: 'pointer',
-                fontFamily: "'Barlow Condensed', sans-serif",
-                fontSize: '12px',
-                fontWeight: 600,
-                letterSpacing: '.04em',
-                textTransform: 'uppercase',
-                color: listColumns === 2 ? '#f2f2f3' : 'rgba(var(--inkc, 29,31,32), .65)',
-                background: listColumns === 2 ? accent : 'transparent',
-                boxShadow: listColumns === 2 ? '0 1px 3px rgba(0,0,0,.2)' : 'none',
-                transition: 'background 0.18s, color 0.18s'
-              }}
-            >
-              <span>2 Col</span>
-              <span
-                style={{
-                  fontSize: '9px',
-                  fontFamily: 'ui-monospace, Menlo, monospace',
-                  padding: '1px 5px',
-                  borderRadius: '4px',
-                  background: listColumns === 2 ? 'rgba(255,255,255,0.22)' : 'rgba(var(--inkc, 29,31,32), .1)',
-                  fontWeight: 700
-                }}
-              >
-                DUAL
-              </span>
-            </button>
+            {([1, 2, 3, 4] as ListColumns[]).map((cols) => {
+              const isActive = listColumns === cols;
+              return (
+                <button
+                  key={cols}
+                  onClick={() => onListColumnsChange?.(cols)}
+                  title={`${cols} Column${cols > 1 ? 's' : ''} Table`}
+                  style={{
+                    padding: '6px 9px',
+                    border: 0,
+                    borderRadius: '9px',
+                    cursor: 'pointer',
+                    fontFamily: "'Barlow Condensed', sans-serif",
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    letterSpacing: '.04em',
+                    textTransform: 'uppercase',
+                    color: isActive ? '#f2f2f3' : 'rgba(var(--inkc, 29,31,32), .65)',
+                    background: isActive ? accent : 'transparent',
+                    boxShadow: isActive ? '0 1px 3px rgba(0,0,0,.2)' : 'none',
+                    transition: 'background 0.18s, color 0.18s'
+                  }}
+                >
+                  {cols} Col
+                </button>
+              );
+            })}
           </div>
 
-          {/* List Flow Order (only when 2 columns active): Down (Col 1 then Col 2) vs Across (Alternating rows) */}
-          {listColumns === 2 && (
+          {/* List Flow Order (when multi-column active): Down (Col 1, Col 2, etc.) vs Across (Alternating rows) */}
+          {listColumns > 1 && (
             <div
               style={{
                 display: 'flex',

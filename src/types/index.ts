@@ -56,7 +56,7 @@ export type ThemeMode = 'light' | 'mid' | 'dark';
 
 export type Density = 2 | 3 | 4 | 5 | 6 | 8;
 
-export type ListColumns = 1 | 2;
+export type ListColumns = 1 | 2 | 3 | 4;
 export type ListOrder = 'down' | 'across';
 
 export type SortOption =
