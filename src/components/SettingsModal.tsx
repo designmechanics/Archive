@@ -96,6 +96,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [reassignTarget, setReassignTarget] = useState<string>('Uncategorized');
   const [isProcessingPool, setIsProcessingPool] = useState(false);
 
+  // Session Background State
+  const [currentBg, setCurrentBg] = useState<string>(() => {
+    return sessionStorage.getItem('archive_session_bg') || '/backgrounds/logo_bg_1.jpg';
+  });
 
   // Fetch backups whenever modal opens or database tab is selected
   useEffect(() => {
@@ -1080,6 +1084,117 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       {d}
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Session Background Artwork */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <div
+                    style={{
+                      fontFamily: "'Barlow Condensed', sans-serif",
+                      fontSize: '18px',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      color: c.textHeaderHighlight
+                    }}
+                  >
+                    Session Background Artwork
+                  </div>
+                  <button
+                    onClick={() => {
+                      const list = [
+                        '/backgrounds/logo_bg_1.jpg',
+                        '/backgrounds/logo_bg_2.jpg',
+                        '/backgrounds/logo_bg_3.jpg',
+                        '/backgrounds/logo_bg_4.jpg',
+                        '/backgrounds/logo_bg_5.jpg'
+                      ];
+                      const others = list.filter((b) => b !== currentBg);
+                      const next = others[Math.floor(Math.random() * others.length)] || list[0];
+                      setCurrentBg(next);
+                      sessionStorage.setItem('archive_session_bg', next);
+                      document.documentElement.style.setProperty('--session-bg', `url(${next})`);
+                      (window as any).__SESSION_BG__ = next;
+                    }}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '8px',
+                      border: `1px solid ${c.borderFocus}`,
+                      background: isLight ? '#eff6ff' : 'rgba(89, 128, 166, 0.2)',
+                      color: c.textAccent,
+                      fontFamily: "'Barlow Condensed', sans-serif",
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    🎲 Randomize Artwork
+                  </button>
+                </div>
+                <div
+                  style={{
+                    fontFamily: 'Barlow, sans-serif',
+                    fontSize: '12px',
+                    color: c.textMuted,
+                    marginBottom: '10px'
+                  }}
+                >
+                  Randomized per session. Powers the instant loading screen and a subtle background watermark in the workspace.
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
+                  {[1, 2, 3, 4, 5].map((num) => {
+                    const bgPath = `/backgrounds/logo_bg_${num}.jpg`;
+                    const isSelected = currentBg === bgPath;
+                    return (
+                      <button
+                        key={num}
+                        onClick={() => {
+                          setCurrentBg(bgPath);
+                          sessionStorage.setItem('archive_session_bg', bgPath);
+                          document.documentElement.style.setProperty('--session-bg', `url(${bgPath})`);
+                          (window as any).__SESSION_BG__ = bgPath;
+                        }}
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          padding: '6px',
+                          borderRadius: '10px',
+                          border: isSelected ? `2px solid ${c.borderFocus}` : `1px solid ${c.cardBorder}`,
+                          background: isSelected ? (isLight ? '#eff6ff' : 'rgba(89, 128, 166, 0.22)') : c.innerCardBg,
+                          cursor: 'pointer',
+                          gap: '6px',
+                          transition: 'all 0.15s'
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: '100%',
+                            aspectRatio: '16/9',
+                            borderRadius: '6px',
+                            backgroundImage: `url(${bgPath})`,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            border: `1px solid ${c.cardBorder}`
+                          }}
+                        />
+                        <span
+                          style={{
+                            fontFamily: 'ui-monospace, Menlo, monospace',
+                            fontSize: '10px',
+                            fontWeight: isSelected ? 700 : 500,
+                            color: isSelected ? c.textAccent : c.textMuted
+                          }}
+                        >
+                          Artwork #{num}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

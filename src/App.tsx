@@ -311,6 +311,15 @@ export const App: React.FC = () => {
         { y: 14, opacity: 0 },
         { y: 0, opacity: 1, duration: 0.5, stagger: 0.026, ease: 'power3.out', delay: 0.1 }
       );
+
+      // Dismiss immediate session loader screen
+      const loader = document.getElementById('app-loader');
+      if (loader) {
+        loader.classList.add('loaded');
+        setTimeout(() => {
+          loader.remove();
+        }, 700);
+      }
     };
 
     init();
@@ -1066,7 +1075,7 @@ export const App: React.FC = () => {
         inset: 0,
         display: 'grid',
         gridTemplateColumns: 'var(--rail-width, 252px) 1fr',
-        background: 'var(--bg, #f2f2f3)',
+        background: 'transparent',
         color: 'var(--ink, #1d1f20)',
         fontFamily: 'Barlow, system-ui, sans-serif',
         fontSize: 'var(--app-font-size, 15px)',

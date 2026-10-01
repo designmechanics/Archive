@@ -7,6 +7,30 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700;800;900&family=Pinyon+Script&family=Great+Vibes&display=swap" rel="stylesheet">
+    <script>
+      (function() {
+        try {
+          var KEY = 'archive_session_bg';
+          var bg = sessionStorage.getItem(KEY);
+          var validList = [
+            '/backgrounds/logo_bg_1.jpg',
+            '/backgrounds/logo_bg_2.jpg',
+            '/backgrounds/logo_bg_3.jpg',
+            '/backgrounds/logo_bg_4.jpg',
+            '/backgrounds/logo_bg_5.jpg'
+          ];
+          if (!bg || validList.indexOf(bg) === -1) {
+            var rand = Math.floor(Math.random() * validList.length);
+            bg = validList[rand];
+            sessionStorage.setItem(KEY, bg);
+          }
+          document.documentElement.style.setProperty('--session-bg', 'url(' + bg + ')');
+          window.__SESSION_BG__ = bg;
+        } catch (e) {
+          document.documentElement.style.setProperty('--session-bg', 'url(/backgrounds/logo_bg_1.jpg)');
+        }
+      })();
+    </script>
     <style>
       :root {
         --bg: #10161d;
@@ -473,9 +497,155 @@
           font-size: 10px !important;
         }
       }
+
+      /* ================= Session Background Artwork & Immediate Loader ================= */
+      #app-session-bg {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        background-image: var(--session-bg, none);
+        background-size: cover;
+        background-position: center center;
+        background-repeat: no-repeat;
+        opacity: 0.055;
+        filter: saturate(1.1) contrast(1.05);
+        transition: opacity 0.5s ease;
+      }
+      html[data-theme="light"] #app-session-bg {
+        opacity: 0.035;
+        mix-blend-mode: multiply;
+      }
+      html[data-theme="mid"] #app-session-bg {
+        opacity: 0.045;
+      }
+      html[data-theme="dark"] #app-session-bg {
+        opacity: 0.065;
+      }
+
+      #app-loader {
+        position: fixed;
+        inset: 0;
+        z-index: 999999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #090e14;
+        transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.65s;
+      }
+      #app-loader.loaded {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      #app-loader-backdrop {
+        position: absolute;
+        inset: 0;
+        background-image: var(--session-bg, none);
+        background-size: cover;
+        background-position: center center;
+        background-repeat: no-repeat;
+        filter: brightness(0.4) saturate(1.2);
+        transform: scale(1.01);
+        transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      #app-loader.loaded #app-loader-backdrop {
+        transform: scale(1.06);
+      }
+      #app-loader-vignette {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at center, rgba(9, 14, 20, 0.45) 0%, rgba(9, 14, 20, 0.88) 100%);
+      }
+      #app-loader-card {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 34px 44px;
+        border-radius: 22px;
+        background: rgba(14, 22, 32, 0.78);
+        border: 1px solid rgba(148, 188, 227, 0.22);
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 36px rgba(89, 128, 166, 0.18);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        text-align: center;
+        max-width: 420px;
+        margin: 20px;
+        animation: appLoaderCardIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      @keyframes appLoaderCardIn {
+        from { opacity: 0; transform: translateY(14px) scale(0.96); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      .app-loader-logo {
+        font-family: 'Barlow Condensed', sans-serif;
+        font-size: 38px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #e9edf2;
+        text-shadow: 0 0 24px rgba(181, 217, 253, 0.45);
+        margin-bottom: 4px;
+      }
+      .app-loader-tagline {
+        font-family: Barlow, sans-serif;
+        font-size: 13px;
+        color: rgba(233, 237, 242, 0.75);
+        margin-bottom: 22px;
+        letter-spacing: 0.02em;
+      }
+      .app-loader-progress {
+        width: 180px;
+        height: 3px;
+        border-radius: 99px;
+        background: rgba(255, 255, 255, 0.12);
+        overflow: hidden;
+        margin-bottom: 12px;
+        position: relative;
+      }
+      .app-loader-progress-fill {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 45%;
+        background: linear-gradient(90deg, #5980a6, #b5d9fd, #5980a6);
+        border-radius: 99px;
+        animation: appLoaderProgress 1.4s ease-in-out infinite;
+      }
+      @keyframes appLoaderProgress {
+        0% { left: -45%; width: 45%; }
+        50% { left: 25%; width: 65%; }
+        100% { left: 100%; width: 45%; }
+      }
+      .app-loader-status {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 10.5px;
+        color: #94bce3;
+        letter-spacing: 0.06em;
+      }
     </style>
   </head>
   <body>
+    <!-- Persistent Ambient Session Background (Super subtle backdrop) -->
+    <div id="app-session-bg" aria-hidden="true"></div>
+
+    <!-- Immediate Session Loading Screen -->
+    <div id="app-loader" role="status" aria-live="polite">
+      <div id="app-loader-backdrop"></div>
+      <div id="app-loader-vignette"></div>
+      <div id="app-loader-card">
+        <div class="app-loader-logo">ARCHIVE</div>
+        <div class="app-loader-tagline">All of your media, all in one place.</div>
+        <div class="app-loader-progress">
+          <div class="app-loader-progress-fill"></div>
+        </div>
+        <div class="app-loader-status">Initializing local engine · SQLite WAL…</div>
+      </div>
+    </div>
+
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
