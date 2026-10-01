@@ -137,10 +137,13 @@ graph LR
 
 ---
 
-### 🗂️ 4. The 12 Category Pools & Physical "Throw" Curation
+### 🗂️ 4. Customizable Category Pools (Example Starter Template) & 3D "Throw" Curation
+
+> [!NOTE]
+> The **12 default pools** shown below represent an **example starter template** for UI & motion design workflows. You are encouraged to customize, rename, recolor, reorder, or delete them to fit your own creative discipline (e.g. Photography, 3D Art, Client Brands, AI Concept Seeds). Open **⚙️ Settings › Pools (12)** to manage your custom collection — any rename or deletion automatically cascades across your SQLite database.
 
 <details>
-<summary><b>Click to expand the 12 Default Asset Pools</b></summary>
+<summary><b>Click to view the default starter pool collection</b></summary>
 
 <br/>
 
@@ -157,7 +160,7 @@ graph LR
 * 🔴 **Routines/utils**: Helper scripts, debounce utilities, and math algorithms.
 * ⚪ **Experiments**: Unfinished concepts, generative art, and creative prototypes.
 
-> **Tactile "Throw-Into" Interaction**: Select cards using `Cmd/Ctrl/Shift + Click`. A floating glass action bar appears; clicking any pool triggers a 3D trajectory animation (`scale: 0.1`, `rotateZ: -30°`) flying the cards directly into the Left Rail pool target.
+> **Tactile "Throw-Into" Interaction**: Multi-select cards using `Cmd/Ctrl/Shift + Click`. A floating glass action bar appears at the bottom; clicking any pool triggers a physical 3D trajectory animation (`scale: 0.1`, `rotateZ: -30°`) flying the cards directly into the Left Rail pool target.
 
 </details>
 

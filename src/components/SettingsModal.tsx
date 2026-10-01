@@ -1485,7 +1485,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         marginTop: '2px'
                       }}
                     >
-                      Organize, color-code, and rename your pools. Renaming automatically cascades across your database.
+                      The default pools are an example starter template. Rename, recolor, add, or delete pools to match your workflow — renames automatically cascade across your database.
                     </div>
                   </div>
 
