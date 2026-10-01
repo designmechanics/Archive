@@ -1,5 +1,9 @@
 <div align="center">
 
+<img src="public/backgrounds/logo_bg_3.jpg" alt="Archive — All of your media, all in one place." width="100%" />
+
+<br/>
+
 # ARCHIVE
 ### All of your media, all in one place.
 

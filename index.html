@@ -10,8 +10,6 @@
     <script>
       (function() {
         try {
-          var KEY = 'archive_session_bg';
-          var bg = sessionStorage.getItem(KEY);
           var validList = [
             '/backgrounds/logo_bg_1.jpg',
             '/backgrounds/logo_bg_2.jpg',
@@ -19,15 +17,20 @@
             '/backgrounds/logo_bg_4.jpg',
             '/backgrounds/logo_bg_5.jpg'
           ];
-          if (!bg || validList.indexOf(bg) === -1) {
-            var rand = Math.floor(Math.random() * validList.length);
-            bg = validList[rand];
-            sessionStorage.setItem(KEY, bg);
-          }
-          document.documentElement.style.setProperty('--session-bg', 'url(' + bg + ')');
-          window.__SESSION_BG__ = bg;
+          // Always select a fresh random artwork differing from the last loaded one
+          var last = sessionStorage.getItem('archive_last_session_bg') || localStorage.getItem('archive_last_bg');
+          var pool = validList.filter(function(item) { return item !== last; });
+          if (!pool || pool.length === 0) pool = validList;
+          var chosen = pool[Math.floor(Math.random() * pool.length)];
+
+          sessionStorage.setItem('archive_session_bg', chosen);
+          sessionStorage.setItem('archive_last_session_bg', chosen);
+          localStorage.setItem('archive_last_bg', chosen);
+
+          document.documentElement.style.setProperty('--session-bg', 'url(' + chosen + ')');
+          window.__SESSION_BG__ = chosen;
         } catch (e) {
-          document.documentElement.style.setProperty('--session-bg', 'url(/backgrounds/logo_bg_1.jpg)');
+          document.documentElement.style.setProperty('--session-bg', 'url(/backgrounds/logo_bg_3.jpg)');
         }
       })();
     </script>
@@ -508,19 +511,19 @@
         background-size: cover;
         background-position: center center;
         background-repeat: no-repeat;
-        opacity: 0.055;
+        opacity: 0.085;
         filter: saturate(1.1) contrast(1.05);
         transition: opacity 0.5s ease;
       }
       html[data-theme="light"] #app-session-bg {
-        opacity: 0.035;
+        opacity: 0.045;
         mix-blend-mode: multiply;
       }
       html[data-theme="mid"] #app-session-bg {
-        opacity: 0.045;
+        opacity: 0.07;
       }
       html[data-theme="dark"] #app-session-bg {
-        opacity: 0.065;
+        opacity: 0.095;
       }
 
       #app-loader {

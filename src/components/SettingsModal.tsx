@@ -1114,6 +1114,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       const next = others[Math.floor(Math.random() * others.length)] || list[0];
                       setCurrentBg(next);
                       sessionStorage.setItem('archive_session_bg', next);
+                      sessionStorage.setItem('archive_last_session_bg', next);
+                      localStorage.setItem('archive_last_bg', next);
                       document.documentElement.style.setProperty('--session-bg', `url(${next})`);
                       (window as any).__SESSION_BG__ = next;
                     }}
@@ -1155,6 +1157,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         onClick={() => {
                           setCurrentBg(bgPath);
                           sessionStorage.setItem('archive_session_bg', bgPath);
+                          sessionStorage.setItem('archive_last_session_bg', bgPath);
+                          localStorage.setItem('archive_last_bg', bgPath);
                           document.documentElement.style.setProperty('--session-bg', `url(${bgPath})`);
                           (window as any).__SESSION_BG__ = bgPath;
                         }}
