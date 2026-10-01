@@ -412,6 +412,31 @@ export const api = {
     } catch {
       return false;
     }
+  },
+
+  /**
+   * Reorder pools by their sorted array of IDs
+   */
+  async reorderPools(orderedIds: string[]): Promise<Pool[]> {
+    try {
+      const res = await fetch(`${API_BASE}/pools/reorder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: orderedIds })
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.pools || []).map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description || '',
+        color: p.color || '#94bce3',
+        sortOrder: p.sort_order ?? 0,
+        createdAt: p.created_at || Date.now()
+      }));
+    } catch {
+      return [];
+    }
   }
 };
 

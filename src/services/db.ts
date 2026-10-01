@@ -410,3 +410,17 @@ export async function removePool(id: string, reassignTo?: string): Promise<Pool[
   await saveSetting('custom_pools', updated);
   return updated;
 }
+
+export async function reorderPools(orderedPools: Pool[]): Promise<Pool[]> {
+  const indexedPools = orderedPools.map((p, idx) => ({ ...p, sortOrder: idx }));
+  try {
+    const updated = await api.reorderPools(indexedPools.map((p) => p.id));
+    if (updated && updated.length > 0) return updated;
+  } catch (err) {
+    console.warn('Failed to reorder pools via SQLite:', err);
+  }
+
+  await saveSetting('custom_pools', indexedPools);
+  return indexedPools;
+}
+

@@ -759,3 +759,15 @@ export function deletePool(id, reassignTo = null) {
   return true;
 }
 
+export function reorderPools(orderedIds) {
+  const db = getDatabase();
+  const stmt = db.prepare('UPDATE pools SET sort_order = ? WHERE id = ?');
+  const updateAll = db.transaction((ids) => {
+    ids.forEach((id, index) => {
+      stmt.run(index, id);
+    });
+  });
+  updateAll(orderedIds);
+  return getPools();
+}
+

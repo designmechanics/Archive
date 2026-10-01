@@ -19,6 +19,7 @@ import {
   createPool,
   editPool,
   removePool,
+  reorderPools,
   toggleWatchedFolder
 } from './services/db';
 import { isEntryInFolder } from './utils/folderUtils';
@@ -1000,6 +1001,11 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleReorderPools = async (newPools: Pool[]) => {
+    const updated = await reorderPools(newPools);
+    setPools(updated);
+  };
+
 
 
   // Active open entry
@@ -1437,6 +1443,7 @@ export const App: React.FC = () => {
         onAddPool={handleAddPool}
         onEditPool={handleEditPool}
         onDeletePool={handleDeletePool}
+        onReorderPools={handleReorderPools}
         poolCounts={poolCounts}
         motionMultiplier={motionMultiplier}
         onMotionChange={setMotionMultiplier}

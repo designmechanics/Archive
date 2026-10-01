@@ -22,6 +22,7 @@ interface SettingsModalProps {
   onAddPool?: (pool: { name: string; description?: string; color?: string; sortOrder?: number }) => Promise<void>;
   onEditPool?: (id: string, updates: Partial<Pool>) => Promise<void>;
   onDeletePool?: (id: string, reassignTo?: string) => Promise<void>;
+  onReorderPools?: (newPools: Pool[]) => Promise<void>;
   poolCounts?: Record<string, number>;
   motionMultiplier?: number;
   onMotionChange?: (m: number) => void;
@@ -65,6 +66,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onAddPool,
   onEditPool,
   onDeletePool,
+  onReorderPools,
   poolCounts = {}
 }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('database');
@@ -232,6 +234,89 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setTimeout(() => setPoolSuccessMsg(null), 3000);
     } catch (err: any) {
       setPoolError(err.message || 'Failed to delete pool.');
+    } finally {
+      setIsProcessingPool(false);
+    }
+  };
+
+  // Reorder & Sort pools handlers
+  const handleMovePool = async (id: string, direction: 'up' | 'down') => {
+    if (isProcessingPool || !onReorderPools) return;
+    const currentIndex = pools.findIndex((p) => p.id === id);
+    if (currentIndex === -1) return;
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= pools.length) return;
+
+    setIsProcessingPool(true);
+    setPoolError(null);
+    try {
+      const newPools = [...pools];
+      const [moved] = newPools.splice(currentIndex, 1);
+      newPools.splice(targetIndex, 0, moved);
+      await onReorderPools(newPools);
+    } catch (err: any) {
+      setPoolError(err.message || 'Failed to reorder pools.');
+    } finally {
+      setIsProcessingPool(false);
+    }
+  };
+
+  const handleSortPools = async (type: 'az' | 'za' | 'count' | 'default') => {
+    if (isProcessingPool || !onReorderPools || pools.length === 0) return;
+
+    setIsProcessingPool(true);
+    setPoolError(null);
+    try {
+      let sorted = [...pools];
+      if (type === 'az') {
+        sorted.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+      } else if (type === 'za') {
+        sorted.sort((a, b) => b.name.localeCompare(a.name, undefined, { sensitivity: 'base' }));
+      } else if (type === 'count') {
+        sorted.sort((a, b) => {
+          const countA = poolCounts[a.name] || 0;
+          const countB = poolCounts[b.name] || 0;
+          if (countB !== countA) return countB - countA;
+          return a.name.localeCompare(b.name);
+        });
+      } else if (type === 'default') {
+        const defaultOrder = [
+          'Effects',
+          'Buttons',
+          'Loaders',
+          'Backgrounds',
+          'Transitions',
+          'Typography',
+          'Layouts',
+          'Scroll',
+          'Physics',
+          'Shaders',
+          'Routines/utils',
+          'Experiments'
+        ];
+        sorted.sort((a, b) => {
+          const idxA = defaultOrder.indexOf(a.name);
+          const idxB = defaultOrder.indexOf(b.name);
+          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+          if (idxA !== -1) return -1;
+          if (idxB !== -1) return 1;
+          return a.name.localeCompare(b.name);
+        });
+      }
+
+      await onReorderPools(sorted);
+      const label =
+        type === 'az'
+          ? 'Alphabetical A → Z'
+          : type === 'za'
+          ? 'Reverse Z → A'
+          : type === 'count'
+          ? 'By Asset Count'
+          : 'Default Order';
+      setPoolSuccessMsg(`✓ Reordered pools (${label})`);
+      setTimeout(() => setPoolSuccessMsg(null), 3000);
+    } catch (err: any) {
+      setPoolError(err.message || 'Failed to sort pools.');
     } finally {
       setIsProcessingPool(false);
     }
@@ -1835,18 +1920,136 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               )}
 
               {/* POOLS LIST */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div
                   style={{
-                    fontFamily: 'ui-monospace, Menlo, monospace',
-                    fontSize: '10px',
-                    letterSpacing: '.12em',
-                    textTransform: 'uppercase',
-                    color: c.textMuted,
-                    paddingLeft: '4px'
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '8px',
+                    padding: '2px 4px'
                   }}
                 >
-                  Configured Pools ({pools.length})
+                  <div
+                    style={{
+                      fontFamily: 'ui-monospace, Menlo, monospace',
+                      fontSize: '10.5px',
+                      letterSpacing: '.12em',
+                      textTransform: 'uppercase',
+                      color: c.textMuted,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <span>Configured Pools ({pools.length})</span>
+                    {poolSearch && (
+                      <span style={{ color: c.textAccent, textTransform: 'none' }}>
+                        • showing {pools.filter((p) => p.name.toLowerCase().includes(poolSearch.toLowerCase()) || (p.description || '').toLowerCase().includes(poolSearch.toLowerCase())).length}
+                      </span>
+                    )}
+                  </div>
+
+                  {onReorderPools && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                      <span
+                        style={{
+                          fontFamily: 'ui-monospace, monospace',
+                          fontSize: '9.5px',
+                          color: c.textMuted,
+                          textTransform: 'uppercase',
+                          marginRight: '2px'
+                        }}
+                      >
+                        Quick Sort:
+                      </span>
+                      <button
+                        onClick={() => handleSortPools('az')}
+                        disabled={isProcessingPool}
+                        style={{
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          border: `1px solid ${c.btnSecBorder}`,
+                          background: c.btnSecBg,
+                          color: c.btnSecText,
+                          fontFamily: 'ui-monospace, monospace',
+                          fontSize: '10px',
+                          cursor: isProcessingPool ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          transition: 'all 0.15s'
+                        }}
+                        title="Sort pools alphabetically (A → Z)"
+                      >
+                        <span>🔤</span>
+                        <span>A → Z</span>
+                      </button>
+                      <button
+                        onClick={() => handleSortPools('za')}
+                        disabled={isProcessingPool}
+                        style={{
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          border: `1px solid ${c.btnSecBorder}`,
+                          background: c.btnSecBg,
+                          color: c.btnSecText,
+                          fontFamily: 'ui-monospace, monospace',
+                          fontSize: '10px',
+                          cursor: isProcessingPool ? 'not-allowed' : 'pointer',
+                          transition: 'all 0.15s'
+                        }}
+                        title="Sort pools reverse alphabetically (Z → A)"
+                      >
+                        <span>Z → A</span>
+                      </button>
+                      <button
+                        onClick={() => handleSortPools('count')}
+                        disabled={isProcessingPool}
+                        style={{
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          border: `1px solid ${c.btnSecBorder}`,
+                          background: c.btnSecBg,
+                          color: c.btnSecText,
+                          fontFamily: 'ui-monospace, monospace',
+                          fontSize: '10px',
+                          cursor: isProcessingPool ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          transition: 'all 0.15s'
+                        }}
+                        title="Sort pools by number of assets (highest count first)"
+                      >
+                        <span>📊</span>
+                        <span>By Count</span>
+                      </button>
+                      <button
+                        onClick={() => handleSortPools('default')}
+                        disabled={isProcessingPool}
+                        style={{
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          border: `1px solid ${c.btnSecBorder}`,
+                          background: c.btnSecBg,
+                          color: c.btnSecText,
+                          fontFamily: 'ui-monospace, monospace',
+                          fontSize: '10px',
+                          cursor: isProcessingPool ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          transition: 'all 0.15s'
+                        }}
+                        title="Reset to default 12 starter pools order"
+                      >
+                        <span>↺</span>
+                        <span>Reset</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {pools
@@ -1858,6 +2061,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   .map((p) => {
                     const isEditing = editingPoolId === p.id;
                     const assetCount = poolCounts[p.name] || 0;
+                    const masterIndex = pools.findIndex((item) => item.id === p.id);
+                    const isFirst = masterIndex === 0;
+                    const isLast = masterIndex === pools.length - 1;
 
                     if (isEditing) {
                       return (
@@ -2048,6 +2254,88 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         onMouseLeave={(e) => (e.currentTarget.style.borderColor = c.innerCardBorder)}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                          {/* Order Index & Move Up/Down Controls */}
+                          {onReorderPools && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flex: 'none' }}>
+                              <span
+                                style={{
+                                  fontFamily: 'ui-monospace, Menlo, monospace',
+                                  fontSize: '10px',
+                                  fontWeight: 700,
+                                  color: c.textMuted,
+                                  minWidth: '24px',
+                                  textAlign: 'center',
+                                  padding: '2px 4px',
+                                  borderRadius: '5px',
+                                  background: isLight ? 'rgba(15,23,42,0.05)' : isMid ? 'rgba(11,23,36,0.12)' : 'rgba(148,188,227,0.08)',
+                                  border: `1px solid ${c.innerCardBorder}`
+                                }}
+                                title={`Position #${masterIndex + 1} of ${pools.length}`}
+                              >
+                                #{masterIndex + 1}
+                              </span>
+
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMovePool(p.id, 'up');
+                                  }}
+                                  disabled={isFirst || isProcessingPool}
+                                  style={{
+                                    width: '20px',
+                                    height: '14px',
+                                    padding: 0,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    borderRadius: '3px',
+                                    border: `1px solid ${c.btnSecBorder}`,
+                                    background: isFirst ? 'transparent' : c.btnSecBg,
+                                    color: isFirst ? (isLight ? 'rgba(15,23,42,0.2)' : 'rgba(255,255,255,0.2)') : c.btnSecText,
+                                    opacity: isFirst ? 0.35 : 1,
+                                    cursor: isFirst || isProcessingPool ? 'not-allowed' : 'pointer',
+                                    fontSize: '8px',
+                                    lineHeight: 1,
+                                    transition: 'all 0.15s'
+                                  }}
+                                  title={isFirst ? 'Already at top' : `Move "${p.name}" up`}
+                                >
+                                  ▲
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMovePool(p.id, 'down');
+                                  }}
+                                  disabled={isLast || isProcessingPool}
+                                  style={{
+                                    width: '20px',
+                                    height: '14px',
+                                    padding: 0,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    borderRadius: '3px',
+                                    border: `1px solid ${c.btnSecBorder}`,
+                                    background: isLast ? 'transparent' : c.btnSecBg,
+                                    color: isLast ? (isLight ? 'rgba(15,23,42,0.2)' : 'rgba(255,255,255,0.2)') : c.btnSecText,
+                                    opacity: isLast ? 0.35 : 1,
+                                    cursor: isLast || isProcessingPool ? 'not-allowed' : 'pointer',
+                                    fontSize: '8px',
+                                    lineHeight: 1,
+                                    transition: 'all 0.15s'
+                                  }}
+                                  title={isLast ? 'Already at bottom' : `Move "${p.name}" down`}
+                                >
+                                  ▼
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
                           <span
                             style={{
                               width: '10px',

@@ -25,6 +25,7 @@ import {
   addPool,
   updatePool,
   deletePool,
+  reorderPools,
   getDatabase,
   BACKUP_DIR,
   DB_PATH
@@ -309,6 +310,13 @@ export async function handleApiRequest(req, res, next) {
     }
 
     // 6.5 Asset Pools Management
+    if (pathname === '/api/pools/reorder' && (req.method === 'POST' || req.method === 'PUT')) {
+      const body = await parseBody(req);
+      const ids = Array.isArray(body.ids) ? body.ids : (Array.isArray(body) ? body.map((p) => p.id || p) : []);
+      const pools = reorderPools(ids);
+      return sendJson(res, { success: true, pools });
+    }
+
     if (pathname === '/api/pools') {
       if (req.method === 'GET') {
         const pools = getPools();
