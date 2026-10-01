@@ -130,7 +130,42 @@ export const THEMES = {
     rail: "#1a2a3b",
     "rail-ink": "#e9edf2",
     "rail-border": "rgba(255,255,255,0.08)"
+  },
+  black: {
+    bg: "#000000",
+    surface: "#000000",
+    ink: "#ffffff",
+    inkc: "255,255,255",
+    well: "#000000",
+    tint: "#161616",
+    "tint-ink": "#ffffff",
+    rail: "#000000",
+    "rail-ink": "#ffffff",
+    "rail-border": "rgba(255,255,255,0.14)"
+  },
+  custom: {
+    bg: "#10161d",
+    surface: "#1b242e",
+    ink: "#e9edf2",
+    inkc: "233,237,242",
+    well: "#0b1016",
+    tint: "#233447",
+    "tint-ink": "#b5d9fd",
+    rail: "#1a2a3b",
+    "rail-ink": "#e9edf2",
+    "rail-border": "rgba(255,255,255,0.08)"
   }
+};
+
+export const DEFAULT_CUSTOM_THEME = {
+  bg: "#10161d",
+  surface: "#1b242e",
+  rail: "#1a2a3b",
+  well: "#0b1016",
+  ink: "#e9edf2",
+  tint: "#233447",
+  "tint-ink": "#b5d9fd",
+  accent: "#5980a6"
 };
 
 const S1 = "<" + "script>", S2 = "<" + "/script>";

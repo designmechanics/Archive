@@ -52,7 +52,27 @@ export type ViewMode =
   | 'filmstrip'
   | 'peel';
 
-export type ThemeMode = 'light' | 'mid' | 'dark';
+export type ThemeMode = 'light' | 'mid' | 'dark' | 'black' | 'custom';
+
+export interface CustomThemeColors {
+  bg: string;
+  surface: string;
+  rail: string;
+  well: string;
+  ink: string;
+  tint: string;
+  "tint-ink": string;
+  accent: string;
+}
+
+export type BackgroundFit = 'cover' | 'contain' | 'tile' | 'center';
+
+export interface CustomBackgroundConfig {
+  url: string | null;
+  opacity: number;
+  fit: BackgroundFit;
+  blur: number;
+}
 
 export type Density = 2 | 3 | 4 | 5 | 6 | 8;
 

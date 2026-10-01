@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { DatabaseStats, DatabaseBackup, api } from '../services/api';
-import { ThemeMode, Density, WatchedFolder, Pool } from '../types';
+import { ThemeMode, Density, WatchedFolder, Pool, CustomThemeColors, CustomBackgroundConfig, BackgroundFit } from '../types';
+import { DEFAULT_CUSTOM_THEME } from '../data/seedData';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -26,6 +27,10 @@ interface SettingsModalProps {
   poolCounts?: Record<string, number>;
   motionMultiplier?: number;
   onMotionChange?: (m: number) => void;
+  customTheme?: CustomThemeColors;
+  onCustomThemeChange?: (colors: CustomThemeColors) => void;
+  customBgConfig?: CustomBackgroundConfig;
+  onCustomBgConfigChange?: (config: CustomBackgroundConfig) => void;
 }
 
 type SettingsTab = 'database' | 'interface' | 'pools' | 'folders';
@@ -44,6 +49,93 @@ const POOL_PRESET_COLORS = [
   '#c084fc', // Purple
   '#a78bfa', // Lavender
   '#94a3b8'  // Slate
+];
+
+const CUSTOM_THEME_PRESETS: { name: string; desc: string; colors: CustomThemeColors }[] = [
+  {
+    name: 'Dark Blueprint',
+    desc: 'Deep steel blue signature',
+    colors: {
+      bg: '#10161d',
+      surface: '#1b242e',
+      rail: '#1a2a3b',
+      well: '#0b1016',
+      ink: '#e9edf2',
+      tint: '#233447',
+      'tint-ink': '#b5d9fd',
+      accent: '#5980a6'
+    }
+  },
+  {
+    name: 'Pure Black',
+    desc: 'Monochrome OLED depth',
+    colors: {
+      bg: '#000000',
+      surface: '#000000',
+      rail: '#000000',
+      well: '#000000',
+      ink: '#ffffff',
+      tint: '#161616',
+      'tint-ink': '#ffffff',
+      accent: '#ffffff'
+    }
+  },
+  {
+    name: 'Nordic Slate',
+    desc: 'Cold arctic slate & ice teal',
+    colors: {
+      bg: '#0f172a',
+      surface: '#1e293b',
+      rail: '#0b1329',
+      well: '#080d1a',
+      ink: '#f1f5f9',
+      tint: '#1e3a5f',
+      'tint-ink': '#38bdf8',
+      accent: '#0284c7'
+    }
+  },
+  {
+    name: 'Cyber Amber',
+    desc: 'Onyx terminal & radioactive amber',
+    colors: {
+      bg: '#0a0a0c',
+      surface: '#141419',
+      rail: '#0d0d12',
+      well: '#050507',
+      ink: '#fef08a',
+      tint: '#422006',
+      'tint-ink': '#facc15',
+      accent: '#eab308'
+    }
+  },
+  {
+    name: 'Emerald Matrix',
+    desc: 'Deep obsidian & phosphorescent mint',
+    colors: {
+      bg: '#06130d',
+      surface: '#0d2218',
+      rail: '#091c13',
+      well: '#030b07',
+      ink: '#ecfdf5',
+      tint: '#064e3b',
+      'tint-ink': '#34d399',
+      accent: '#10b981'
+    }
+  },
+  {
+    name: 'Paper Crisp',
+    desc: 'Pristine editorial white & deep ink',
+    colors: {
+      bg: '#f8fafc',
+      surface: '#ffffff',
+      rail: '#f1f5f9',
+      well: '#e2e8f0',
+      ink: '#0f172a',
+      tint: '#eff6ff',
+      'tint-ink': '#1d4ed8',
+      accent: '#2563eb'
+    }
+  }
 ];
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -67,7 +159,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onEditPool,
   onDeletePool,
   onReorderPools,
-  poolCounts = {}
+  poolCounts = {},
+  customTheme = DEFAULT_CUSTOM_THEME,
+  onCustomThemeChange,
+  customBgConfig = { url: null, opacity: 0.025, fit: 'cover', blur: 0 },
+  onCustomBgConfigChange
 }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('database');
   const [backups, setBackups] = useState<DatabaseBackup[]>([]);
@@ -75,6 +171,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [lastBackupMsg, setLastBackupMsg] = useState<string | null>(null);
   const [optimizing, setOptimizing] = useState(false);
   const [newFolderPath, setNewFolderPath] = useState('');
+
+  // Custom Background and File Upload State
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [customBgUrlInput, setCustomBgUrlInput] = useState('');
+  const [activeColorField, setActiveColorField] = useState<keyof CustomThemeColors | null>(null);
 
   // Pools Management State
   const [isCreatingPool, setIsCreatingPool] = useState(false);
@@ -98,7 +199,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // Session Background State
   const [currentBg, setCurrentBg] = useState<string>(() => {
-    return sessionStorage.getItem('archive_session_bg') || '/backgrounds/logo_bg_1.jpg';
+    return customBgConfig?.url || sessionStorage.getItem('archive_session_bg') || '/backgrounds/logo_bg_1.jpg';
   });
 
   // Fetch backups whenever modal opens or database tab is selected
@@ -111,6 +212,109 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const loadBackups = async () => {
     const list = await api.listBackups();
     setBackups(list);
+  };
+
+  const handleColorChange = (field: keyof CustomThemeColors, hex: string) => {
+    if (!onCustomThemeChange) return;
+    const updated = {
+      ...(customTheme || DEFAULT_CUSTOM_THEME),
+      [field]: hex
+    };
+    onCustomThemeChange(updated);
+  };
+
+  const handleApplyPreset = (presetColors: CustomThemeColors) => {
+    if (onCustomThemeChange) {
+      onCustomThemeChange(presetColors);
+    }
+  };
+
+  const handleBgFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        if (onCustomBgConfigChange) {
+          onCustomBgConfigChange({
+            ...customBgConfig,
+            url: dataUrl
+          });
+        }
+        setCurrentBg(dataUrl);
+        sessionStorage.setItem('archive_session_bg', dataUrl);
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleApplyBgUrl = () => {
+    const trimmed = customBgUrlInput.trim();
+    if (!trimmed) return;
+    if (onCustomBgConfigChange) {
+      onCustomBgConfigChange({
+        ...customBgConfig,
+        url: trimmed
+      });
+    }
+    setCurrentBg(trimmed);
+    sessionStorage.setItem('archive_session_bg', trimmed);
+    setCustomBgUrlInput('');
+  };
+
+  const handleRemoveCustomBg = () => {
+    if (onCustomBgConfigChange) {
+      onCustomBgConfigChange({
+        ...customBgConfig,
+        url: null
+      });
+    }
+    const defaultBg = '/backgrounds/logo_bg_1.jpg';
+    setCurrentBg(defaultBg);
+    sessionStorage.setItem('archive_session_bg', defaultBg);
+    sessionStorage.setItem('archive_last_session_bg', defaultBg);
+    localStorage.setItem('archive_last_bg', defaultBg);
+    localStorage.setItem('archive_bg_mode', 'presets');
+    document.documentElement.style.setProperty('--session-bg', `url(${defaultBg})`);
+    (window as any).__SESSION_BG__ = defaultBg;
+  };
+
+  const handleOpacityChange = (val: number) => {
+    const clamped = Math.max(0, Math.min(1, val));
+    if (onCustomBgConfigChange) {
+      onCustomBgConfigChange({
+        ...customBgConfig,
+        opacity: clamped
+      });
+    }
+    document.documentElement.style.setProperty('--session-bg-opacity', String(clamped));
+  };
+
+  const handleFitChange = (fit: BackgroundFit) => {
+    if (onCustomBgConfigChange) {
+      onCustomBgConfigChange({
+        ...customBgConfig,
+        fit
+      });
+    }
+    document.documentElement.style.setProperty('--session-bg-size', fit === 'tile' ? 'auto' : fit);
+    document.documentElement.style.setProperty('--session-bg-repeat', fit === 'tile' ? 'repeat' : 'no-repeat');
+  };
+
+  const handleBlurChange = (blur: number) => {
+    const clamped = Math.max(0, Math.min(30, blur));
+    if (onCustomBgConfigChange) {
+      onCustomBgConfigChange({
+        ...customBgConfig,
+        blur: clamped
+      });
+    }
+    document.documentElement.style.setProperty(
+      '--session-bg-filter',
+      `saturate(1.1) contrast(1.05)${clamped > 0 ? ` blur(${clamped}px)` : ''}`
+    );
   };
 
   if (!isOpen) return null;
@@ -329,61 +533,79 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const isLight = theme === 'light';
   const isMid = theme === 'mid';
-  const isDark = !isLight && !isMid;
+  const isBlack = theme === 'black';
+  const isCustom = theme === 'custom';
+  const isDark = !isLight && !isMid && !isBlack;
 
-  // Adaptive theme color tokens for razor-sharp legibility across Dark, Mid, and Light modes
+  // Adaptive theme color tokens for razor-sharp legibility across Dark, Black, Mid, Light, and Custom modes
   const c = {
     // Backdrop & Modal shell
-    backdropBg: isLight ? 'rgba(15, 23, 42, 0.45)' : isMid ? 'rgba(15, 27, 39, 0.55)' : 'rgba(8, 14, 22, 0.72)',
-    modalBg: isLight ? '#ffffff' : isMid ? '#6c8ea8' : '#121a24',
-    modalBorder: isLight ? '1px solid rgba(15, 23, 42, 0.12)' : isMid ? '1px solid rgba(15, 27, 39, 0.22)' : '1px solid rgba(148, 188, 227, 0.18)',
-    headerBg: isLight ? '#f8fafc' : isMid ? '#5e809e' : '#182636',
-    tabBarBg: isLight ? '#f1f5f9' : isMid ? '#537492' : '#15212f',
-    footerBg: isLight ? '#f8fafc' : isMid ? '#5e809e' : '#182636',
-    border: isLight ? 'rgba(15, 23, 42, 0.10)' : isMid ? 'rgba(15, 27, 39, 0.18)' : 'rgba(148, 188, 227, 0.16)',
-    borderSubtle: isLight ? 'rgba(15, 23, 42, 0.06)' : isMid ? 'rgba(15, 27, 39, 0.12)' : 'rgba(148, 188, 227, 0.10)',
-    borderFocus: isLight ? '#2563eb' : isMid ? '#102e4d' : '#5980a6',
+    backdropBg: isLight
+      ? 'rgba(15, 23, 42, 0.45)'
+      : isMid
+      ? 'rgba(15, 27, 39, 0.55)'
+      : isBlack
+      ? 'rgba(0, 0, 0, 0.88)'
+      : 'rgba(8, 14, 22, 0.72)',
+    modalBg: isLight ? '#ffffff' : isMid ? '#6c8ea8' : isBlack ? '#000000' : isCustom ? (customTheme?.bg || '#121a24') : '#121a24',
+    modalBorder: isLight
+      ? '1px solid rgba(15, 23, 42, 0.12)'
+      : isMid
+      ? '1px solid rgba(15, 27, 39, 0.22)'
+      : isBlack
+      ? '1px solid rgba(255, 255, 255, 0.18)'
+      : '1px solid rgba(148, 188, 227, 0.18)',
+    headerBg: isLight ? '#f8fafc' : isMid ? '#5e809e' : isBlack ? '#000000' : isCustom ? (customTheme?.surface || '#182636') : '#182636',
+    tabBarBg: isLight ? '#f1f5f9' : isMid ? '#537492' : isBlack ? '#000000' : isCustom ? (customTheme?.well || '#15212f') : '#15212f',
+    footerBg: isLight ? '#f8fafc' : isMid ? '#5e809e' : isBlack ? '#000000' : isCustom ? (customTheme?.surface || '#182636') : '#182636',
+    border: isLight ? 'rgba(15, 23, 42, 0.10)' : isMid ? 'rgba(15, 27, 39, 0.18)' : isBlack ? 'rgba(255, 255, 255, 0.14)' : 'rgba(148, 188, 227, 0.16)',
+    borderSubtle: isLight ? 'rgba(15, 23, 42, 0.06)' : isMid ? 'rgba(15, 27, 39, 0.12)' : isBlack ? 'rgba(255, 255, 255, 0.08)' : 'rgba(148, 188, 227, 0.10)',
+    borderFocus: isLight ? '#2563eb' : isMid ? '#102e4d' : isBlack ? '#ffffff' : isCustom ? (customTheme?.accent || '#5980a6') : '#5980a6',
 
     // Cards & surfaces within tabs
-    cardBg: isLight ? '#f8fafc' : isMid ? 'rgba(255, 255, 255, 0.22)' : 'rgba(148, 188, 227, 0.06)',
-    cardBorder: isLight ? 'rgba(15, 23, 42, 0.09)' : isMid ? 'rgba(15, 27, 39, 0.18)' : 'rgba(148, 188, 227, 0.20)',
-    innerCardBg: isLight ? '#ffffff' : isMid ? 'rgba(255, 255, 255, 0.42)' : 'rgba(16, 26, 37, 0.85)',
-    innerCardBorder: isLight ? 'rgba(15, 23, 42, 0.08)' : isMid ? 'rgba(15, 27, 39, 0.15)' : 'rgba(148, 188, 227, 0.14)',
+    cardBg: isLight ? '#f8fafc' : isMid ? 'rgba(255, 255, 255, 0.22)' : isBlack ? 'rgba(255, 255, 255, 0.03)' : 'rgba(148, 188, 227, 0.06)',
+    cardBorder: isLight ? 'rgba(15, 23, 42, 0.09)' : isMid ? 'rgba(15, 27, 39, 0.18)' : isBlack ? 'rgba(255, 255, 255, 0.14)' : 'rgba(148, 188, 227, 0.20)',
+    innerCardBg: isLight ? '#ffffff' : isMid ? 'rgba(255, 255, 255, 0.42)' : isBlack ? '#000000' : isCustom ? (customTheme?.surface || 'rgba(16, 26, 37, 0.85)') : 'rgba(16, 26, 37, 0.85)',
+    innerCardBorder: isLight ? 'rgba(15, 23, 42, 0.08)' : isMid ? 'rgba(15, 27, 39, 0.15)' : isBlack ? 'rgba(255, 255, 255, 0.12)' : 'rgba(148, 188, 227, 0.14)',
 
     // Text colors
-    textPrimary: isLight ? '#0f172a' : isMid ? '#09131d' : '#e9edf2',
-    textSecondary: isLight ? '#334155' : isMid ? '#16293d' : 'rgba(233, 237, 242, 0.75)',
-    textMuted: isLight ? '#64748b' : isMid ? '#29435c' : 'rgba(233, 237, 242, 0.45)',
-    textAccent: isLight ? '#1d4ed8' : isMid ? '#0a2e58' : '#94bce3',
-    textHeaderHighlight: isLight ? '#1e40af' : isMid ? '#051d38' : '#b5d9fd',
+    textPrimary: isLight ? '#0f172a' : isMid ? '#09131d' : isBlack ? '#ffffff' : isCustom ? (customTheme?.ink || '#e9edf2') : '#e9edf2',
+    textSecondary: isLight ? '#334155' : isMid ? '#16293d' : isBlack ? '#d1d5db' : 'rgba(233, 237, 242, 0.75)',
+    textMuted: isLight ? '#64748b' : isMid ? '#29435c' : isBlack ? '#9ca3af' : 'rgba(233, 237, 242, 0.45)',
+    textAccent: isLight ? '#1d4ed8' : isMid ? '#0a2e58' : isBlack ? '#ffffff' : isCustom ? (customTheme?.accent || '#94bce3') : '#94bce3',
+    textHeaderHighlight: isLight ? '#1e40af' : isMid ? '#051d38' : isBlack ? '#ffffff' : isCustom ? (customTheme?.['tint-ink'] || '#b5d9fd') : '#b5d9fd',
 
     // Inputs
-    inputBg: isLight ? '#ffffff' : isMid ? '#f0f5fa' : '#0d141b',
-    inputBorder: isLight ? 'rgba(15, 23, 42, 0.16)' : isMid ? 'rgba(11, 23, 36, 0.25)' : 'rgba(148, 188, 227, 0.25)',
-    inputText: isLight ? '#0f172a' : isMid ? '#0b1724' : '#e9edf2',
-    inputPlaceholder: isLight ? '#94a3b8' : isMid ? '#64748b' : 'rgba(233, 237, 242, 0.35)',
+    inputBg: isLight ? '#ffffff' : isMid ? '#f0f5fa' : isBlack ? '#000000' : isCustom ? (customTheme?.well || '#0d141b') : '#0d141b',
+    inputBorder: isLight ? 'rgba(15, 23, 42, 0.16)' : isMid ? 'rgba(11, 23, 36, 0.25)' : isBlack ? 'rgba(255, 255, 255, 0.22)' : 'rgba(148, 188, 227, 0.25)',
+    inputText: isLight ? '#0f172a' : isMid ? '#0b1724' : isBlack ? '#ffffff' : isCustom ? (customTheme?.ink || '#e9edf2') : '#e9edf2',
+    inputPlaceholder: isLight ? '#94a3b8' : isMid ? '#64748b' : isBlack ? 'rgba(255, 255, 255, 0.35)' : 'rgba(233, 237, 242, 0.35)',
 
     // Secondary buttons
-    btnSecBg: isLight ? 'rgba(15, 23, 42, 0.06)' : isMid ? 'rgba(11, 23, 36, 0.10)' : 'rgba(148, 188, 227, 0.10)',
-    btnSecBorder: isLight ? 'rgba(15, 23, 42, 0.12)' : isMid ? 'rgba(11, 23, 36, 0.20)' : 'rgba(148, 188, 227, 0.22)',
-    btnSecText: isLight ? '#0f172a' : isMid ? '#0b1724' : '#b5d9fd',
+    btnSecBg: isLight ? 'rgba(15, 23, 42, 0.06)' : isMid ? 'rgba(11, 23, 36, 0.10)' : isBlack ? 'rgba(255, 255, 255, 0.07)' : 'rgba(148, 188, 227, 0.10)',
+    btnSecBorder: isLight ? 'rgba(15, 23, 42, 0.12)' : isMid ? 'rgba(11, 23, 36, 0.20)' : isBlack ? 'rgba(255, 255, 255, 0.18)' : 'rgba(148, 188, 227, 0.22)',
+    btnSecText: isLight ? '#0f172a' : isMid ? '#0b1724' : isBlack ? '#ffffff' : isCustom ? (customTheme?.['tint-ink'] || '#b5d9fd') : '#b5d9fd',
 
     // Tabs
-    tabActiveText: isLight ? '#1d4ed8' : isMid ? '#051d38' : '#b5d9fd',
-    tabActiveBorder: isLight ? '#2563eb' : isMid ? '#051d38' : '#5980a6',
-    tabInactiveText: isLight ? '#64748b' : isMid ? '#29435c' : 'rgba(233, 237, 242, 0.60)',
+    tabActiveText: isLight ? '#1d4ed8' : isMid ? '#051d38' : isBlack ? '#ffffff' : isCustom ? (customTheme?.['tint-ink'] || '#b5d9fd') : '#b5d9fd',
+    tabActiveBorder: isLight ? '#2563eb' : isMid ? '#051d38' : isBlack ? '#ffffff' : isCustom ? (customTheme?.accent || '#5980a6') : '#5980a6',
+    tabInactiveText: isLight ? '#64748b' : isMid ? '#29435c' : isBlack ? 'rgba(255, 255, 255, 0.55)' : 'rgba(233, 237, 242, 0.60)',
 
     // Primary action button style
-    btnPriBorder: isLight ? '1px solid #2563eb' : isMid ? '1px solid #1e3a5f' : '1px solid #416180',
+    btnPriBorder: isLight ? '1px solid #2563eb' : isMid ? '1px solid #1e3a5f' : isBlack ? '1px solid rgba(255, 255, 255, 0.35)' : '1px solid #416180',
     btnPriBg: isLight
       ? 'linear-gradient(180deg, #3b82f6, #2563eb)'
       : isMid
       ? 'linear-gradient(180deg, #2a4e76, #1d3958)'
+      : isBlack
+      ? 'linear-gradient(180deg, #262626, #141414)'
       : 'linear-gradient(180deg, #6b91b6, #5980a6)',
     btnPriShadow: isLight
       ? '0 2px 0 #1d4ed8, 0 4px 12px rgba(37,99,235,.25)'
       : isMid
       ? '0 2px 0 #13253b, 0 4px 12px rgba(15,27,39,.3)'
+      : isBlack
+      ? '0 2px 0 #000000, 0 4px 12px rgba(0,0,0,.7)'
       : '0 2px 0 #2c455d, 0 4px 12px rgba(65,97,128,.3)'
   };
 
@@ -1012,6 +1234,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* TAB 2: INTERFACE & THEME */}
           {activeTab === 'interface' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+              {/* COLOR THEME SELECTOR */}
               <div>
                 <div
                   style={{
@@ -1025,30 +1248,223 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 >
                   Color Theme
                 </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  {(['dark', 'mid', 'light'] as ThemeMode[]).map((t) => (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {(['dark', 'black', 'mid', 'light', 'custom'] as ThemeMode[]).map((t) => (
                     <button
                       key={t}
                       onClick={() => onThemeChange(t)}
                       style={{
                         flex: 1,
-                        padding: '12px',
+                        padding: '12px 6px',
                         borderRadius: '12px',
                         border: theme === t ? `2px solid ${c.borderFocus}` : `1px solid ${c.cardBorder}`,
-                        background: theme === t ? (isLight ? '#eff6ff' : isMid ? 'rgba(11,23,36,0.22)' : 'rgba(89,128,166,.25)') : c.innerCardBg,
+                        background: theme === t ? (isLight ? '#eff6ff' : isMid ? 'rgba(11,23,36,0.22)' : isBlack ? '#1c1c1c' : 'rgba(89,128,166,.25)') : c.innerCardBg,
                         color: theme === t ? (isLight ? '#1d4ed8' : isMid ? '#09131d' : '#ffffff') : c.textPrimary,
                         fontFamily: "'Barlow Condensed', sans-serif",
-                        fontSize: '15px',
+                        fontSize: '14.5px',
                         fontWeight: 600,
                         textTransform: 'uppercase',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '2px',
+                        transition: 'all 0.15s'
                       }}
                     >
-                      {t === 'dark' ? 'Dark (Default)' : t === 'mid' ? 'Mid' : 'Light'}
+                      <span>{t === 'dark' ? 'Dark' : t === 'black' ? 'Black' : t === 'mid' ? 'Mid' : t === 'light' ? 'Light' : 'Custom'}</span>
+                      <span style={{ fontSize: '9px', opacity: 0.65, textTransform: 'none', fontFamily: 'Barlow, sans-serif' }}>
+                        {t === 'dark' ? 'Blueprint' : t === 'black' ? 'Monochrome' : t === 'mid' ? 'Balanced' : t === 'light' ? 'Crisp' : 'Studio'}
+                      </span>
                     </button>
                   ))}
                 </div>
               </div>
+
+              {/* CUSTOM THEME COLOR STUDIO (Active when Custom is selected) */}
+              {theme === 'custom' && (
+                <div
+                  style={{
+                    padding: '18px 20px',
+                    borderRadius: '14px',
+                    background: c.cardBg,
+                    border: `1px solid ${c.borderFocus}`,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '16px',
+                    animation: 'fadeIn 0.2s ease-out'
+                  }}
+                >
+                  {/* Studio Header */}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+                    <div>
+                      <div
+                        style={{
+                          fontFamily: "'Barlow Condensed', sans-serif",
+                          fontSize: '17px',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          color: c.textHeaderHighlight,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <span>🎨</span> Custom Theme Color Studio
+                      </div>
+                      <div style={{ fontFamily: 'Barlow, sans-serif', fontSize: '12px', color: c.textMuted, marginTop: '2px' }}>
+                        Real-time color tuning. Click swatches or input hex values to craft your signature workspace palette.
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleApplyPreset(DEFAULT_CUSTOM_THEME)}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '8px',
+                        border: `1px solid ${c.cardBorder}`,
+                        background: c.innerCardBg,
+                        color: c.textMuted,
+                        fontFamily: "'Barlow Condensed', sans-serif",
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                      title="Reset all colors to default custom settings"
+                    >
+                      ↺ Reset Colors
+                    </button>
+                  </div>
+
+                  {/* Presets Bar */}
+                  <div>
+                    <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '10px', color: c.textAccent, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '6px' }}>
+                      Quick Starting Presets:
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {CUSTOM_THEME_PRESETS.map((p) => (
+                        <button
+                          key={p.name}
+                          onClick={() => handleApplyPreset(p.colors)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '4px 9px',
+                            borderRadius: '8px',
+                            border: `1px solid ${c.cardBorder}`,
+                            background: c.innerCardBg,
+                            color: c.textPrimary,
+                            fontFamily: "'Barlow Condensed', sans-serif",
+                            fontSize: '12.5px',
+                            fontWeight: 600,
+                            cursor: 'pointer'
+                          }}
+                          title={p.desc}
+                        >
+                          <span
+                            style={{
+                              width: '10px',
+                              height: '10px',
+                              borderRadius: '50%',
+                              background: p.colors.accent,
+                              border: '1px solid rgba(255,255,255,0.4)',
+                              boxShadow: '0 0 4px rgba(0,0,0,0.3)'
+                            }}
+                          />
+                          {p.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Color Pickers Grid (8 core tokens) */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+                    {[
+                      { key: 'bg', label: 'Workspace Background', token: '--bg', desc: 'Main window & stage background', val: customTheme.bg },
+                      { key: 'surface', label: 'Cards & Panels', token: '--surface', desc: 'Card bodies and preview panels', val: customTheme.surface },
+                      { key: 'rail', label: 'Navigation Rail', token: '--rail', desc: 'Left sidebar navigation rail', val: customTheme.rail },
+                      { key: 'well', label: 'Inset Wells & Bars', token: '--well', desc: 'Search bar & control wells', val: customTheme.well },
+                      { key: 'ink', label: 'Primary Typography', token: '--ink', desc: 'Main titles, text and headings', val: customTheme.ink },
+                      { key: 'tint', label: 'Badge Backdrop', token: '--tint', desc: 'Active badges and highlight chips', val: customTheme.tint },
+                      { key: 'tint-ink', label: 'Badge Text', token: '--tint-ink', desc: 'Text inside badges and tags', val: customTheme['tint-ink'] },
+                      { key: 'accent', label: 'Signature Accent', token: '--accent', desc: 'Buttons, borders & focal points', val: customTheme.accent }
+                    ].map((item) => (
+                      <div
+                        key={item.key}
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '10px',
+                          background: c.innerCardBg,
+                          border: `1px solid ${c.innerCardBorder}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '12px'
+                        }}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: '14px', fontWeight: 700, color: c.textPrimary }}>
+                              {item.label}
+                            </span>
+                            <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '9.5px', color: c.textMuted }}>
+                              {item.token}
+                            </span>
+                          </div>
+                          <div style={{ fontFamily: 'Barlow, sans-serif', fontSize: '11px', color: c.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {item.desc}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                          <div style={{ position: 'relative', width: '28px', height: '28px' }}>
+                            <input
+                              type="color"
+                              value={item.val.startsWith('#') && item.val.length === 7 ? item.val : '#10161d'}
+                              onChange={(e) => handleColorChange(item.key as keyof CustomThemeColors, e.target.value)}
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+                                opacity: 0,
+                                width: '100%',
+                                height: '100%',
+                                cursor: 'pointer'
+                              }}
+                            />
+                            <div
+                              style={{
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '7px',
+                                background: item.val,
+                                border: `2px solid ${c.borderFocus}`,
+                                boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                                pointerEvents: 'none'
+                              }}
+                            />
+                          </div>
+                          <input
+                            type="text"
+                            value={item.val}
+                            onChange={(e) => handleColorChange(item.key as keyof CustomThemeColors, e.target.value)}
+                            style={{
+                              width: '76px',
+                              padding: '4px 6px',
+                              borderRadius: '6px',
+                              background: c.inputBg,
+                              border: `1px solid ${c.inputBorder}`,
+                              color: c.inputText,
+                              fontFamily: 'ui-monospace, monospace',
+                              fontSize: '12px',
+                              textAlign: 'center'
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <div
@@ -1087,118 +1503,456 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
-              {/* Session Background Artwork */}
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              {/* SESSION BACKGROUND ARTWORK & CUSTOM WALLPAPER */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                  <div>
+                    <div
+                      style={{
+                        fontFamily: "'Barlow Condensed', sans-serif",
+                        fontSize: '18px',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        color: c.textHeaderHighlight
+                      }}
+                    >
+                      Session Background Artwork & Wallpaper
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: 'Barlow, sans-serif',
+                        fontSize: '12px',
+                        color: c.textMuted,
+                        marginTop: '2px'
+                      }}
+                    >
+                      Subtle background watermark for the workspace. Upload your own wallpaper or select standard artworks.
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      style={{
+                        padding: '5px 12px',
+                        borderRadius: '8px',
+                        border: `1px solid ${c.borderFocus}`,
+                        background: isLight ? '#eff6ff' : 'rgba(89, 128, 166, 0.25)',
+                        color: c.textAccent,
+                        fontFamily: "'Barlow Condensed', sans-serif",
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      📁 Upload Wallpaper
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={handleBgFileUpload}
+                    />
+
+                    <button
+                      onClick={() => {
+                        const list = [
+                          '/backgrounds/logo_bg_1.jpg',
+                          '/backgrounds/logo_bg_2.jpg',
+                          '/backgrounds/logo_bg_3.jpg',
+                          '/backgrounds/logo_bg_4.jpg',
+                          '/backgrounds/logo_bg_5.jpg'
+                        ];
+                        const others = list.filter((b) => b !== currentBg);
+                        const next = others[Math.floor(Math.random() * others.length)] || list[0];
+                        setCurrentBg(next);
+                        sessionStorage.setItem('archive_session_bg', next);
+                        sessionStorage.setItem('archive_last_session_bg', next);
+                        localStorage.setItem('archive_last_bg', next);
+                        localStorage.setItem('archive_bg_mode', 'presets');
+                        document.documentElement.style.setProperty('--session-bg', `url(${next})`);
+                        (window as any).__SESSION_BG__ = next;
+                      }}
+                      style={{
+                        padding: '5px 12px',
+                        borderRadius: '8px',
+                        border: `1px solid ${c.cardBorder}`,
+                        background: c.innerCardBg,
+                        color: c.textPrimary,
+                        fontFamily: "'Barlow Condensed', sans-serif",
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px'
+                      }}
+                    >
+                      🎲 Randomize Preset
+                    </button>
+                  </div>
+                </div>
+
+                {/* Active Custom Wallpaper Banner if uploaded */}
+                {customBgConfig?.url && (
                   <div
                     style={{
-                      fontFamily: "'Barlow Condensed', sans-serif",
-                      fontSize: '18px',
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      color: c.textHeaderHighlight
+                      padding: '12px 14px',
+                      borderRadius: '12px',
+                      background: isLight ? '#f0fdf4' : 'rgba(34, 197, 94, 0.08)',
+                      border: `1px solid ${isLight ? 'rgba(34, 197, 94, 0.3)' : 'rgba(34, 197, 94, 0.35)'}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '12px'
                     }}
                   >
-                    Session Background Artwork
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div
+                        style={{
+                          width: '60px',
+                          height: '38px',
+                          borderRadius: '6px',
+                          backgroundImage: `url(${customBgConfig.url})`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                          border: '1px solid rgba(255,255,255,0.2)'
+                        }}
+                      />
+                      <div>
+                        <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '11px', fontWeight: 700, color: '#38ef7d' }}>
+                          ✓ ACTIVE CUSTOM WALLPAPER STORED
+                        </div>
+                        <div style={{ fontFamily: 'Barlow, sans-serif', fontSize: '11.5px', color: c.textMuted }}>
+                          Persisted in database & session storage. Rendering at {(customBgConfig.opacity * 100).toFixed(1)}% opacity.
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleRemoveCustomBg}
+                      style={{
+                        padding: '5px 10px',
+                        borderRadius: '7px',
+                        border: '1px solid rgba(239, 68, 68, 0.4)',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        color: '#f87171',
+                        fontFamily: "'Barlow Condensed', sans-serif",
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ✕ Remove Custom
+                    </button>
                   </div>
-                  <button
-                    onClick={() => {
-                      const list = [
-                        '/backgrounds/logo_bg_1.jpg',
-                        '/backgrounds/logo_bg_2.jpg',
-                        '/backgrounds/logo_bg_3.jpg',
-                        '/backgrounds/logo_bg_4.jpg',
-                        '/backgrounds/logo_bg_5.jpg'
-                      ];
-                      const others = list.filter((b) => b !== currentBg);
-                      const next = others[Math.floor(Math.random() * others.length)] || list[0];
-                      setCurrentBg(next);
-                      sessionStorage.setItem('archive_session_bg', next);
-                      sessionStorage.setItem('archive_last_session_bg', next);
-                      localStorage.setItem('archive_last_bg', next);
-                      document.documentElement.style.setProperty('--session-bg', `url(${next})`);
-                      (window as any).__SESSION_BG__ = next;
-                    }}
+                )}
+
+                {/* URL Upload Row */}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    placeholder="Or paste an image URL (https://... or data:image/...)"
+                    value={customBgUrlInput}
+                    onChange={(e) => setCustomBgUrlInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleApplyBgUrl()}
                     style={{
-                      padding: '4px 10px',
-                      borderRadius: '8px',
+                      flex: 1,
+                      padding: '8px 12px',
+                      borderRadius: '9px',
+                      background: c.inputBg,
+                      border: `1px solid ${c.inputBorder}`,
+                      color: c.inputText,
+                      fontFamily: 'ui-monospace, monospace',
+                      fontSize: '12px'
+                    }}
+                  />
+                  <button
+                    onClick={handleApplyBgUrl}
+                    disabled={!customBgUrlInput.trim()}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '9px',
                       border: `1px solid ${c.borderFocus}`,
-                      background: isLight ? '#eff6ff' : 'rgba(89, 128, 166, 0.2)',
+                      background: c.btnSecBg,
                       color: c.textAccent,
                       fontFamily: "'Barlow Condensed', sans-serif",
                       fontSize: '13px',
                       fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '5px'
+                      cursor: customBgUrlInput.trim() ? 'pointer' : 'default',
+                      opacity: customBgUrlInput.trim() ? 1 : 0.5
                     }}
                   >
-                    🎲 Randomize Artwork
+                    Apply URL
                   </button>
                 </div>
+
+                {/* Opacity Control Box */}
                 <div
                   style={{
-                    fontFamily: 'Barlow, sans-serif',
-                    fontSize: '12px',
-                    color: c.textMuted,
-                    marginBottom: '10px'
+                    padding: '14px 16px',
+                    borderRadius: '12px',
+                    background: c.innerCardBg,
+                    border: `1px solid ${c.innerCardBorder}`,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px'
                   }}
                 >
-                  Randomized per session. Powers the instant loading screen and a subtle background watermark in the workspace.
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
-                  {[1, 2, 3, 4, 5].map((num) => {
-                    const bgPath = `/backgrounds/logo_bg_${num}.jpg`;
-                    const isSelected = currentBg === bgPath;
-                    return (
-                      <button
-                        key={num}
-                        onClick={() => {
-                          setCurrentBg(bgPath);
-                          sessionStorage.setItem('archive_session_bg', bgPath);
-                          sessionStorage.setItem('archive_last_session_bg', bgPath);
-                          localStorage.setItem('archive_last_bg', bgPath);
-                          document.documentElement.style.setProperty('--session-bg', `url(${bgPath})`);
-                          (window as any).__SESSION_BG__ = bgPath;
-                        }}
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          padding: '6px',
-                          borderRadius: '10px',
-                          border: isSelected ? `2px solid ${c.borderFocus}` : `1px solid ${c.cardBorder}`,
-                          background: isSelected ? (isLight ? '#eff6ff' : 'rgba(89, 128, 166, 0.22)') : c.innerCardBg,
-                          cursor: 'pointer',
-                          gap: '6px',
-                          transition: 'all 0.15s'
-                        }}
-                      >
-                        <div
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: '15px', fontWeight: 700, textTransform: 'uppercase', color: c.textPrimary }}>
+                        Background Opacity
+                      </span>
+                      <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '10px', color: c.textMuted }}>
+                        (--session-bg-opacity)
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: 'ui-monospace, monospace',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        color: c.textAccent,
+                        background: c.cardBg,
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        border: `1px solid ${c.cardBorder}`
+                      }}
+                    >
+                      {(customBgConfig.opacity * 100).toFixed(1)}%
+                    </div>
+                  </div>
+
+                  {/* Range Slider */}
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.005"
+                    value={customBgConfig.opacity}
+                    onChange={(e) => handleOpacityChange(parseFloat(e.target.value))}
+                    style={{
+                      width: '100%',
+                      accentColor: '#3b82f6',
+                      cursor: 'pointer'
+                    }}
+                  />
+
+                  {/* Opacity Quick Presets */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                    <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '9.5px', color: c.textMuted, marginRight: '4px' }}>
+                      PRESETS:
+                    </span>
+                    {[
+                      { label: '0% (Off)', val: 0 },
+                      { label: '1% (Faint)', val: 0.01 },
+                      { label: '2.5% (Default)', val: 0.025 },
+                      { label: '5% (Subtle)', val: 0.05 },
+                      { label: '10% (Visible)', val: 0.10 },
+                      { label: '25% (Vivid)', val: 0.25 },
+                      { label: '50% (High)', val: 0.50 },
+                      { label: '100% (Solid)', val: 1.0 }
+                    ].map((preset) => {
+                      const isSelected = Math.abs(customBgConfig.opacity - preset.val) < 0.003;
+                      return (
+                        <button
+                          key={preset.label}
+                          onClick={() => handleOpacityChange(preset.val)}
                           style={{
-                            width: '100%',
-                            aspectRatio: '16/9',
+                            padding: '2px 7px',
                             borderRadius: '6px',
-                            backgroundImage: `url(${bgPath})`,
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                            border: `1px solid ${c.cardBorder}`
-                          }}
-                        />
-                        <span
-                          style={{
-                            fontFamily: 'ui-monospace, Menlo, monospace',
-                            fontSize: '10px',
+                            border: isSelected ? `1px solid ${c.borderFocus}` : `1px solid ${c.cardBorder}`,
+                            background: isSelected ? (isLight ? '#eff6ff' : 'rgba(89, 128, 166, 0.25)') : c.cardBg,
+                            color: isSelected ? c.textAccent : c.textMuted,
+                            fontFamily: 'ui-monospace, monospace',
+                            fontSize: '10.5px',
                             fontWeight: isSelected ? 700 : 500,
-                            color: isSelected ? c.textAccent : c.textMuted
+                            cursor: 'pointer'
                           }}
                         >
-                          Artwork #{num}
-                        </span>
-                      </button>
-                    );
-                  })}
+                          {preset.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Display Options: Fit and Blur */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                  {/* Fit Mode */}
+                  <div
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: '12px',
+                      background: c.innerCardBg,
+                      border: `1px solid ${c.innerCardBorder}`,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', color: c.textPrimary }}>
+                        Display Fit Mode
+                      </span>
+                      <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '10px', color: c.textAccent }}>
+                        {customBgConfig.fit}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      {(['cover', 'contain', 'tile', 'center'] as BackgroundFit[]).map((mode) => {
+                        const isSelected = customBgConfig.fit === mode;
+                        return (
+                          <button
+                            key={mode}
+                            onClick={() => handleFitChange(mode)}
+                            style={{
+                              flex: 1,
+                              padding: '6px 4px',
+                              borderRadius: '8px',
+                              border: isSelected ? `2px solid ${c.borderFocus}` : `1px solid ${c.cardBorder}`,
+                              background: isSelected ? (isLight ? '#eff6ff' : 'rgba(89, 128, 166, 0.25)') : c.cardBg,
+                              color: isSelected ? c.textAccent : c.textMuted,
+                              fontFamily: "'Barlow Condensed', sans-serif",
+                              fontSize: '12.5px',
+                              fontWeight: isSelected ? 700 : 500,
+                              textTransform: 'uppercase',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {mode === 'cover' ? 'Cover' : mode === 'contain' ? 'Contain' : mode === 'tile' ? 'Tile' : 'Center'}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Blur Filter */}
+                  <div
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: '12px',
+                      background: c.innerCardBg,
+                      border: `1px solid ${c.innerCardBorder}`,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', color: c.textPrimary }}>
+                        Background Blur
+                      </span>
+                      <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '11px', color: c.textAccent }}>
+                        {customBgConfig.blur}px
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="20"
+                      step="1"
+                      value={customBgConfig.blur}
+                      onChange={(e) => handleBlurChange(parseInt(e.target.value, 10))}
+                      style={{
+                        width: '100%',
+                        accentColor: '#3b82f6',
+                        cursor: 'pointer'
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      {[
+                        { label: 'Off (0px)', val: 0 },
+                        { label: 'Soft (4px)', val: 4 },
+                        { label: 'Medium (8px)', val: 8 },
+                        { label: 'Heavy (16px)', val: 16 }
+                      ].map((b) => (
+                        <button
+                          key={b.label}
+                          onClick={() => handleBlurChange(b.val)}
+                          style={{
+                            flex: 1,
+                            padding: '2px 4px',
+                            borderRadius: '6px',
+                            border: customBgConfig.blur === b.val ? `1px solid ${c.borderFocus}` : `1px solid ${c.cardBorder}`,
+                            background: customBgConfig.blur === b.val ? (isLight ? '#eff6ff' : 'rgba(89, 128, 166, 0.25)') : c.cardBg,
+                            color: customBgConfig.blur === b.val ? c.textAccent : c.textMuted,
+                            fontFamily: 'ui-monospace, monospace',
+                            fontSize: '10px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {b.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Standard Preset Artworks (5 variations) */}
+                <div>
+                  <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '10.5px', color: c.textMuted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '8px' }}>
+                    Standard Preset Artworks (5 variations):
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
+                    {[1, 2, 3, 4, 5].map((num) => {
+                      const bgPath = `/backgrounds/logo_bg_${num}.jpg`;
+                      const isSelected = !customBgConfig.url && currentBg === bgPath;
+                      return (
+                        <button
+                          key={num}
+                          onClick={() => {
+                            handleRemoveCustomBg();
+                            setCurrentBg(bgPath);
+                            sessionStorage.setItem('archive_session_bg', bgPath);
+                            sessionStorage.setItem('archive_last_session_bg', bgPath);
+                            localStorage.setItem('archive_last_bg', bgPath);
+                            localStorage.setItem('archive_bg_mode', 'presets');
+                            document.documentElement.style.setProperty('--session-bg', `url(${bgPath})`);
+                            (window as any).__SESSION_BG__ = bgPath;
+                          }}
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            padding: '6px',
+                            borderRadius: '10px',
+                            border: isSelected ? `2px solid ${c.borderFocus}` : `1px solid ${c.cardBorder}`,
+                            background: isSelected ? (isLight ? '#eff6ff' : 'rgba(89, 128, 166, 0.22)') : c.innerCardBg,
+                            cursor: 'pointer',
+                            gap: '6px',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: '100%',
+                              aspectRatio: '16/9',
+                              borderRadius: '6px',
+                              backgroundImage: `url(${bgPath})`,
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center',
+                              border: `1px solid ${c.cardBorder}`
+                            }}
+                          />
+                          <span
+                            style={{
+                              fontFamily: 'ui-monospace, Menlo, monospace',
+                              fontSize: '10px',
+                              fontWeight: isSelected ? 700 : 500,
+                              color: isSelected ? c.textAccent : c.textMuted
+                            }}
+                          >
+                            Artwork #{num}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 

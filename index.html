@@ -10,22 +10,40 @@
     <script>
       (function() {
         try {
-          var validList = [
-            '/backgrounds/logo_bg_1.jpg',
-            '/backgrounds/logo_bg_2.jpg',
-            '/backgrounds/logo_bg_3.jpg',
-            '/backgrounds/logo_bg_4.jpg',
-            '/backgrounds/logo_bg_5.jpg'
-          ];
-          // Always select a fresh random artwork differing from the last loaded one
-          var last = sessionStorage.getItem('archive_last_session_bg') || localStorage.getItem('archive_last_bg');
-          var pool = validList.filter(function(item) { return item !== last; });
-          if (!pool || pool.length === 0) pool = validList;
-          var chosen = pool[Math.floor(Math.random() * pool.length)];
+          var customBg = localStorage.getItem('archive_custom_bg');
+          var bgMode = localStorage.getItem('archive_bg_mode');
+          var chosen;
+
+          if (bgMode === 'custom' && customBg) {
+            chosen = customBg;
+          } else {
+            var validList = [
+              '/backgrounds/logo_bg_1.jpg',
+              '/backgrounds/logo_bg_2.jpg',
+              '/backgrounds/logo_bg_3.jpg',
+              '/backgrounds/logo_bg_4.jpg',
+              '/backgrounds/logo_bg_5.jpg'
+            ];
+            // Always select a fresh random artwork differing from the last loaded one
+            var last = sessionStorage.getItem('archive_last_session_bg') || localStorage.getItem('archive_last_bg');
+            var pool = validList.filter(function(item) { return item !== last; });
+            if (!pool || pool.length === 0) pool = validList;
+            chosen = pool[Math.floor(Math.random() * pool.length)];
+          }
+
+          var customOpacity = localStorage.getItem('archive_bg_opacity');
+          if (customOpacity) {
+            document.documentElement.style.setProperty('--session-bg-opacity', customOpacity);
+          }
+          var customFit = localStorage.getItem('archive_bg_fit');
+          if (customFit) {
+            document.documentElement.style.setProperty('--session-bg-size', customFit === 'tile' ? 'auto' : customFit);
+            document.documentElement.style.setProperty('--session-bg-repeat', customFit === 'tile' ? 'repeat' : 'no-repeat');
+          }
 
           sessionStorage.setItem('archive_session_bg', chosen);
           sessionStorage.setItem('archive_last_session_bg', chosen);
-          localStorage.setItem('archive_last_bg', chosen);
+          if (bgMode !== 'custom') localStorage.setItem('archive_last_bg', chosen);
 
           document.documentElement.style.setProperty('--session-bg', 'url(' + chosen + ')');
           window.__SESSION_BG__ = chosen;
@@ -517,31 +535,39 @@
         z-index: 0;
         pointer-events: none;
         background-image: var(--session-bg, none);
-        background-size: cover;
+        background-size: var(--session-bg-size, cover);
         background-position: center center;
-        background-repeat: no-repeat;
+        background-repeat: var(--session-bg-repeat, no-repeat);
         opacity: 1; /* Solid during loading screen */
-        filter: saturate(1.1) contrast(1.05);
+        filter: var(--session-bg-filter, saturate(1.1) contrast(1.05));
         transition: opacity 1.4s cubic-bezier(0.16, 1, 0.3, 1);
         will-change: opacity;
       }
       /* Smooth fade down to subtle in-app watermark once app is ready */
       html.app-ready #app-session-bg,
       body.app-ready #app-session-bg {
-        opacity: 0.025;
+        opacity: var(--session-bg-opacity, 0.025);
+      }
+      html[data-theme="black"].app-ready #app-session-bg,
+      body[data-theme="black"].app-ready #app-session-bg {
+        opacity: var(--session-bg-opacity, 0.025);
       }
       html[data-theme="dark"].app-ready #app-session-bg,
       body[data-theme="dark"].app-ready #app-session-bg {
-        opacity: 0.025;
+        opacity: var(--session-bg-opacity, 0.025);
       }
       html[data-theme="mid"].app-ready #app-session-bg,
       body[data-theme="mid"].app-ready #app-session-bg {
-        opacity: 0.02;
+        opacity: var(--session-bg-opacity, 0.02);
       }
       html[data-theme="light"].app-ready #app-session-bg,
       body[data-theme="light"].app-ready #app-session-bg {
-        opacity: 0.015;
+        opacity: var(--session-bg-opacity, 0.015);
         mix-blend-mode: multiply;
+      }
+      html[data-theme="custom"].app-ready #app-session-bg,
+      body[data-theme="custom"].app-ready #app-session-bg {
+        opacity: var(--session-bg-opacity, 0.025);
       }
 
       #app-loader {

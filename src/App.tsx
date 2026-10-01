@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import gsap from 'gsap';
-import { AssetEntry, Density, ThemeMode, ViewMode, WatchedFolder, Pool, MaxPerPage, ActiveZipArchive, SortOption, SortDirection, ListColumns, ListOrder } from './types';
+import { AssetEntry, Density, ThemeMode, ViewMode, WatchedFolder, Pool, MaxPerPage, ActiveZipArchive, SortOption, SortDirection, ListColumns, ListOrder, CustomThemeColors, CustomBackgroundConfig, BackgroundFit } from './types';
 import { sortEntries, SORT_CONFIGS } from './services/sortService';
-import { CATS, KINDS, THEMES } from './data/seedData';
+import { CATS, KINDS, THEMES, DEFAULT_CUSTOM_THEME } from './data/seedData';
 import {
   addWatchedFolder,
   getSetting,
@@ -45,6 +45,22 @@ import { IngestModal } from './components/IngestModal';
 import { SettingsModal } from './components/SettingsModal';
 import { DropOverlay } from './components/DropOverlay';
 
+function hexToRgb(hex: string): string {
+  const clean = hex.replace('#', '');
+  if (clean.length === 3) {
+    const r = parseInt(clean[0] + clean[0], 16);
+    const g = parseInt(clean[1] + clean[1], 16);
+    const b = parseInt(clean[2] + clean[2], 16);
+    return `${r}, ${g}, ${b}`;
+  }
+  if (clean.length === 6) {
+    const r = parseInt(clean.substring(0, 2), 16);
+    const g = parseInt(clean.substring(2, 4), 16);
+    const b = parseInt(clean.substring(4, 6), 16);
+    return `${r}, ${g}, ${b}`;
+  }
+  return '233, 237, 242';
+}
 
 export const App: React.FC = () => {
   // Primary State
@@ -65,7 +81,32 @@ export const App: React.FC = () => {
 
   const [isDropVisible, setIsDropVisible] = useState(false);
   const [specimen, setSpecimen] = useState('Handgloves 1234');
-  const [theme, setTheme] = useState<ThemeMode>('dark');
+  const [theme, setTheme] = useState<ThemeMode>(() => {
+    return (localStorage.getItem('archive.theme') as ThemeMode) || 'dark';
+  });
+  const [customTheme, setCustomTheme] = useState<CustomThemeColors>(() => {
+    try {
+      const saved = localStorage.getItem('archive.customTheme');
+      return saved ? { ...DEFAULT_CUSTOM_THEME, ...JSON.parse(saved) } : DEFAULT_CUSTOM_THEME;
+    } catch {
+      return DEFAULT_CUSTOM_THEME;
+    }
+  });
+  const [customBgConfig, setCustomBgConfig] = useState<CustomBackgroundConfig>(() => {
+    const savedFit = (localStorage.getItem('archive_bg_fit') as BackgroundFit) || 'cover';
+    const savedOpacityStr = localStorage.getItem('archive_bg_opacity');
+    const savedOpacity = savedOpacityStr !== null ? parseFloat(savedOpacityStr) : 0.025;
+    const savedBlurStr = localStorage.getItem('archive_bg_blur');
+    const savedBlur = savedBlurStr !== null ? parseFloat(savedBlurStr) : 0;
+    const savedUrl = localStorage.getItem('archive_custom_bg');
+
+    return {
+      url: savedUrl || null,
+      opacity: isNaN(savedOpacity) ? 0.025 : savedOpacity,
+      fit: savedFit,
+      blur: isNaN(savedBlur) ? 0 : savedBlur
+    };
+  });
   const [seed, setSeed] = useState(0);
   const [idxPct, setIdxPct] = useState(100);
   const [idxFile, setIdxFile] = useState('Archive ready · No background jobs');
@@ -347,6 +388,14 @@ export const App: React.FC = () => {
       const loadedFolders = await getWatchedFolders();
       setFolders(loadedFolders);
 
+      // Check IndexedDB for large custom background if not in localStorage
+      const storedCustomBg = await getSetting<string>('archive_custom_bg', '');
+      if (storedCustomBg) {
+        setCustomBgConfig((prev) => ({ ...prev, url: storedCustomBg }));
+        document.documentElement.style.setProperty('--session-bg', `url(${storedCustomBg})`);
+        (window as any).__SESSION_BG__ = storedCustomBg;
+      }
+
       // Intro GSAP Animation
       gsap.set('[data-rail="1"]', { x: -260 });
       gsap.to('[data-rail="1"]', { x: 0, duration: 0.75, ease: 'expo.out' });
@@ -375,17 +424,33 @@ export const App: React.FC = () => {
 
   // Theme Application
   useEffect(() => {
-    const t = THEMES[theme] || THEMES.dark;
     const root = document.documentElement;
     localStorage.setItem('archive.theme', theme);
-
-    Object.entries(t).forEach(([k, val]) => {
-      root.style.setProperty(`--${k}`, val);
-    });
-    root.style.setProperty('--accent', accent);
-    document.body.style.background = t.bg;
     root.dataset.theme = theme;
     document.body.dataset.theme = theme;
+
+    if (theme === 'custom') {
+      const inkc = hexToRgb(customTheme.ink);
+      root.style.setProperty('--bg', customTheme.bg);
+      root.style.setProperty('--surface', customTheme.surface);
+      root.style.setProperty('--ink', customTheme.ink);
+      root.style.setProperty('--inkc', inkc);
+      root.style.setProperty('--well', customTheme.well);
+      root.style.setProperty('--tint', customTheme.tint);
+      root.style.setProperty('--tint-ink', customTheme['tint-ink']);
+      root.style.setProperty('--rail', customTheme.rail);
+      root.style.setProperty('--rail-ink', customTheme.ink);
+      root.style.setProperty('--rail-border', `rgba(${inkc}, 0.12)`);
+      root.style.setProperty('--accent', customTheme.accent || accent);
+      document.body.style.background = customTheme.bg;
+    } else {
+      const t = THEMES[theme] || THEMES.dark;
+      Object.entries(t).forEach(([k, val]) => {
+        root.style.setProperty(`--${k}`, val);
+      });
+      root.style.setProperty('--accent', accent);
+      document.body.style.background = t.bg;
+    }
 
     // Random elastic scale pulse on reveal elements
     gsap.fromTo(
@@ -398,7 +463,48 @@ export const App: React.FC = () => {
         stagger: { each: 0.008, from: 'random' }
       }
     );
-  }, [theme, accent, motionMultiplier]);
+  }, [theme, customTheme, accent, motionMultiplier]);
+
+  // Session Background Configuration Application
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty('--session-bg-opacity', String(customBgConfig.opacity));
+    root.style.setProperty('--session-bg-size', customBgConfig.fit === 'tile' ? 'auto' : customBgConfig.fit);
+    root.style.setProperty('--session-bg-repeat', customBgConfig.fit === 'tile' ? 'repeat' : 'no-repeat');
+    root.style.setProperty(
+      '--session-bg-filter',
+      `saturate(1.1) contrast(1.05)${customBgConfig.blur > 0 ? ` blur(${customBgConfig.blur}px)` : ''}`
+    );
+  }, [customBgConfig]);
+
+  const handleCustomThemeChange = (newColors: CustomThemeColors) => {
+    setCustomTheme(newColors);
+    localStorage.setItem('archive.customTheme', JSON.stringify(newColors));
+  };
+
+  const handleCustomBgConfigChange = async (newConfig: CustomBackgroundConfig) => {
+    setCustomBgConfig(newConfig);
+    localStorage.setItem('archive_bg_opacity', String(newConfig.opacity));
+    localStorage.setItem('archive_bg_fit', newConfig.fit);
+    localStorage.setItem('archive_bg_blur', String(newConfig.blur));
+
+    if (newConfig.url) {
+      try {
+        localStorage.setItem('archive_custom_bg', newConfig.url);
+      } catch {
+        // quota limit fallback
+      }
+      await saveSetting('archive_custom_bg', newConfig.url);
+      localStorage.setItem('archive_bg_mode', 'custom');
+      sessionStorage.setItem('archive_session_bg', newConfig.url);
+      document.documentElement.style.setProperty('--session-bg', `url(${newConfig.url})`);
+      (window as any).__SESSION_BG__ = newConfig.url;
+    } else {
+      localStorage.removeItem('archive_custom_bg');
+      await saveSetting('archive_custom_bg', null);
+      localStorage.setItem('archive_bg_mode', 'presets');
+    }
+  };
 
   // Connect to Real Indexing Engine
   useEffect(() => {
@@ -1512,6 +1618,10 @@ export const App: React.FC = () => {
         poolCounts={poolCounts}
         motionMultiplier={motionMultiplier}
         onMotionChange={setMotionMultiplier}
+        customTheme={customTheme}
+        onCustomThemeChange={handleCustomThemeChange}
+        customBgConfig={customBgConfig}
+        onCustomBgConfigChange={handleCustomBgConfigChange}
       />
 
       {/* Watched Folder Ready Notification Toast */}

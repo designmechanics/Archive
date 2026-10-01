@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { ThemeMode } from '../types';
 
 interface IngestModalProps {
   isOpen: boolean;
@@ -7,7 +8,7 @@ interface IngestModalProps {
   onAddFolder: (folderPath: string) => void;
   onScanNativeFolder?: () => Promise<void>;
   onScanDiskFolder?: (folderPath: string) => void;
-  theme?: 'dark' | 'mid' | 'light';
+  theme?: ThemeMode;
 }
 
 export const IngestModal: React.FC<IngestModalProps> = ({
@@ -21,12 +22,13 @@ export const IngestModal: React.FC<IngestModalProps> = ({
 }) => {
   const isLight = theme === 'light';
   const isMid = theme === 'mid';
-  const isDark = !isLight && !isMid;
+  const isBlack = theme === 'black';
+  const isDark = !isLight && !isMid && !isBlack;
 
   const c = {
-    backdropBg: isLight ? 'rgba(15, 23, 42, 0.45)' : isMid ? 'rgba(15, 27, 39, 0.55)' : 'rgba(29,45,61,.62)',
+    backdropBg: isLight ? 'rgba(15, 23, 42, 0.45)' : isMid ? 'rgba(15, 27, 39, 0.55)' : isBlack ? 'rgba(0, 0, 0, 0.88)' : 'rgba(29,45,61,.62)',
     modalBg: isLight ? '#ffffff' : isMid ? '#6c8ea8' : 'var(--bg, #10161d)',
-    modalBorder: isLight ? '1px solid rgba(15, 23, 42, 0.12)' : isMid ? '1px solid rgba(15, 27, 39, 0.22)' : '1px solid rgba(148, 188, 227, 0.18)',
+    modalBorder: isLight ? '1px solid rgba(15, 23, 42, 0.12)' : isMid ? '1px solid rgba(15, 27, 39, 0.22)' : isBlack ? '1px solid rgba(255, 255, 255, 0.16)' : '1px solid rgba(148, 188, 227, 0.18)',
     textPrimary: isLight ? '#0f172a' : isMid ? '#09131d' : 'var(--ink, #e9edf2)',
     textSecondary: isLight ? '#334155' : isMid ? '#16293d' : 'rgba(233,237,242,.75)',
     textMuted: isLight ? '#64748b' : isMid ? '#29435c' : 'rgba(233,237,242,.45)',

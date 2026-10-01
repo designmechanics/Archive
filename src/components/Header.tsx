@@ -40,7 +40,9 @@ export const Header: React.FC<HeaderProps> = ({
   const themes: { id: ThemeMode; label: string }[] = [
     { id: 'light', label: 'Light' },
     { id: 'mid', label: 'Mid' },
-    { id: 'dark', label: 'Dark' }
+    { id: 'dark', label: 'Dark' },
+    { id: 'black', label: 'Black' },
+    { id: 'custom', label: 'Custom' }
   ];
 
   return (

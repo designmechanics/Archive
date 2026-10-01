@@ -47,6 +47,7 @@ export const ListView: React.FC<ListViewProps> = ({
 }) => {
   const isLight = theme === 'light';
   const isMid = theme === 'mid';
+  const isBlack = theme === 'black';
 
   // Fallback to 1 column if docked preview panel is taking half the screen
   const effectiveColumns: ListColumns = isPreviewOpen ? 1 : (listColumns || 1);
@@ -208,12 +209,16 @@ export const ListView: React.FC<ListViewProps> = ({
         padding: colSizes.padding,
         marginBottom: '3px',
         borderRadius: '10px',
-        borderBottom: isLight
+        borderBottom: isBlack
+          ? '1px solid rgba(255, 255, 255, 0.16)'
+          : isLight
           ? '1px solid rgba(15, 23, 42, 0.12)'
           : isMid
           ? '1px solid rgba(15, 27, 39, 0.22)'
           : '1px solid rgba(148, 188, 227, 0.22)',
-        background: isLight
+        background: isBlack
+          ? 'rgba(0, 0, 0, 0.96)'
+          : isLight
           ? 'rgba(248, 250, 252, 0.96)'
           : isMid
           ? 'rgba(115, 145, 176, 0.96)'
@@ -377,24 +382,44 @@ export const ListView: React.FC<ListViewProps> = ({
           gap: colSizes.gap,
           padding: colSizes.padding,
           borderRadius: '13px',
-          background: isLight ? 'rgba(255, 255, 255, 0.72)' : 'rgba(23, 32, 44, 0.44)',
+          background: isBlack
+            ? 'rgba(0, 0, 0, 0.72)'
+            : isLight
+            ? 'rgba(255, 255, 255, 0.72)'
+            : 'rgba(23, 32, 44, 0.44)',
           backdropFilter: isLight ? 'contrast(1.18) saturate(1.1) brightness(1.08)' : 'brightness(2.1) contrast(1.28) saturate(1.1)',
           WebkitBackdropFilter: isLight ? 'contrast(1.18) saturate(1.1) brightness(1.08)' : 'brightness(2.1) contrast(1.28) saturate(1.1)',
-          border: isLight ? '1px solid rgba(15, 23, 42, 0.08)' : '1px solid rgba(233, 237, 242, 0.09)',
+          border: isBlack
+            ? '1px solid rgba(255, 255, 255, 0.12)'
+            : isLight
+            ? '1px solid rgba(15, 23, 42, 0.08)'
+            : '1px solid rgba(233, 237, 242, 0.09)',
           cursor: 'pointer',
           boxShadow: isLight ? '0 2px 8px rgba(15, 23, 42, 0.05)' : '0 2px 8px rgba(0, 0, 0, 0.22)',
           transition: 'background .2s, box-shadow .24s, border-color .2s, transform .24s'
         }}
         onMouseEnter={(el) => {
-          el.currentTarget.style.background = isLight ? 'rgba(255, 255, 255, 0.95)' : 'rgba(38, 54, 72, 0.72)';
+          el.currentTarget.style.background = isBlack
+            ? 'rgba(24, 24, 24, 0.95)'
+            : isLight
+            ? 'rgba(255, 255, 255, 0.95)'
+            : 'rgba(38, 54, 72, 0.72)';
           el.currentTarget.style.boxShadow = isLight ? '0 8px 24px rgba(15, 23, 42, 0.1)' : '0 10px 24px rgba(0, 0, 0, 0.35)';
-          el.currentTarget.style.borderColor = isLight ? 'rgba(37, 99, 235, 0.5)' : '#94bce3';
+          el.currentTarget.style.borderColor = isBlack ? 'rgba(255, 255, 255, 0.45)' : isLight ? 'rgba(37, 99, 235, 0.5)' : '#94bce3';
           el.currentTarget.style.transform = 'translateX(4px)';
         }}
         onMouseLeave={(el) => {
-          el.currentTarget.style.background = isLight ? 'rgba(255, 255, 255, 0.72)' : 'rgba(23, 32, 44, 0.44)';
+          el.currentTarget.style.background = isBlack
+            ? 'rgba(0, 0, 0, 0.72)'
+            : isLight
+            ? 'rgba(255, 255, 255, 0.72)'
+            : 'rgba(23, 32, 44, 0.44)';
           el.currentTarget.style.boxShadow = isLight ? '0 2px 8px rgba(15, 23, 42, 0.05)' : '0 2px 8px rgba(0, 0, 0, 0.22)';
-          el.currentTarget.style.borderColor = isLight ? 'rgba(15, 23, 42, 0.08)' : 'rgba(233, 237, 242, 0.09)';
+          el.currentTarget.style.borderColor = isBlack
+            ? '1px solid rgba(255, 255, 255, 0.12)'
+            : isLight
+            ? 'rgba(15, 23, 42, 0.08)'
+            : 'rgba(233, 237, 242, 0.09)';
           el.currentTarget.style.transform = 'translateX(0)';
         }}
       >
