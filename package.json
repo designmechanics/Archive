@@ -1,6 +1,6 @@
 {
   "name": "archive-asset-library",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Personal visual asset library & UI-effects studio engineered local-first with React, SQLite WAL, GSAP 3D choreography, and universal multi-format previews.",
   "private": true,
   "license": "MIT",
