@@ -125,6 +125,7 @@ export const Rail: React.FC<RailProps> = ({
   }, []);
 
   const isLight = theme === 'light';
+  const isBlack = theme === 'black';
 
   return (
     <aside
@@ -207,7 +208,7 @@ export const Rail: React.FC<RailProps> = ({
             fontFamily: 'ui-monospace, Menlo, monospace',
             fontSize: '9.5px',
             letterSpacing: '.12em',
-            color: isLight ? 'var(--tint-ink, #1d4ed8)' : '#b5d9fd',
+            color: isBlack ? '#ffffff' : (isLight ? 'var(--tint-ink, #1d4ed8)' : '#b5d9fd'),
             textTransform: 'uppercase'
           }}
         >
@@ -228,7 +229,7 @@ export const Rail: React.FC<RailProps> = ({
           style={{
             height: '4px',
             borderRadius: '99px',
-            background: isLight ? 'rgba(15,23,42,.08)' : 'rgba(148,188,227,.2)',
+            background: isBlack ? 'rgba(255, 255, 255, 0.12)' : (isLight ? 'rgba(15,23,42,.08)' : 'rgba(148,188,227,.2)'),
             overflow: 'hidden'
           }}
         >
@@ -238,7 +239,7 @@ export const Rail: React.FC<RailProps> = ({
               height: '100%',
               width: `${indexPct}%`,
               borderRadius: '99px',
-              background: isLight ? 'linear-gradient(90deg, #3b82f6, #60a5fa)' : 'linear-gradient(90deg, #5980a6, #b5d9fd)',
+              background: isBlack ? 'linear-gradient(90deg, #555555, #ffffff)' : (isLight ? 'linear-gradient(90deg, #3b82f6, #60a5fa)' : 'linear-gradient(90deg, #5980a6, #b5d9fd)'),
               transition: 'width 0.4s ease'
             }}
           />
@@ -320,7 +321,7 @@ export const Rail: React.FC<RailProps> = ({
         {/* Pool Rows */}
         {poolList.map((poolItem) => {
           const p = poolItem.name;
-          const dotColor = poolItem.color || '#94bce3';
+          const dotColor = isBlack ? '#ffffff' : (poolItem.color || '#94bce3');
           const isSelected = selectedPool === p;
           const isFanOpen = fanPool === p;
           const count = poolCounts[p] || 0;
@@ -361,7 +362,7 @@ export const Rail: React.FC<RailProps> = ({
                 onClick={() => onSelectPool(isSelected ? null : p)}
                 onMouseEnter={(e) => {
                   onHoverPool(p);
-                  if (!isSelected) e.currentTarget.style.background = isLight ? 'rgba(15,23,42,.05)' : 'rgba(148,188,227,.14)';
+                  if (!isSelected) e.currentTarget.style.background = isBlack ? 'rgba(255, 255, 255, 0.08)' : (isLight ? 'rgba(15,23,42,.05)' : 'rgba(148,188,227,.14)');
                 }}
                 onMouseLeave={(e) => {
                   onHoverPool(null);
@@ -378,7 +379,7 @@ export const Rail: React.FC<RailProps> = ({
                   borderRadius: '11px',
                   cursor: 'pointer',
                   background: isSelected
-                    ? (isLight ? 'rgba(15,23,42,.08)' : 'rgba(148,188,227,.22)')
+                    ? (isBlack ? 'rgba(255, 255, 255, 0.16)' : (isLight ? 'rgba(15,23,42,.08)' : 'rgba(148,188,227,.22)'))
                     : 'transparent',
                   color: 'var(--rail-ink, var(--ink, #1d1f20))',
                   transition: 'background 0.18s'
@@ -392,7 +393,7 @@ export const Rail: React.FC<RailProps> = ({
                     background: dotColor,
                     flex: 'none',
                     opacity: 0.85,
-                    boxShadow: `0 0 6px ${dotColor}`
+                    boxShadow: isBlack ? '0 0 4px rgba(255,255,255,0.4)' : `0 0 6px ${dotColor}`
                   }}
                 />
                 <span
@@ -414,7 +415,7 @@ export const Rail: React.FC<RailProps> = ({
                   style={{
                     fontFamily: 'ui-monospace, Menlo, monospace',
                     fontSize: '10px',
-                    color: isLight ? 'rgba(15,23,42,.5)' : 'rgba(233,237,242,.5)'
+                    color: isBlack ? 'rgba(255, 255, 255, 0.5)' : (isLight ? 'rgba(15,23,42,.5)' : 'rgba(233,237,242,.5)')
                   }}
                 >
                   {count}
@@ -435,15 +436,15 @@ export const Rail: React.FC<RailProps> = ({
                     justifyContent: 'center',
                     fontFamily: 'ui-monospace, Menlo, monospace',
                     fontSize: '11px',
-                    color: isLight ? 'var(--tint-ink, #1d4ed8)' : '#b5d9fd',
-                    background: isLight ? 'rgba(15,23,42,.06)' : 'rgba(148,188,227,.14)',
+                    color: isBlack ? '#ffffff' : (isLight ? 'var(--tint-ink, #1d4ed8)' : '#b5d9fd'),
+                    background: isBlack ? 'rgba(255, 255, 255, 0.12)' : (isLight ? 'rgba(15,23,42,.06)' : 'rgba(148,188,227,.14)'),
                     cursor: 'pointer'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = isLight ? 'rgba(15,23,42,.12)' : 'rgba(148,188,227,.32)';
+                    e.currentTarget.style.background = isBlack ? 'rgba(255, 255, 255, 0.22)' : (isLight ? 'rgba(15,23,42,.12)' : 'rgba(148,188,227,.32)');
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = isLight ? 'rgba(15,23,42,.06)' : 'rgba(148,188,227,.14)';
+                    e.currentTarget.style.background = isBlack ? 'rgba(255, 255, 255, 0.12)' : (isLight ? 'rgba(15,23,42,.06)' : 'rgba(148,188,227,.14)');
                   }}
                 >
                   {isFanOpen ? '–' : '⊞'}
@@ -762,12 +763,14 @@ export const Rail: React.FC<RailProps> = ({
                     width: '7px',
                     height: '7px',
                     borderRadius: '50%',
-                    background: isIngesting ? '#facc15' : isEnabled ? '#22c55e' : '#6b7280',
-                    boxShadow: isIngesting
+                    background: isBlack ? (isEnabled ? '#ffffff' : '#6b7280') : (isIngesting ? '#facc15' : isEnabled ? '#22c55e' : '#6b7280'),
+                    boxShadow: isBlack
+                      ? (isEnabled ? '0 0 6px rgba(255,255,255,.7)' : 'none')
+                      : (isIngesting
                       ? '0 0 8px rgba(250,204,21,.8)'
                       : isEnabled
                       ? '0 0 6px rgba(34,197,94,.7)'
-                      : 'none',
+                      : 'none'),
                     animation: isIngesting
                       ? 'idxpulse 0.9s ease-in-out infinite'
                       : isEnabled
@@ -809,9 +812,9 @@ export const Rail: React.FC<RailProps> = ({
                     fontSize: '8px',
                     padding: '1px 5px',
                     borderRadius: '4px',
-                    background: 'rgba(250,204,21,.18)',
-                    color: '#facc15',
-                    border: '1px solid rgba(250,204,21,.35)',
+                    background: isBlack ? 'rgba(255, 255, 255, 0.15)' : 'rgba(250,204,21,.18)',
+                    color: isBlack ? '#ffffff' : '#facc15',
+                    border: isBlack ? '1px solid rgba(255, 255, 255, 0.3)' : '1px solid rgba(250,204,21,.35)',
                     letterSpacing: '.06em',
                     fontWeight: 700,
                     textTransform: 'uppercase'
@@ -839,8 +842,8 @@ export const Rail: React.FC<RailProps> = ({
                     fontFamily: 'ui-monospace, Menlo, monospace',
                     fontSize: '9.5px',
                     color: isSelected
-                      ? (isLight ? 'var(--tint-ink, #1d4ed8)' : '#b5d9fd')
-                      : (isLight ? 'rgba(15,23,42,.6)' : '#94bce3')
+                      ? (isBlack ? '#ffffff' : (isLight ? 'var(--tint-ink, #1d4ed8)' : '#b5d9fd'))
+                      : (isBlack ? 'rgba(255, 255, 255, 0.7)' : (isLight ? 'rgba(15,23,42,.6)' : '#94bce3'))
                   }}
                 >
                   {folderCount}
@@ -859,7 +862,7 @@ export const Rail: React.FC<RailProps> = ({
                     width: '24px',
                     height: '13px',
                     borderRadius: '10px',
-                    background: isEnabled ? '#22c55e' : (isLight ? 'rgba(15,23,42,.15)' : 'rgba(255,255,255,.18)'),
+                    background: isBlack ? (isEnabled ? '#ffffff' : 'rgba(255,255,255,.18)') : (isEnabled ? '#22c55e' : (isLight ? 'rgba(15,23,42,.15)' : 'rgba(255,255,255,.18)')),
                     display: 'flex',
                     alignItems: 'center',
                     padding: '1px 2px',
@@ -873,7 +876,7 @@ export const Rail: React.FC<RailProps> = ({
                       width: '9px',
                       height: '9px',
                       borderRadius: '50%',
-                      background: '#ffffff',
+                      background: isBlack && isEnabled ? '#000000' : '#ffffff',
                       boxShadow: '0 1px 2px rgba(0,0,0,.3)'
                     }}
                   />
@@ -943,8 +946,8 @@ export const Rail: React.FC<RailProps> = ({
             marginTop: '12px',
             padding: '10px 12px',
             borderRadius: '12px',
-            background: isLight ? 'rgba(15,23,42,.03)' : 'rgba(148,188,227,.07)',
-            border: isLight ? '1px solid rgba(15,23,42,.08)' : '1px solid rgba(148,188,227,.18)',
+            background: isBlack ? 'rgba(255, 255, 255, 0.05)' : (isLight ? 'rgba(15,23,42,.03)' : 'rgba(148,188,227,.07)'),
+            border: isBlack ? '1px solid rgba(255, 255, 255, 0.15)' : (isLight ? '1px solid rgba(15,23,42,.08)' : '1px solid rgba(148,188,227,.18)'),
             display: 'flex',
             flexDirection: 'column',
             gap: '5px'
@@ -957,7 +960,7 @@ export const Rail: React.FC<RailProps> = ({
                 fontSize: '9.5px',
                 letterSpacing: '.12em',
                 textTransform: 'uppercase',
-                color: isLight ? 'var(--tint-ink, #1d4ed8)' : '#94bce3',
+                color: isBlack ? '#ffffff' : (isLight ? 'var(--tint-ink, #1d4ed8)' : '#94bce3'),
                 display: 'flex',
                 alignItems: 'center',
                 gap: '5px'
@@ -968,9 +971,9 @@ export const Rail: React.FC<RailProps> = ({
                   width: '6px',
                   height: '6px',
                   borderRadius: '50%',
-                  background: '#22c55e',
+                  background: isBlack ? '#ffffff' : '#22c55e',
                   display: 'inline-block',
-                  boxShadow: '0 0 6px rgba(34,197,94,.7)'
+                  boxShadow: isBlack ? '0 0 6px rgba(255,255,255,.7)' : '0 0 6px rgba(34,197,94,.7)'
                 }}
               />
               SQLite WAL Active
@@ -979,7 +982,7 @@ export const Rail: React.FC<RailProps> = ({
               style={{
                 fontFamily: 'ui-monospace, Menlo, monospace',
                 fontSize: '9px',
-                color: isLight ? 'var(--ink, #0f172a)' : '#b5d9fd'
+                color: isBlack ? '#ffffff' : (isLight ? 'var(--ink, #0f172a)' : '#b5d9fd')
               }}
             >
               {dbSize || 'archive.db'}
@@ -1007,9 +1010,9 @@ export const Rail: React.FC<RailProps> = ({
                 style={{
                   padding: '5px 7px',
                   borderRadius: '7px',
-                  border: isLight ? '1px solid rgba(15,23,42,.12)' : '1px solid rgba(148,188,227,.2)',
-                  background: isLight ? 'rgba(15,23,42,.04)' : 'rgba(148,188,227,.1)',
-                  color: isLight ? 'var(--tint-ink, #1d4ed8)' : '#b5d9fd',
+                  border: isBlack ? '1px solid rgba(255, 255, 255, 0.2)' : (isLight ? '1px solid rgba(15,23,42,.12)' : '1px solid rgba(148,188,227,.2)'),
+                  background: isBlack ? 'rgba(255, 255, 255, 0.08)' : (isLight ? 'rgba(15,23,42,.04)' : 'rgba(148,188,227,.1)'),
+                  color: isBlack ? '#ffffff' : (isLight ? 'var(--tint-ink, #1d4ed8)' : '#b5d9fd'),
                   fontFamily: 'ui-monospace, Menlo, monospace',
                   fontSize: '9.5px',
                   cursor: 'pointer',
@@ -1017,8 +1020,8 @@ export const Rail: React.FC<RailProps> = ({
                   transition: 'background 0.2s'
                 }}
                 title="Open Settings & Database Backups"
-                onMouseEnter={(e) => (e.currentTarget.style.background = isLight ? 'rgba(15,23,42,.08)' : 'rgba(148,188,227,.2)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = isLight ? 'rgba(15,23,42,.04)' : 'rgba(148,188,227,.1)')}
+                onMouseEnter={(e) => (e.currentTarget.style.background = isBlack ? 'rgba(255, 255, 255, 0.16)' : (isLight ? 'rgba(15,23,42,.08)' : 'rgba(148,188,227,.2)'))}
+                onMouseLeave={(e) => (e.currentTarget.style.background = isBlack ? 'rgba(255, 255, 255, 0.08)' : (isLight ? 'rgba(15,23,42,.04)' : 'rgba(148,188,227,.1)'))}
               >
                 Backups
               </button>
@@ -1030,9 +1033,9 @@ export const Rail: React.FC<RailProps> = ({
                   flex: 1,
                   padding: '5px 7px',
                   borderRadius: '7px',
-                  border: isLight ? '1px solid rgba(15,23,42,.12)' : '1px solid rgba(148,188,227,.2)',
-                  background: isLight ? 'rgba(15,23,42,.04)' : 'rgba(148,188,227,.1)',
-                  color: isLight ? 'var(--tint-ink, #1d4ed8)' : '#b5d9fd',
+                  border: isBlack ? '1px solid rgba(255, 255, 255, 0.2)' : (isLight ? '1px solid rgba(15,23,42,.12)' : '1px solid rgba(148,188,227,.2)'),
+                  background: isBlack ? 'rgba(255, 255, 255, 0.08)' : (isLight ? 'rgba(15,23,42,.04)' : 'rgba(148,188,227,.1)'),
+                  color: isBlack ? '#ffffff' : (isLight ? 'var(--tint-ink, #1d4ed8)' : '#b5d9fd'),
                   fontFamily: 'ui-monospace, Menlo, monospace',
                   fontSize: '9.5px',
                   cursor: 'pointer',
@@ -1040,8 +1043,8 @@ export const Rail: React.FC<RailProps> = ({
                   transition: 'background 0.2s'
                 }}
                 title="Runs SQLite VACUUM and PRAGMA optimize"
-                onMouseEnter={(e) => (e.currentTarget.style.background = isLight ? 'rgba(15,23,42,.08)' : 'rgba(148,188,227,.2)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = isLight ? 'rgba(15,23,42,.04)' : 'rgba(148,188,227,.1)')}
+                onMouseEnter={(e) => (e.currentTarget.style.background = isBlack ? 'rgba(255, 255, 255, 0.16)' : (isLight ? 'rgba(15,23,42,.08)' : 'rgba(148,188,227,.2)'))}
+                onMouseLeave={(e) => (e.currentTarget.style.background = isBlack ? 'rgba(255, 255, 255, 0.08)' : (isLight ? 'rgba(15,23,42,.04)' : 'rgba(148,188,227,.1)'))}
               >
                 Optimize
               </button>
@@ -1057,9 +1060,9 @@ export const Rail: React.FC<RailProps> = ({
                 style={{
                   padding: '5px 8px',
                   borderRadius: '7px',
-                  border: '1px solid rgba(255,100,100,.3)',
-                  background: 'rgba(255,80,80,.1)',
-                  color: '#ff8899',
+                  border: isBlack ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid rgba(255,100,100,.3)',
+                  background: isBlack ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255,80,80,.1)',
+                  color: isBlack ? '#ffffff' : '#ff8899',
                   fontFamily: 'ui-monospace, Menlo, monospace',
                   fontSize: '9.5px',
                   cursor: 'pointer',
@@ -1067,8 +1070,8 @@ export const Rail: React.FC<RailProps> = ({
                   transition: 'background 0.2s'
                 }}
                 title="Clears all assets from archive.db"
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,80,80,.2)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,80,80,.1)')}
+                onMouseEnter={(e) => { e.currentTarget.style.background = isBlack ? 'rgba(255, 255, 255, 0.16)' : 'rgba(255,80,80,.2)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = isBlack ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255,80,80,.1)'; }}
               >
                 Clear
               </button>

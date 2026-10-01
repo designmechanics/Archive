@@ -185,11 +185,27 @@ export const ListView: React.FC<ListViewProps> = ({
       gap: '4px',
       padding: '3px 8px',
       borderRadius: '6px',
-      background: isLight ? 'rgba(37, 99, 235, 0.14)' : isMid ? 'rgba(15, 27, 39, 0.22)' : 'rgba(89, 128, 166, 0.32)',
-      border: isLight ? '1px solid rgba(37, 99, 235, 0.4)' : isMid ? '1px solid rgba(15, 27, 39, 0.35)' : '1px solid rgba(148, 188, 227, 0.45)',
-      color: isLight ? '#1d4ed8' : isMid ? '#09131d' : '#b5d9fd',
+      background: isBlack
+        ? 'rgba(255, 255, 255, 0.14)'
+        : isLight
+        ? 'rgba(37, 99, 235, 0.14)'
+        : isMid
+        ? 'rgba(15, 27, 39, 0.22)'
+        : 'rgba(89, 128, 166, 0.32)',
+      border: isBlack
+        ? '1px solid rgba(255, 255, 255, 0.35)'
+        : isLight
+        ? '1px solid rgba(37, 99, 235, 0.4)'
+        : isMid
+        ? '1px solid rgba(15, 27, 39, 0.35)'
+        : '1px solid rgba(148, 188, 227, 0.45)',
+      color: isBlack ? '#ffffff' : isLight ? '#1d4ed8' : isMid ? '#09131d' : '#b5d9fd',
       fontWeight: 700,
-      boxShadow: isLight ? '0 1px 3px rgba(37, 99, 235, 0.12)' : '0 1px 3px rgba(0, 0, 0, 0.2)'
+      boxShadow: isBlack
+        ? '0 1px 3px rgba(0, 0, 0, 0.6)'
+        : isLight
+        ? '0 1px 3px rgba(37, 99, 235, 0.12)'
+        : '0 1px 3px rgba(0, 0, 0, 0.2)'
     };
   };
 
@@ -253,7 +269,7 @@ export const ListView: React.FC<ListViewProps> = ({
         <span style={sortBadgeStyle(isSortAsset)}>
           <span>{sortOption === 'number' ? 'Asset #' : 'Asset'}</span>
           {isSortAsset && (
-            <span style={{ fontSize: '9px', color: isLight ? '#2563eb' : '#38ef7d' }}>
+            <span style={{ fontSize: '9px', color: isBlack ? '#ffffff' : isLight ? '#2563eb' : '#38ef7d' }}>
               {dirArrow} {sortDirection.toUpperCase()}
             </span>
           )}
@@ -275,7 +291,7 @@ export const ListView: React.FC<ListViewProps> = ({
         <span style={sortBadgeStyle(isSortFormat)}>
           <span>Format</span>
           {isSortFormat && (
-            <span style={{ fontSize: '9px', color: isLight ? '#2563eb' : '#38ef7d' }}>
+            <span style={{ fontSize: '9px', color: isBlack ? '#ffffff' : isLight ? '#2563eb' : '#38ef7d' }}>
               {dirArrow}
             </span>
           )}
@@ -299,7 +315,7 @@ export const ListView: React.FC<ListViewProps> = ({
         <span style={sortBadgeStyle(isSortSize)}>
           <span>Size</span>
           {isSortSize && (
-            <span style={{ fontSize: '9px', color: isLight ? '#2563eb' : '#38ef7d' }}>
+            <span style={{ fontSize: '9px', color: isBlack ? '#ffffff' : isLight ? '#2563eb' : '#38ef7d' }}>
               {dirArrow}
             </span>
           )}
@@ -335,7 +351,7 @@ export const ListView: React.FC<ListViewProps> = ({
             {sortOption === 'date_mod' ? 'Mod' : sortOption === 'age' ? 'Age' : 'Added'}
           </span>
           {isSortDate && (
-            <span style={{ fontSize: '9px', color: isLight ? '#2563eb' : '#38ef7d' }}>
+            <span style={{ fontSize: '9px', color: isBlack ? '#ffffff' : isLight ? '#2563eb' : '#38ef7d' }}>
               {dirArrow}
             </span>
           )}
@@ -349,8 +365,8 @@ export const ListView: React.FC<ListViewProps> = ({
             fontSize: '8.5px',
             padding: '1px 5px',
             borderRadius: '4px',
-            background: isLight ? 'rgba(37, 99, 235, 0.1)' : 'rgba(148, 188, 227, 0.12)',
-            color: isLight ? '#2563eb' : '#94bce3',
+            background: isBlack ? 'rgba(255, 255, 255, 0.12)' : isLight ? 'rgba(37, 99, 235, 0.1)' : 'rgba(148, 188, 227, 0.12)',
+            color: isBlack ? '#ffffff' : isLight ? '#2563eb' : '#94bce3',
             flex: 'none',
             letterSpacing: '0.06em'
           }}
@@ -433,7 +449,9 @@ export const ListView: React.FC<ListViewProps> = ({
             border: '1px solid rgba(var(--inkc, 29,31,32), .12)',
             background: e.thumb
               ? `url(${e.thumb}) center/${(e.exts && e.exts.includes('pdf')) ? 'contain #ffffff' : 'cover'} no-repeat`
-              : isLight
+              : isBlack
+                ? 'repeating-linear-gradient(135deg, rgba(255,255,255,.08) 0 3px, rgba(255,255,255,.02) 3px 7px)'
+                : isLight
                 ? 'repeating-linear-gradient(135deg, rgba(37,99,235,.10) 0 3px, rgba(37,99,235,.02) 3px 7px)'
                 : 'repeating-linear-gradient(135deg, rgba(89,128,166,.18) 0 3px, rgba(89,128,166,.04) 3px 7px)',
             position: 'relative',
@@ -471,7 +489,7 @@ export const ListView: React.FC<ListViewProps> = ({
             flex: 'none',
             textAlign: 'center',
             fontSize: '13px',
-            color: isStarred ? accent : 'rgba(var(--inkc, 29,31,32), .35)',
+            color: isStarred ? (isBlack ? '#ffffff' : accent) : 'rgba(var(--inkc, 29,31,32), .35)',
             cursor: 'pointer'
           }}
           title={isStarred ? 'Unstar' : 'Star'}
@@ -490,7 +508,7 @@ export const ListView: React.FC<ListViewProps> = ({
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
-            color: isSortAsset ? (isLight ? '#1d4ed8' : isMid ? '#09131d' : '#b5d9fd') : 'inherit',
+            color: isSortAsset ? (isBlack ? '#ffffff' : isLight ? '#1d4ed8' : isMid ? '#09131d' : '#b5d9fd') : 'inherit',
             display: 'flex',
             alignItems: 'center',
             gap: '6px'
@@ -503,7 +521,7 @@ export const ListView: React.FC<ListViewProps> = ({
                 fontSize: '10px',
                 padding: '1px 5px',
                 borderRadius: '4px',
-                background: isLight ? '#2563eb' : isMid ? '#09131d' : '#5980a6',
+                background: isBlack ? '#262626' : isLight ? '#2563eb' : isMid ? '#09131d' : '#5980a6',
                 color: '#ffffff',
                 fontWeight: 700,
                 flex: 'none'
@@ -524,18 +542,24 @@ export const ListView: React.FC<ListViewProps> = ({
             fontSize: '9.5px',
             letterSpacing: '.08em',
             textTransform: 'uppercase',
-            color: isSortFormat
+            color: isBlack
+              ? '#ffffff'
+              : isSortFormat
               ? (isLight ? '#1d4ed8' : isMid ? '#09131d' : '#38ef7d')
               : isZipArchive(e) && !e.isZipInnerFile
               ? (isLight ? '#15803d' : '#38ef7d')
               : (isLight ? 'var(--tint-ink, #1d4ed8)' : '#416180'),
             fontWeight: isSortFormat || (isZipArchive(e) && !e.isZipInnerFile) ? 700 : 500,
-            background: isSortFormat
+            background: isBlack
+              ? (isSortFormat ? 'rgba(255, 255, 255, 0.16)' : 'transparent')
+              : isSortFormat
               ? (isLight ? 'rgba(37, 99, 235, 0.12)' : isMid ? 'rgba(15, 27, 39, 0.16)' : 'rgba(148, 188, 227, 0.16)')
               : 'transparent',
             padding: isSortFormat ? '3px 7px' : '0',
             borderRadius: '6px',
-            border: isSortFormat
+            border: isBlack
+              ? (isSortFormat ? '1px solid rgba(255, 255, 255, 0.35)' : 'none')
+              : isSortFormat
               ? (isLight ? '1px solid rgba(37, 99, 235, 0.28)' : isMid ? '1px solid rgba(15, 27, 39, 0.25)' : '1px solid rgba(148, 188, 227, 0.35)')
               : 'none'
           }}
@@ -552,16 +576,16 @@ export const ListView: React.FC<ListViewProps> = ({
             fontFamily: 'ui-monospace, Menlo, monospace',
             fontSize: '10px',
             color: isSortSize
-              ? (isLight ? '#1d4ed8' : isMid ? '#09131d' : '#b5d9fd')
+              ? (isBlack ? '#ffffff' : isLight ? '#1d4ed8' : isMid ? '#09131d' : '#b5d9fd')
               : 'rgba(var(--inkc, 29,31,32), .65)',
             fontWeight: isSortSize ? 700 : 400,
             background: isSortSize
-              ? (isLight ? 'rgba(37, 99, 235, 0.12)' : isMid ? 'rgba(15, 27, 39, 0.16)' : 'rgba(148, 188, 227, 0.16)')
+              ? (isBlack ? 'rgba(255, 255, 255, 0.16)' : isLight ? 'rgba(37, 99, 235, 0.12)' : isMid ? 'rgba(15, 27, 39, 0.16)' : 'rgba(148, 188, 227, 0.16)')
               : 'transparent',
             padding: isSortSize ? '3px 7px' : '0',
             borderRadius: '6px',
             border: isSortSize
-              ? (isLight ? '1px solid rgba(37, 99, 235, 0.28)' : isMid ? '1px solid rgba(15, 27, 39, 0.25)' : '1px solid rgba(148, 188, 227, 0.35)')
+              ? (isBlack ? '1px solid rgba(255, 255, 255, 0.35)' : isLight ? '1px solid rgba(37, 99, 235, 0.28)' : isMid ? '1px solid rgba(15, 27, 39, 0.25)' : '1px solid rgba(148, 188, 227, 0.35)')
               : 'none'
           }}
         >
@@ -609,16 +633,16 @@ export const ListView: React.FC<ListViewProps> = ({
             fontFamily: 'ui-monospace, Menlo, monospace',
             fontSize: '10px',
             color: isSortDate
-              ? (isLight ? '#1d4ed8' : isMid ? '#09131d' : '#b5d9fd')
+              ? (isBlack ? '#ffffff' : isLight ? '#1d4ed8' : isMid ? '#09131d' : '#b5d9fd')
               : 'rgba(var(--inkc, 29,31,32), .42)',
             fontWeight: isSortDate ? 700 : 400,
             background: isSortDate
-              ? (isLight ? 'rgba(37, 99, 235, 0.12)' : isMid ? 'rgba(15, 27, 39, 0.16)' : 'rgba(148, 188, 227, 0.16)')
+              ? (isBlack ? 'rgba(255, 255, 255, 0.16)' : isLight ? 'rgba(37, 99, 235, 0.12)' : isMid ? 'rgba(15, 27, 39, 0.16)' : 'rgba(148, 188, 227, 0.16)')
               : 'transparent',
             padding: isSortDate ? '3px 7px' : '0',
             borderRadius: '6px',
             border: isSortDate
-              ? (isLight ? '1px solid rgba(37, 99, 235, 0.28)' : isMid ? '1px solid rgba(15, 27, 39, 0.25)' : '1px solid rgba(148, 188, 227, 0.35)')
+              ? (isBlack ? '1px solid rgba(255, 255, 255, 0.35)' : isLight ? '1px solid rgba(37, 99, 235, 0.28)' : isMid ? '1px solid rgba(15, 27, 39, 0.25)' : '1px solid rgba(148, 188, 227, 0.35)')
               : 'none'
           }}
           title={
@@ -670,8 +694,8 @@ export const ListView: React.FC<ListViewProps> = ({
                     textAlign: 'center',
                     fontFamily: 'ui-monospace, Menlo, monospace',
                     fontSize: '11px',
-                    color: isLight ? 'rgba(15, 23, 42, 0.4)' : 'rgba(233, 237, 242, 0.4)',
-                    border: isLight ? '1px dashed rgba(15, 23, 42, 0.15)' : '1px dashed rgba(148, 188, 227, 0.15)',
+                    color: isBlack ? 'rgba(255, 255, 255, 0.4)' : isLight ? 'rgba(15, 23, 42, 0.4)' : 'rgba(233, 237, 242, 0.4)',
+                    border: isBlack ? '1px dashed rgba(255, 255, 255, 0.15)' : isLight ? '1px dashed rgba(15, 23, 42, 0.15)' : '1px dashed rgba(148, 188, 227, 0.15)',
                     borderRadius: '12px',
                     marginTop: '4px'
                   }}

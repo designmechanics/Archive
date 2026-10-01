@@ -816,8 +816,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         width: '8px',
                         height: '8px',
                         borderRadius: '50%',
-                        background: '#38ef7d',
-                        boxShadow: '0 0 8px rgba(56,239,125,.7)'
+                        background: isBlack ? '#ffffff' : '#38ef7d',
+                        boxShadow: isBlack ? '0 0 8px rgba(255,255,255,.7)' : '0 0 8px rgba(56,239,125,.7)'
                       }}
                     />
                     <span
@@ -968,7 +968,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         fontFamily: 'ui-monospace, Menlo, monospace',
                         fontSize: '13px',
                         fontWeight: 700,
-                        color: isLight ? '#16a34a' : isMid ? '#104528' : '#38ef7d',
+                        color: isBlack ? '#ffffff' : isLight ? '#16a34a' : isMid ? '#104528' : '#38ef7d',
                         marginTop: '2px'
                       }}
                     >
@@ -1054,13 +1054,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     style={{
                       padding: '8px 12px',
                       borderRadius: '8px',
-                      background: lastBackupMsg.startsWith('✓')
+                      background: isBlack
+                        ? 'rgba(255, 255, 255, 0.12)'
+                        : lastBackupMsg.startsWith('✓')
                         ? (isLight ? 'rgba(34,197,94,0.12)' : isMid ? 'rgba(34,197,94,0.18)' : 'rgba(56,239,125,.12)')
                         : (isLight ? 'rgba(239,68,68,0.12)' : isMid ? 'rgba(239,68,68,0.18)' : 'rgba(255,100,100,.12)'),
-                      border: lastBackupMsg.startsWith('✓')
+                      border: isBlack
+                        ? '1px solid rgba(255, 255, 255, 0.3)'
+                        : lastBackupMsg.startsWith('✓')
                         ? `1px solid ${isLight ? 'rgba(34,197,94,0.3)' : isMid ? 'rgba(34,197,94,0.4)' : 'rgba(56,239,125,.3)'}`
                         : `1px solid ${isLight ? 'rgba(239,68,68,0.3)' : isMid ? 'rgba(239,68,68,0.4)' : 'rgba(255,100,100,.3)'}`,
-                      color: lastBackupMsg.startsWith('✓')
+                      color: isBlack
+                        ? '#ffffff'
+                        : lastBackupMsg.startsWith('✓')
                         ? (isLight ? '#15803d' : isMid ? '#052e16' : '#38ef7d')
                         : (isLight ? '#dc2626' : isMid ? '#7f1d1d' : '#ff8899'),
                       fontFamily: 'ui-monospace, Menlo, monospace',
@@ -1624,7 +1630,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         }}
                       />
                       <div>
-                        <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '11px', fontWeight: 700, color: '#38ef7d' }}>
+                        <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '11px', fontWeight: 700, color: isBlack ? '#ffffff' : '#38ef7d' }}>
                           ✓ ACTIVE CUSTOM WALLPAPER STORED
                         </div>
                         <div style={{ fontFamily: 'Barlow, sans-serif', fontSize: '11.5px', color: c.textMuted }}>
@@ -1637,9 +1643,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       style={{
                         padding: '5px 10px',
                         borderRadius: '7px',
-                        border: '1px solid rgba(239, 68, 68, 0.4)',
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        color: '#f87171',
+                        border: isBlack ? '1px solid rgba(255, 255, 255, 0.3)' : '1px solid rgba(239, 68, 68, 0.4)',
+                        background: isBlack ? 'rgba(255, 255, 255, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                        color: isBlack ? '#ffffff' : '#f87171',
                         fontFamily: "'Barlow Condensed', sans-serif",
                         fontSize: '12px',
                         fontWeight: 700,
@@ -2027,13 +2033,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         padding: '1px 6px',
                         borderRadius: '4px',
                         background: deferFolderIngestion
-                          ? (isLight ? 'rgba(34,197,94,0.12)' : isMid ? 'rgba(34,197,94,0.18)' : 'rgba(56,239,125,.18)')
+                          ? (isBlack ? 'rgba(255, 255, 255, 0.15)' : isLight ? 'rgba(34,197,94,0.12)' : isMid ? 'rgba(34,197,94,0.18)' : 'rgba(56,239,125,.18)')
                           : (isLight ? 'rgba(15,23,42,0.06)' : isMid ? 'rgba(11,23,36,0.12)' : 'rgba(255,255,255,.08)'),
                         color: deferFolderIngestion
-                          ? (isLight ? '#15803d' : isMid ? '#052e16' : '#38ef7d')
+                          ? (isBlack ? '#ffffff' : isLight ? '#15803d' : isMid ? '#052e16' : '#38ef7d')
                           : c.textMuted,
                         border: deferFolderIngestion
-                          ? `1px solid ${isLight ? 'rgba(34,197,94,0.35)' : isMid ? 'rgba(34,197,94,0.45)' : 'rgba(56,239,125,.4)'}`
+                          ? `1px solid ${isBlack ? 'rgba(255, 255, 255, 0.35)' : isLight ? 'rgba(34,197,94,0.35)' : isMid ? 'rgba(34,197,94,0.45)' : 'rgba(56,239,125,.4)'}`
                           : `1px solid ${c.border}`,
                         letterSpacing: '.06em'
                       }}
@@ -2064,7 +2070,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       height: '24px',
                       borderRadius: '12px',
                       background: deferFolderIngestion
-                        ? (isLight ? '#16a34a' : isMid ? '#103322' : '#38ef7d')
+                        ? (isBlack ? '#ffffff' : isLight ? '#16a34a' : isMid ? '#103322' : '#38ef7d')
                         : (isLight ? 'rgba(15,23,42,0.18)' : isMid ? 'rgba(11,23,36,0.25)' : 'rgba(255,255,255,.18)'),
                       border: 0,
                       display: 'flex',
@@ -2073,7 +2079,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       cursor: 'pointer',
                       flex: 'none',
                       transition: 'background 0.2s',
-                      boxShadow: deferFolderIngestion ? '0 0 10px rgba(56,239,125,.4)' : 'none'
+                      boxShadow: deferFolderIngestion ? (isBlack ? '0 0 10px rgba(255, 255, 255, 0.4)' : '0 0 10px rgba(56,239,125,.4)') : 'none'
                     }}
                   >
                     <span
@@ -2081,7 +2087,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         width: '20px',
                         height: '20px',
                         borderRadius: '50%',
-                        background: '#ffffff',
+                        background: isBlack ? (deferFolderIngestion ? '#000000' : '#ffffff') : '#ffffff',
                         boxShadow: '0 1px 3px rgba(0,0,0,.35)',
                         transform: deferFolderIngestion ? 'translateX(18px)' : 'translateX(0)',
                         transition: 'transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2)'
@@ -2207,8 +2213,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 width: '8px',
                                 height: '8px',
                                 borderRadius: '50%',
-                                background: isIngesting ? '#facc15' : isEnabled ? '#38ef7d' : '#6b7280',
-                                boxShadow: isIngesting
+                                background: isBlack
+                                  ? (isIngesting ? '#ffffff' : isEnabled ? '#ffffff' : '#555555')
+                                  : isIngesting ? '#facc15' : isEnabled ? '#38ef7d' : '#6b7280',
+                                boxShadow: isBlack
+                                  ? (isIngesting || isEnabled ? '0 0 6px rgba(255,255,255,.7)' : 'none')
+                                  : isIngesting
                                   ? '0 0 8px rgba(250,204,21,.8)'
                                   : isEnabled
                                   ? '0 0 6px rgba(56,239,125,.7)'
@@ -2226,7 +2236,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 style={{
                                   fontFamily: 'ui-monospace, Menlo, monospace',
                                   fontSize: '11px',
-                                  color: isIngesting
+                                  color: isBlack
+                                    ? '#ffffff'
+                                    : isIngesting
                                     ? (isLight ? '#b45309' : '#facc15')
                                     : isEnabled
                                     ? c.textPrimary
@@ -2244,7 +2256,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 style={{
                                   fontFamily: 'ui-monospace, Menlo, monospace',
                                   fontSize: '9px',
-                                  color: isIngesting
+                                  color: isBlack
+                                    ? 'rgba(255, 255, 255, 0.7)'
+                                    : isIngesting
                                     ? (isLight ? '#b45309' : '#facc15')
                                     : isEnabled
                                     ? c.textAccent
@@ -2267,9 +2281,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                   fontSize: '9px',
                                   padding: '3px 8px',
                                   borderRadius: '6px',
-                                  background: isLight ? 'rgba(234,179,8,0.14)' : 'rgba(250,204,21,.16)',
-                                  border: `1px solid ${isLight ? 'rgba(234,179,8,0.35)' : 'rgba(250,204,21,.35)'}`,
-                                  color: isLight ? '#b45309' : '#facc15',
+                                  background: isBlack ? 'rgba(255, 255, 255, 0.12)' : isLight ? 'rgba(234,179,8,0.14)' : 'rgba(250,204,21,.16)',
+                                  border: `1px solid ${isBlack ? 'rgba(255, 255, 255, 0.3)' : isLight ? 'rgba(234,179,8,0.35)' : 'rgba(250,204,21,.35)'}`,
+                                  color: isBlack ? '#ffffff' : isLight ? '#b45309' : '#facc15',
                                   fontWeight: 700,
                                   textTransform: 'uppercase'
                                 }}
@@ -2289,13 +2303,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                       padding: '5px 12px',
                                       borderRadius: '20px',
                                       background: isEnabled
-                                        ? (isLight ? 'rgba(34,197,94,0.12)' : isMid ? 'rgba(34,197,94,0.18)' : 'rgba(56,239,125,.14)')
+                                        ? (isBlack ? 'rgba(255, 255, 255, 0.15)' : isLight ? 'rgba(34,197,94,0.12)' : isMid ? 'rgba(34,197,94,0.18)' : 'rgba(56,239,125,.14)')
                                         : (isLight ? 'rgba(15,23,42,0.06)' : isMid ? 'rgba(11,23,36,0.12)' : 'rgba(255,255,255,.06)'),
                                       border: isEnabled
-                                        ? `1px solid ${isLight ? 'rgba(34,197,94,0.35)' : isMid ? 'rgba(34,197,94,0.45)' : 'rgba(56,239,125,.35)'}`
+                                        ? `1px solid ${isBlack ? 'rgba(255, 255, 255, 0.35)' : isLight ? 'rgba(34,197,94,0.35)' : isMid ? 'rgba(34,197,94,0.45)' : 'rgba(56,239,125,.35)'}`
                                         : `1px solid ${c.border}`,
                                       color: isEnabled
-                                        ? (isLight ? '#15803d' : isMid ? '#052e16' : '#38ef7d')
+                                        ? (isBlack ? '#ffffff' : isLight ? '#15803d' : isMid ? '#052e16' : '#38ef7d')
                                         : c.textMuted,
                                       cursor: 'pointer',
                                       fontSize: '10px',
@@ -2311,7 +2325,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                         width: '18px',
                                         height: '10px',
                                         borderRadius: '6px',
-                                        background: isEnabled ? '#38ef7d' : (isLight ? 'rgba(15,23,42,0.25)' : 'rgba(255,255,255,.2)'),
+                                        background: isEnabled ? (isBlack ? '#ffffff' : '#38ef7d') : (isLight ? 'rgba(15,23,42,0.25)' : 'rgba(255,255,255,.2)'),
                                         display: 'flex',
                                         alignItems: 'center',
                                         padding: '1px',
@@ -2323,7 +2337,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                           width: '8px',
                                           height: '8px',
                                           borderRadius: '50%',
-                                          background: '#ffffff'
+                                          background: isBlack ? (isEnabled ? '#000000' : '#ffffff') : '#ffffff'
                                         }}
                                       />
                                     </span>

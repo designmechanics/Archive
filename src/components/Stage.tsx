@@ -45,9 +45,21 @@ const getCardDepthStyling = (
   ad: number,
   isSelected: boolean,
   isCarousel: boolean,
-  isLight: boolean
+  isLight: boolean,
+  isBlack: boolean = false
 ) => {
   if (!isCarousel) {
+    if (isBlack) {
+      return {
+        border: isSelected
+          ? '2px solid #ffffff'
+          : '1px solid rgba(255, 255, 255, 0.14)',
+        borderColor: isSelected ? '#ffffff' : 'rgba(255, 255, 255, 0.14)',
+        boxShadow: isSelected
+          ? '0 0 0 2px #ffffff, 0 8px 30px rgba(0, 0, 0, 0.95)'
+          : '0 4px 14px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.4)'
+      };
+    }
     return {
       border: isSelected
         ? '2px solid #5980a6'
@@ -64,7 +76,12 @@ const getCardDepthStyling = (
   // Border: Strong high contrast in center, progressively weaker/dimmer further away
   let borderAlpha: number;
   let borderColor: string;
-  if (isLight) {
+  if (isBlack) {
+    borderAlpha = Math.max(0.04, Number((0.75 * Math.pow(0.46, ad)).toFixed(3)));
+    borderColor = isSelected
+      ? (ad === 0 ? '#ffffff' : 'rgba(255, 255, 255, 0.9)')
+      : `rgba(255, 255, 255, ${borderAlpha})`;
+  } else if (isLight) {
     borderAlpha = Math.max(0.02, Number((0.26 * Math.pow(0.46, ad)).toFixed(3)));
     borderColor = isSelected
       ? (ad === 0 ? '#2563eb' : 'rgba(37, 99, 235, 0.85)')
@@ -79,7 +96,21 @@ const getCardDepthStyling = (
 
   // Shadow: Slight in center, progressively larger and deeper further away
   let boxShadow: string;
-  if (isLight) {
+  if (isBlack) {
+    if (ad === 0) {
+      boxShadow = isSelected
+        ? '0 0 0 2px #ffffff, 0 10px 36px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.4)'
+        : '0 8px 24px -2px rgba(0, 0, 0, 0.8), 0 2px 8px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2)';
+    } else {
+      const blur = Math.round(18 + ad * 16);
+      const offsetY = Math.round(6 + ad * 7);
+      const spread = Math.round(ad * 2.8);
+      const opacity = Math.min(0.95, Number((0.45 + ad * 0.12).toFixed(2)));
+      boxShadow = isSelected
+        ? `0 ${offsetY}px ${blur}px ${spread}px rgba(0, 0, 0, ${opacity}), 0 0 26px rgba(255, 255, 255, 0.35)`
+        : `0 ${offsetY}px ${blur}px ${spread}px rgba(0, 0, 0, ${opacity})`;
+    }
+  } else if (isLight) {
     if (ad === 0) {
       boxShadow = isSelected
         ? '0 8px 28px rgba(37, 99, 235, 0.35), 0 2px 8px rgba(15, 23, 42, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.9)'
@@ -151,6 +182,7 @@ export const Stage: React.FC<StageProps> = ({
   onListOrderChange
 }) => {
   const isLight = theme === 'light';
+  const isBlack = theme === 'black';
   const rootRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -647,7 +679,7 @@ export const Stage: React.FC<StageProps> = ({
 
       const idxInVis = entries.findIndex((x) => x.id === entry.id);
       const ad = isCarousel && idxInVis >= 0 ? Math.abs(idxInVis - focus) : 0;
-      const depth = getCardDepthStyling(ad, isSelected, isCarousel, isLight);
+      const depth = getCardDepthStyling(ad, isSelected, isCarousel, isLight, isBlack);
 
       const innerSurface = el.querySelector('[data-reveal] > div') as HTMLElement | null;
       if (innerSurface) {
@@ -1332,7 +1364,7 @@ export const Stage: React.FC<StageProps> = ({
                   marginTop: '-13.5vh',
                   position: 'absolute',
                   left: 0,
-                  opacity: isListView ? 0.16 : 0.10,
+                  opacity: isBlack ? (isListView ? 0.05 : 0.035) : (isListView ? 0.08 : 0.05),
                   transform: 'translateX(-50%) translateZ(0)'
                 }}
               >
@@ -1345,7 +1377,7 @@ export const Stage: React.FC<StageProps> = ({
                   position: 'absolute',
                   bottom: '2vh',
                   left: 0,
-                  opacity: isListView ? 0.55 : 0.50,
+                  opacity: isBlack ? (isListView ? 0.18 : 0.15) : (isListView ? 0.26 : 0.25),
                   transform: 'translateX(-50%) translateZ(20px)'
                 }}
               >
@@ -1382,7 +1414,7 @@ export const Stage: React.FC<StageProps> = ({
                   marginTop: '-13.5vh',
                   position: 'absolute',
                   left: 0,
-                  opacity: isListView ? 0.16 : 0.10,
+                  opacity: isBlack ? (isListView ? 0.05 : 0.035) : (isListView ? 0.08 : 0.05),
                   transform: 'translateX(-50%) translateZ(0)'
                 }}
               >
@@ -1395,7 +1427,7 @@ export const Stage: React.FC<StageProps> = ({
                   position: 'absolute',
                   bottom: '2vh',
                   left: 0,
-                  opacity: isListView ? 0.55 : 0.50,
+                  opacity: isBlack ? (isListView ? 0.18 : 0.15) : (isListView ? 0.26 : 0.25),
                   transform: 'translateX(-50%) translateZ(20px)'
                 }}
               >
@@ -1493,9 +1525,9 @@ export const Stage: React.FC<StageProps> = ({
                   gap: '6px',
                   padding: '3px 10px',
                   borderRadius: '99px',
-                  background: 'rgba(56,239,125,.1)',
-                  border: '1px solid rgba(56,239,125,.3)',
-                  color: '#38ef7d',
+                  background: isBlack ? 'rgba(255, 255, 255, 0.08)' : 'rgba(56,239,125,.1)',
+                  border: isBlack ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid rgba(56,239,125,.3)',
+                  color: isBlack ? '#ffffff' : '#38ef7d',
                   fontFamily: 'ui-monospace, Menlo, monospace',
                   fontSize: '9.5px',
                   letterSpacing: '.08em',
@@ -1508,8 +1540,8 @@ export const Stage: React.FC<StageProps> = ({
                     width: '6px',
                     height: '6px',
                     borderRadius: '50%',
-                    background: '#38ef7d',
-                    boxShadow: '0 0 6px rgba(56,239,125,.7)'
+                    background: isBlack ? '#ffffff' : '#38ef7d',
+                    boxShadow: isBlack ? '0 0 6px rgba(255,255,255,.7)' : '0 0 6px rgba(56,239,125,.7)'
                   }}
                 />
                 SQLite WAL Active · D:\Archive\archive.db
@@ -1547,15 +1579,15 @@ export const Stage: React.FC<StageProps> = ({
                     padding: '10px 18px',
                     borderRadius: '12px',
                     cursor: 'pointer',
-                    border: isLight ? '1px solid rgba(15, 23, 42, 0.15)' : '1px solid #416180',
+                    border: isBlack ? '1px solid rgba(255, 255, 255, 0.3)' : (isLight ? '1px solid rgba(15, 23, 42, 0.15)' : '1px solid #416180'),
                     color: isLight ? '#ffffff' : '#f2f2f3',
                     fontFamily: "'Barlow Condensed', sans-serif",
                     fontSize: '14px',
                     fontWeight: 600,
                     letterSpacing: '.05em',
                     textTransform: 'uppercase',
-                    background: isLight ? 'linear-gradient(180deg, #3b82f6, #2563eb)' : 'linear-gradient(180deg, #6b91b6, #5980a6)',
-                    boxShadow: isLight ? '0 2px 8px rgba(37,99,235,.25)' : '0 2px 0 #416180, 0 6px 14px rgba(65,97,128,.3)'
+                    background: isBlack ? 'linear-gradient(180deg, #262626, #141414)' : (isLight ? 'linear-gradient(180deg, #3b82f6, #2563eb)' : 'linear-gradient(180deg, #6b91b6, #5980a6)'),
+                    boxShadow: isBlack ? '0 2px 0 rgba(255,255,255,0.15), 0 6px 14px rgba(0,0,0,0.6)' : (isLight ? '0 2px 8px rgba(37,99,235,.25)' : '0 2px 0 #416180, 0 6px 14px rgba(65,97,128,.3)')
                   }}
                 >
                   + Ingest Zips & Files
@@ -1568,9 +1600,9 @@ export const Stage: React.FC<StageProps> = ({
                     padding: '10px 18px',
                     borderRadius: '12px',
                     cursor: 'pointer',
-                    border: isLight ? '1px solid rgba(15, 23, 42, 0.16)' : '1px solid rgba(148, 188, 227, 0.3)',
+                    border: isBlack ? '1px solid rgba(255, 255, 255, 0.25)' : (isLight ? '1px solid rgba(15, 23, 42, 0.16)' : '1px solid rgba(148, 188, 227, 0.3)'),
                     background: 'transparent',
-                    color: isLight ? 'var(--tint-ink, #1d4ed8)' : '#b5d9fd',
+                    color: isBlack ? '#ffffff' : (isLight ? 'var(--tint-ink, #1d4ed8)' : '#b5d9fd'),
                     fontFamily: "'Barlow Condensed', sans-serif",
                     fontSize: '14px',
                     fontWeight: 600,
@@ -1594,7 +1626,7 @@ export const Stage: React.FC<StageProps> = ({
                   fontSize: '10px',
                   letterSpacing: '.06em',
                   textTransform: 'uppercase',
-                  color: isLight ? 'var(--tint-ink, #1d4ed8)' : 'rgba(148, 188, 227, 0.5)',
+                  color: isBlack ? '#ffffff' : (isLight ? 'var(--tint-ink, #1d4ed8)' : 'rgba(148, 188, 227, 0.5)'),
                   textDecoration: 'underline'
                 }}
               >
@@ -1629,9 +1661,9 @@ export const Stage: React.FC<StageProps> = ({
               style={{
                 padding: '8px 14px',
                 borderRadius: '10px',
-                border: isLight ? '1px solid rgba(15, 23, 42, 0.15)' : '1px solid rgba(148, 188, 227, 0.3)',
-                background: isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(148, 188, 227, 0.1)',
-                color: isLight ? 'var(--tint-ink, #1d4ed8)' : '#b5d9fd',
+                border: isBlack ? '1px solid rgba(255, 255, 255, 0.25)' : (isLight ? '1px solid rgba(15, 23, 42, 0.15)' : '1px solid rgba(148, 188, 227, 0.3)'),
+                background: isBlack ? 'rgba(255, 255, 255, 0.08)' : (isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(148, 188, 227, 0.1)'),
+                color: isBlack ? '#ffffff' : (isLight ? 'var(--tint-ink, #1d4ed8)' : '#b5d9fd'),
                 fontFamily: "'Barlow Condensed', sans-serif",
                 fontSize: '13px',
                 fontWeight: 600,
@@ -1663,7 +1695,7 @@ export const Stage: React.FC<StageProps> = ({
             const idxInEntries = entries.findIndex((x) => x.id === e.id);
             const focus = Math.max(0, Math.min(focusIndex, entries.length - 1));
             const ad = isCarousel && idxInEntries >= 0 ? Math.abs(idxInEntries - focus) : 0;
-            const depth = getCardDepthStyling(ad, isSelected, isCarousel, isLight);
+            const depth = getCardDepthStyling(ad, isSelected, isCarousel, isLight, isBlack);
             const sortInfo = getSortDisplayInfo(e, sortOption);
             const sortMeta = SORT_CONFIGS[sortOption] || SORT_CONFIGS.name;
 
@@ -1706,9 +1738,9 @@ export const Stage: React.FC<StageProps> = ({
                     }}
                     onMouseEnter={(el) => {
                       el.currentTarget.style.boxShadow = isSelected
-                        ? (isLight ? '0 16px 36px rgba(37,99,235,.4), 0 0 20px rgba(37,99,235,.2)' : '0 16px 36px rgba(89,128,166,.5), 0 0 20px rgba(89,128,166,.3)')
-                        : (isLight ? '0 16px 36px rgba(15,23,42,.15), 0 0 0 1px rgba(37,99,235,.5)' : '0 20px 48px rgba(0,0,0,.65), 0 0 0 1px rgba(181,217,253,.6)');
-                      el.currentTarget.style.borderColor = isLight ? '#2563eb' : '#b5d9fd';
+                        ? (isBlack ? '0 16px 36px rgba(0,0,0,.95), 0 0 24px rgba(255,255,255,.4)' : isLight ? '0 16px 36px rgba(37,99,235,.4), 0 0 20px rgba(37,99,235,.2)' : '0 16px 36px rgba(89,128,166,.5), 0 0 20px rgba(89,128,166,.3)')
+                        : (isBlack ? '0 20px 48px rgba(0,0,0,.9), 0 0 0 1px rgba(255,255,255,.6)' : isLight ? '0 16px 36px rgba(15,23,42,.15), 0 0 0 1px rgba(37,99,235,.5)' : '0 20px 48px rgba(0,0,0,.65), 0 0 0 1px rgba(181,217,253,.6)');
+                      el.currentTarget.style.borderColor = isBlack ? '#ffffff' : (isLight ? '#2563eb' : '#b5d9fd');
                       el.currentTarget.style.transform = 'translateY(-3px)';
                     }}
                     onMouseLeave={(el) => {
@@ -1723,10 +1755,12 @@ export const Stage: React.FC<StageProps> = ({
                         position: 'relative',
                         flex: 1,
                         minHeight: 0,
-                        background: isLight
+                        background: isBlack
+                          ? 'repeating-linear-gradient(135deg, rgba(255,255,255,.05) 0 4px, rgba(255,255,255,.01) 4px 9px)'
+                          : (isLight
                           ? 'repeating-linear-gradient(135deg, rgba(37,99,235,.07) 0 4px, rgba(37,99,235,.02) 4px 9px)'
-                          : 'repeating-linear-gradient(135deg, rgba(89,128,166,.15) 0 4px, rgba(89,128,166,.04) 4px 9px)',
-                        borderBottom: isLight ? '1px solid rgba(15, 23, 42, 0.08)' : '1px solid rgba(var(--inkc, 29,31,32), .1)'
+                          : 'repeating-linear-gradient(135deg, rgba(89,128,166,.15) 0 4px, rgba(89,128,166,.04) 4px 9px)'),
+                        borderBottom: isBlack ? '1px solid rgba(255, 255, 255, 0.12)' : (isLight ? '1px solid rgba(15, 23, 42, 0.08)' : '1px solid rgba(var(--inkc, 29,31,32), .1)')
                       }}
                     >
                       {e.thumb ? (
@@ -1754,15 +1788,21 @@ export const Stage: React.FC<StageProps> = ({
                           top: '9px',
                           padding: '3px 8px',
                           borderRadius: '7px',
-                          background: isZipArchive(e) && !e.isZipInnerFile
+                          background: isBlack
+                            ? 'rgba(255, 255, 255, 0.08)'
+                            : (isZipArchive(e) && !e.isZipInnerFile
                             ? (isLight ? 'rgba(34, 197, 94, 0.16)' : 'rgba(56,239,125,.22)')
-                            : (isLight ? 'rgba(241, 245, 249, 0.92)' : 'rgba(29,45,61,.85)'),
-                          border: isZipArchive(e) && !e.isZipInnerFile
+                            : (isLight ? 'rgba(241, 245, 249, 0.92)' : 'rgba(29,45,61,.85)')),
+                          border: isBlack
+                            ? '1px solid rgba(255, 255, 255, 0.18)'
+                            : (isZipArchive(e) && !e.isZipInnerFile
                             ? (isLight ? '1px solid rgba(34, 197, 94, 0.45)' : '1px solid rgba(56,239,125,.45)')
-                            : (isLight ? '1px solid rgba(15, 23, 42, 0.12)' : '1px solid rgba(255,255,255,.08)'),
-                          color: isZipArchive(e) && !e.isZipInnerFile
+                            : (isLight ? '1px solid rgba(15, 23, 42, 0.12)' : '1px solid rgba(255,255,255,.08)')),
+                          color: isBlack
+                            ? '#ffffff'
+                            : (isZipArchive(e) && !e.isZipInnerFile
                             ? (isLight ? '#15803d' : '#38ef7d')
-                            : (isLight ? '#0f172a' : '#e9edf2'),
+                            : (isLight ? '#0f172a' : '#e9edf2')),
                           fontFamily: 'ui-monospace, Menlo, monospace',
                           fontSize: '9px',
                           fontWeight: isZipArchive(e) && !e.isZipInnerFile ? 700 : 400,
@@ -1815,11 +1855,11 @@ export const Stage: React.FC<StageProps> = ({
                             right: '10px',
                             padding: '4px 10px',
                             borderRadius: '7px',
-                            background: isLight ? 'rgba(255,255,255,0.92)' : 'rgba(15,23,42,0.85)',
+                            background: isBlack ? 'rgba(0,0,0,0.88)' : (isLight ? 'rgba(255,255,255,0.92)' : 'rgba(15,23,42,0.85)'),
                             backdropFilter: 'blur(8px)',
                             WebkitBackdropFilter: 'blur(8px)',
-                            border: isLight ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(56,239,125,0.3)',
-                            color: isLight ? '#15803d' : '#b5d9fd',
+                            border: isBlack ? '1px solid rgba(255, 255, 255, 0.25)' : (isLight ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(56,239,125,0.3)'),
+                            color: isBlack ? '#ffffff' : (isLight ? '#15803d' : '#b5d9fd'),
                             fontFamily: 'ui-monospace, Menlo, monospace',
                             fontSize: '9.5px',
                             display: 'flex',
@@ -1829,8 +1869,8 @@ export const Stage: React.FC<StageProps> = ({
                             zIndex: 2
                           }}
                         >
-                          <span style={{ color: isLight ? '#15803d' : '#38ef7d', fontWeight: 600 }}>Explore Archive</span>
-                          <span style={{ fontSize: '11px', color: isLight ? '#15803d' : '#38ef7d' }}>›</span>
+                          <span style={{ color: isBlack ? '#ffffff' : (isLight ? '#15803d' : '#38ef7d'), fontWeight: 600 }}>Explore Archive</span>
+                          <span style={{ fontSize: '11px', color: isBlack ? '#ffffff' : (isLight ? '#15803d' : '#38ef7d') }}>›</span>
                         </div>
                       )}
 
@@ -1842,11 +1882,11 @@ export const Stage: React.FC<StageProps> = ({
                           top: '7px',
                           padding: '3px 8px',
                           borderRadius: '7px',
-                          background: isLight ? 'rgba(255, 255, 255, 0.94)' : 'rgba(15, 23, 42, 0.88)',
+                          background: isBlack ? 'rgba(0, 0, 0, 0.9)' : (isLight ? 'rgba(255, 255, 255, 0.94)' : 'rgba(15, 23, 42, 0.88)'),
                           backdropFilter: 'blur(8px)',
                           WebkitBackdropFilter: 'blur(8px)',
-                          border: isLight ? '1px solid rgba(37, 99, 235, 0.35)' : '1px solid rgba(148, 188, 227, 0.45)',
-                          color: isLight ? '#1d4ed8' : '#b5d9fd',
+                          border: isBlack ? '1px solid rgba(255, 255, 255, 0.28)' : (isLight ? '1px solid rgba(37, 99, 235, 0.35)' : '1px solid rgba(148, 188, 227, 0.45)'),
+                          color: isBlack ? '#ffffff' : (isLight ? '#1d4ed8' : '#b5d9fd'),
                           fontFamily: 'ui-monospace, Menlo, monospace',
                           fontSize: '9.5px',
                           fontWeight: 700,
@@ -1880,7 +1920,7 @@ export const Stage: React.FC<StageProps> = ({
                           alignItems: 'center',
                           justifyContent: 'center',
                           fontSize: '13px',
-                          color: isStarred ? accent : 'rgba(var(--inkc, 29,31,32), .35)',
+                          color: isStarred ? (isBlack ? '#ffffff' : accent) : 'rgba(var(--inkc, 29,31,32), .35)',
                           background: 'var(--surface, rgba(255,255,255,.78))',
                           boxShadow: '0 1px 2px rgba(43,43,45,.14)',
                           cursor: 'pointer'
@@ -1916,7 +1956,7 @@ export const Stage: React.FC<StageProps> = ({
                         style={{
                           position: 'absolute',
                           inset: 0,
-                          border: isLight ? '2px solid #2563eb' : '2px solid #5980a6',
+                          border: isBlack ? '2px solid #ffffff' : (isLight ? '2px solid #2563eb' : '2px solid #5980a6'),
                           opacity: isSelected ? 1 : 0,
                           pointerEvents: 'none',
                           transition: 'opacity 0.2s'
@@ -1961,9 +2001,9 @@ export const Stage: React.FC<StageProps> = ({
                             fontWeight: 700,
                             letterSpacing: '.04em',
                             textTransform: 'uppercase',
-                            background: isLight ? 'rgba(37, 99, 235, 0.14)' : 'rgba(89, 128, 166, 0.35)',
-                            color: isLight ? '#1d4ed8' : '#b5d9fd',
-                            border: isLight ? '1px solid rgba(37, 99, 235, 0.45)' : '1px solid rgba(148, 188, 227, 0.55)',
+                            background: isBlack ? 'rgba(255, 255, 255, 0.1)' : (isLight ? 'rgba(37, 99, 235, 0.14)' : 'rgba(89, 128, 166, 0.35)'),
+                            color: isBlack ? '#ffffff' : (isLight ? '#1d4ed8' : '#b5d9fd'),
+                            border: isBlack ? '1px solid rgba(255, 255, 255, 0.25)' : (isLight ? '1px solid rgba(37, 99, 235, 0.45)' : '1px solid rgba(148, 188, 227, 0.55)'),
                             boxShadow: isLight ? '0 1px 3px rgba(37, 99, 235, 0.12)' : '0 1px 3px rgba(0, 0, 0, 0.3)',
                             display: 'inline-flex',
                             alignItems: 'center',
@@ -1985,7 +2025,7 @@ export const Stage: React.FC<StageProps> = ({
                             textTransform: 'uppercase',
                             background: 'var(--tint, #eef6ff)',
                             color: 'var(--tint-ink, #2c455d)',
-                            border: isLight ? '1px solid rgba(37, 99, 235, 0.2)' : '1px solid rgba(89,128,166,.28)'
+                            border: isBlack ? '1px solid rgba(255, 255, 255, 0.15)' : (isLight ? '1px solid rgba(37, 99, 235, 0.2)' : '1px solid rgba(89,128,166,.28)')
                           }}
                         >
                           {e.cat}
@@ -2006,7 +2046,7 @@ export const Stage: React.FC<StageProps> = ({
                                   textTransform: 'uppercase',
                                   background: 'var(--tint, #eef6ff)',
                                   color: 'var(--tint-ink, #2c455d)',
-                                  border: isLight ? '1px solid rgba(37, 99, 235, 0.2)' : '1px solid rgba(89,128,166,.28)'
+                                  border: isBlack ? '1px solid rgba(255, 255, 255, 0.15)' : (isLight ? '1px solid rgba(37, 99, 235, 0.2)' : '1px solid rgba(89,128,166,.28)')
                                 }}
                               >
                                 {d}

@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Density, ViewMode, MaxPerPage, MAX_PER_PAGE_OPTIONS, SortOption, SortDirection, ListColumns, ListOrder } from '../types';
+import { Density, ViewMode, MaxPerPage, MAX_PER_PAGE_OPTIONS, SortOption, SortDirection, ListColumns, ListOrder, ThemeMode } from '../types';
 import { SORT_CONFIGS, SORT_OPTIONS } from '../services/sortService';
 
 interface ToolbarProps {
+  theme?: ThemeMode;
   view: ViewMode;
   onViewChange: (v: ViewMode) => void;
   density: Density;
@@ -29,6 +30,7 @@ interface ToolbarProps {
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
+  theme = 'dark',
   view,
   onViewChange,
   density,
@@ -53,6 +55,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   listOrder = 'down',
   onListOrderChange
 }) => {
+  const isBlack = theme === 'black';
   const [maxMenuOpen, setMaxMenuOpen] = useState(false);
   const maxMenuRef = useRef<HTMLDivElement>(null);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
@@ -140,9 +143,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 letterSpacing: '.05em',
                 textTransform: 'uppercase',
                 whiteSpace: 'nowrap',
-                color: isActive ? '#f2f2f3' : 'var(--ink, #1d1f20)',
-                background: isActive ? `linear-gradient(180deg, #6b91b6, ${accent})` : 'transparent',
-                boxShadow: isActive ? '0 2px 0 #416180, inset 0 1px 0 rgba(255,255,255,.24)' : 'none',
+                color: isActive ? (isBlack ? '#ffffff' : '#f2f2f3') : 'var(--ink, #1d1f20)',
+                background: isActive ? (isBlack ? '#262626' : `linear-gradient(180deg, #6b91b6, ${accent})`) : 'transparent',
+                boxShadow: isActive ? (isBlack ? '0 2px 0 rgba(255,255,255,0.15), inset 0 1px 0 rgba(255,255,255,.2)' : '0 2px 0 #416180, inset 0 1px 0 rgba(255,255,255,.24)') : 'none',
                 transition: 'background 0.2s, color 0.2s'
               }}
             >
@@ -205,8 +208,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     fontWeight: 600,
                     letterSpacing: '.04em',
                     textTransform: 'uppercase',
-                    color: isActive ? '#f2f2f3' : 'rgba(var(--inkc, 29,31,32), .65)',
-                    background: isActive ? accent : 'transparent',
+                    color: isActive ? (isBlack ? '#000000' : '#f2f2f3') : 'rgba(var(--inkc, 29,31,32), .65)',
+                    background: isActive ? (isBlack ? '#ffffff' : accent) : 'transparent',
                     boxShadow: isActive ? '0 1px 3px rgba(0,0,0,.2)' : 'none',
                     transition: 'background 0.18s, color 0.18s'
                   }}
@@ -244,8 +247,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   fontWeight: 600,
                   letterSpacing: '.04em',
                   textTransform: 'uppercase',
-                  color: listOrder === 'down' ? '#f2f2f3' : 'rgba(var(--inkc, 29,31,32), .65)',
-                  background: listOrder === 'down' ? accent : 'transparent',
+                  color: listOrder === 'down' ? (isBlack ? '#000000' : '#f2f2f3') : 'rgba(var(--inkc, 29,31,32), .65)',
+                  background: listOrder === 'down' ? (isBlack ? '#ffffff' : accent) : 'transparent',
                   transition: 'background 0.18s, color 0.18s'
                 }}
               >
@@ -264,8 +267,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   fontWeight: 600,
                   letterSpacing: '.04em',
                   textTransform: 'uppercase',
-                  color: listOrder === 'across' ? '#f2f2f3' : 'rgba(var(--inkc, 29,31,32), .65)',
-                  background: listOrder === 'across' ? accent : 'transparent',
+                  color: listOrder === 'across' ? (isBlack ? '#000000' : '#f2f2f3') : 'rgba(var(--inkc, 29,31,32), .65)',
+                  background: listOrder === 'across' ? (isBlack ? '#ffffff' : accent) : 'transparent',
                   transition: 'background 0.18s, color 0.18s'
                 }}
               >
@@ -318,8 +321,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   cursor: 'pointer',
                   fontFamily: 'ui-monospace, Menlo, monospace',
                   fontSize: '11px',
-                  color: isActive ? '#f2f2f3' : 'rgba(var(--inkc, 29,31,32), .6)',
-                  background: isActive ? accent : 'transparent',
+                  color: isActive ? (isBlack ? '#000000' : '#f2f2f3') : 'rgba(var(--inkc, 29,31,32), .6)',
+                  background: isActive ? (isBlack ? '#ffffff' : accent) : 'transparent',
                   transition: 'background 0.18s, color 0.18s'
                 }}
               >
@@ -350,8 +353,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             padding: '7px 11px',
             borderRadius: '13px',
             cursor: 'pointer',
-            border: maxMenuOpen ? '1px solid #94bce3' : '1px solid rgba(var(--inkc, 29,31,32), .14)',
-            background: maxMenuOpen ? 'var(--tint, #eef6ff)' : 'var(--surface, #ffffff)',
+            border: maxMenuOpen ? (isBlack ? '1px solid #ffffff' : '1px solid #94bce3') : '1px solid rgba(var(--inkc, 29,31,32), .14)',
+            background: maxMenuOpen ? (isBlack ? '#1c1c1c' : 'var(--tint, #eef6ff)') : 'var(--surface, #ffffff)',
             color: 'var(--ink, #1d1f20)',
             fontFamily: "'Barlow Condensed', sans-serif",
             fontSize: '13.5px',
@@ -364,8 +367,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           }}
           onMouseEnter={(e) => {
             if (!maxMenuOpen) {
-              e.currentTarget.style.background = 'var(--tint, #eef6ff)';
-              e.currentTarget.style.borderColor = '#94bce3';
+              e.currentTarget.style.background = isBlack ? '#1c1c1c' : 'var(--tint, #eef6ff)';
+              e.currentTarget.style.borderColor = isBlack ? '#ffffff' : '#94bce3';
             }
           }}
           onMouseLeave={(e) => {
@@ -436,10 +439,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               left: 0,
               minWidth: '190px',
               borderRadius: '13px',
-              background: 'var(--surface, #1e293b)',
+              background: isBlack ? '#000000' : 'var(--surface, #1e293b)',
               color: 'var(--ink, #e9edf2)',
-              border: '1px solid rgba(148,188,227,.28)',
-              boxShadow: '0 14px 34px rgba(0,0,0,.45), 0 3px 8px rgba(0,0,0,.25)',
+              border: isBlack ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid rgba(148,188,227,.28)',
+              boxShadow: isBlack ? '0 14px 34px rgba(0,0,0,.9), 0 3px 8px rgba(0,0,0,.6)' : '0 14px 34px rgba(0,0,0,.45), 0 3px 8px rgba(0,0,0,.25)',
               padding: '6px',
               zIndex: 60,
               display: 'flex',
@@ -453,12 +456,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <div
               style={{
                 padding: '6px 9px 5px',
-                borderBottom: '1px solid rgba(148,188,227,.12)',
+                borderBottom: isBlack ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid rgba(148,188,227,.12)',
                 fontFamily: 'ui-monospace, Menlo, monospace',
                 fontSize: '9px',
                 letterSpacing: '.12em',
                 textTransform: 'uppercase',
-                color: '#94bce3',
+                color: isBlack ? '#ffffff' : '#94bce3',
                 marginBottom: '2px'
               }}
             >
@@ -533,7 +536,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     )}
                   </div>
                   {isSelected && (
-                    <span style={{ color: '#94bce3', fontSize: '12px', fontWeight: 700 }}>
+                    <span style={{ color: isBlack ? '#ffffff' : '#94bce3', fontSize: '12px', fontWeight: 700 }}>
                       ✓
                     </span>
                   )}
@@ -565,8 +568,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             padding: '7px 11px',
             borderRadius: '13px',
             cursor: 'pointer',
-            border: sortMenuOpen ? '1px solid #94bce3' : '1px solid rgba(var(--inkc, 29,31,32), .14)',
-            background: sortMenuOpen ? 'var(--tint, #eef6ff)' : 'var(--surface, #ffffff)',
+            border: sortMenuOpen ? (isBlack ? '1px solid #ffffff' : '1px solid #94bce3') : '1px solid rgba(var(--inkc, 29,31,32), .14)',
+            background: sortMenuOpen ? (isBlack ? '#1c1c1c' : 'var(--tint, #eef6ff)') : 'var(--surface, #ffffff)',
             color: 'var(--ink, #1d1f20)',
             fontFamily: "'Barlow Condensed', sans-serif",
             fontSize: '13.5px',
@@ -579,8 +582,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           }}
           onMouseEnter={(e) => {
             if (!sortMenuOpen) {
-              e.currentTarget.style.background = 'var(--tint, #eef6ff)';
-              e.currentTarget.style.borderColor = '#94bce3';
+              e.currentTarget.style.background = isBlack ? '#1c1c1c' : 'var(--tint, #eef6ff)';
+              e.currentTarget.style.borderColor = isBlack ? '#ffffff' : '#94bce3';
             }
           }}
           onMouseLeave={(e) => {
@@ -642,8 +645,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             transition: 'background 0.15s, border-color 0.15s'
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--tint, #eef6ff)';
-            e.currentTarget.style.borderColor = '#94bce3';
+            e.currentTarget.style.background = isBlack ? '#1c1c1c' : 'var(--tint, #eef6ff)';
+            e.currentTarget.style.borderColor = isBlack ? '#ffffff' : '#94bce3';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = 'var(--surface, #ffffff)';
@@ -662,10 +665,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               left: 0,
               minWidth: '200px',
               borderRadius: '13px',
-              background: 'var(--surface, #1e293b)',
+              background: isBlack ? '#000000' : 'var(--surface, #1e293b)',
               color: 'var(--ink, #e9edf2)',
-              border: '1px solid rgba(148,188,227,.28)',
-              boxShadow: '0 14px 34px rgba(0,0,0,.45), 0 3px 8px rgba(0,0,0,.25)',
+              border: isBlack ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid rgba(148,188,227,.28)',
+              boxShadow: isBlack ? '0 14px 34px rgba(0,0,0,.9), 0 3px 8px rgba(0,0,0,.6)' : '0 14px 34px rgba(0,0,0,.45), 0 3px 8px rgba(0,0,0,.25)',
               padding: '6px',
               zIndex: 60,
               display: 'flex',
@@ -679,12 +682,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <div
               style={{
                 padding: '6px 9px 5px',
-                borderBottom: '1px solid rgba(148,188,227,.12)',
+                borderBottom: isBlack ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid rgba(148,188,227,.12)',
                 fontFamily: 'ui-monospace, Menlo, monospace',
                 fontSize: '9px',
                 letterSpacing: '.12em',
                 textTransform: 'uppercase',
-                color: '#94bce3',
+                color: isBlack ? '#ffffff' : '#94bce3',
                 marginBottom: '2px'
               }}
             >
@@ -712,7 +715,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     padding: '7px 9px',
                     borderRadius: '8px',
                     border: 0,
-                    background: isSelected ? 'rgba(148,188,227,.18)' : 'transparent',
+                    background: isSelected ? (isBlack ? 'rgba(255, 255, 255, 0.15)' : 'rgba(148,188,227,.18)') : 'transparent',
                     color: isSelected ? '#ffffff' : 'var(--ink, #e9edf2)',
                     cursor: 'pointer',
                     fontFamily: "'Barlow Condensed', sans-serif",
@@ -723,7 +726,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   }}
                   onMouseEnter={(e) => {
                     if (!isSelected) {
-                      e.currentTarget.style.background = 'rgba(148,188,227,.1)';
+                      e.currentTarget.style.background = isBlack ? 'rgba(255, 255, 255, 0.08)' : 'rgba(148,188,227,.1)';
                     }
                   }}
                   onMouseLeave={(e) => {
@@ -739,7 +742,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   {isSelected && (
                     <span
                       style={{
-                        color: '#94bce3',
+                        color: isBlack ? '#ffffff' : '#94bce3',
                         fontSize: '10px',
                         fontFamily: 'ui-monospace, monospace',
                         fontWeight: 700,

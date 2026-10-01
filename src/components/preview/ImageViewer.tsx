@@ -1,12 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import gsap from 'gsap';
+import { ThemeMode } from '../../types';
 
 interface ImageViewerProps {
   src: string;
   name: string;
+  theme?: ThemeMode;
 }
 
-export const ImageViewer: React.FC<ImageViewerProps> = ({ src, name }) => {
+export const ImageViewer: React.FC<ImageViewerProps> = ({ src, name, theme }) => {
+  const isBlack = theme === 'black';
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -70,9 +73,23 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, name }) => {
 
   // Background styling
   const getBgStyle = () => {
-    if (bgMode === 'dark') return '#0c1218';
+    if (bgMode === 'dark') return isBlack ? '#000000' : '#0c1218';
     if (bgMode === 'light') return '#ffffff';
-    return 'repeating-conic-gradient(#182432 0% 25%, #111a24 0% 50%) 50% / 18px 18px';
+    return isBlack
+      ? 'repeating-conic-gradient(#181818 0% 25%, #000000 0% 50%) 50% / 18px 18px'
+      : 'repeating-conic-gradient(#182432 0% 25%, #111a24 0% 50%) 50% / 18px 18px';
+  };
+
+  const buttonStyle: React.CSSProperties = {
+    padding: '4px 8px',
+    borderRadius: '6px',
+    border: isBlack ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid rgba(148,188,227,.2)',
+    background: isBlack ? 'rgba(255, 255, 255, 0.08)' : 'rgba(148,188,227,.1)',
+    color: isBlack ? '#ffffff' : '#b5d9fd',
+    fontFamily: 'ui-monospace, Menlo, monospace',
+    fontSize: '10.5px',
+    cursor: 'pointer',
+    transition: 'background 0.15s'
   };
 
   const aspectRatio = dimensions
@@ -85,7 +102,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, name }) => {
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        background: '#0d151c',
+        background: isBlack ? '#000000' : '#0d151c',
         overflow: 'hidden',
         borderRadius: '14px',
         position: 'relative'
@@ -99,8 +116,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, name }) => {
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '8px 12px',
-          background: 'rgba(24,36,50,.92)',
-          borderBottom: '1px solid rgba(148,188,227,.14)',
+          background: isBlack ? '#000000' : 'rgba(24,36,50,.92)',
+          borderBottom: isBlack ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid rgba(148,188,227,.14)',
           zIndex: 10,
           flexWrap: 'wrap',
           gap: '6px'
@@ -109,7 +126,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, name }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <button
             onClick={() => handleZoom(-0.25)}
-            style={btnStyle}
+            style={buttonStyle}
             title="Zoom out"
           >
             －
@@ -118,7 +135,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, name }) => {
             style={{
               fontFamily: 'ui-monospace, Menlo, monospace',
               fontSize: '11px',
-              color: '#94bce3',
+              color: isBlack ? '#ffffff' : '#94bce3',
               minWidth: '42px',
               textAlign: 'center'
             }}
@@ -127,12 +144,12 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, name }) => {
           </span>
           <button
             onClick={() => handleZoom(0.25)}
-            style={btnStyle}
+            style={buttonStyle}
             title="Zoom in"
           >
             ＋
           </button>
-          <button onClick={handleReset} style={btnStyle} title="Reset fit">
+          <button onClick={handleReset} style={buttonStyle} title="Reset fit">
             1:1
           </button>
         </div>
@@ -142,9 +159,9 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, name }) => {
           <button
             onClick={() => setBgMode('checker')}
             style={{
-              ...btnStyle,
-              background: bgMode === 'checker' ? 'rgba(148,188,227,.3)' : 'transparent',
-              borderColor: bgMode === 'checker' ? '#94bce3' : 'rgba(148,188,227,.2)'
+              ...buttonStyle,
+              background: bgMode === 'checker' ? (isBlack ? 'rgba(255, 255, 255, 0.22)' : 'rgba(148,188,227,.3)') : 'transparent',
+              borderColor: bgMode === 'checker' ? (isBlack ? '#ffffff' : '#94bce3') : (isBlack ? 'rgba(255, 255, 255, 0.2)' : 'rgba(148,188,227,.2)')
             }}
             title="Checkerboard transparent backdrop"
           >
@@ -153,9 +170,9 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, name }) => {
           <button
             onClick={() => setBgMode('dark')}
             style={{
-              ...btnStyle,
-              background: bgMode === 'dark' ? 'rgba(148,188,227,.3)' : 'transparent',
-              borderColor: bgMode === 'dark' ? '#94bce3' : 'rgba(148,188,227,.2)'
+              ...buttonStyle,
+              background: bgMode === 'dark' ? (isBlack ? 'rgba(255, 255, 255, 0.22)' : 'rgba(148,188,227,.3)') : 'transparent',
+              borderColor: bgMode === 'dark' ? (isBlack ? '#ffffff' : '#94bce3') : (isBlack ? 'rgba(255, 255, 255, 0.2)' : 'rgba(148,188,227,.2)')
             }}
             title="Solid dark backdrop"
           >
@@ -164,9 +181,9 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, name }) => {
           <button
             onClick={() => setBgMode('light')}
             style={{
-              ...btnStyle,
-              background: bgMode === 'light' ? 'rgba(148,188,227,.3)' : 'transparent',
-              borderColor: bgMode === 'light' ? '#94bce3' : 'rgba(148,188,227,.2)'
+              ...buttonStyle,
+              background: bgMode === 'light' ? (isBlack ? 'rgba(255, 255, 255, 0.22)' : 'rgba(148,188,227,.3)') : 'transparent',
+              borderColor: bgMode === 'light' ? (isBlack ? '#ffffff' : '#94bce3') : (isBlack ? 'rgba(255, 255, 255, 0.2)' : 'rgba(148,188,227,.2)')
             }}
             title="Solid light backdrop"
           >
@@ -178,10 +195,10 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, name }) => {
         <button
           onClick={() => setPixelGrid(!pixelGrid)}
           style={{
-            ...btnStyle,
-            background: pixelGrid ? 'rgba(56,239,125,.2)' : 'transparent',
-            color: pixelGrid ? '#38ef7d' : '#b5d9fd',
-            borderColor: pixelGrid ? '#38ef7d' : 'rgba(148,188,227,.2)'
+            ...buttonStyle,
+            background: pixelGrid ? (isBlack ? 'rgba(255, 255, 255, 0.22)' : 'rgba(56,239,125,.2)') : 'transparent',
+            color: pixelGrid ? (isBlack ? '#ffffff' : '#38ef7d') : (isBlack ? '#ffffff' : '#b5d9fd'),
+            borderColor: pixelGrid ? (isBlack ? '#ffffff' : '#38ef7d') : (isBlack ? 'rgba(255, 255, 255, 0.2)' : 'rgba(148,188,227,.2)')
           }}
           title="Pixel crisp toggle"
         >
@@ -230,8 +247,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, name }) => {
       <div
         style={{
           padding: '6px 14px',
-          background: 'rgba(24,36,50,.94)',
-          borderTop: '1px solid rgba(148,188,227,.12)',
+          background: isBlack ? '#000000' : 'rgba(24,36,50,.94)',
+          borderTop: isBlack ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid rgba(148,188,227,.12)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -242,7 +259,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, name }) => {
       >
         <div>
           {dimensions ? `${dimensions.w} × ${dimensions.h} px` : 'Loading size…'}
-          <span style={{ color: '#94bce3', marginLeft: '8px' }}>
+          <span style={{ color: isBlack ? '#ffffff' : '#94bce3', marginLeft: '8px' }}>
             ratio: {aspectRatio}:1
           </span>
         </div>

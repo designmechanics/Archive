@@ -115,6 +115,10 @@ export const App: React.FC = () => {
   const [selectedFolder, setSelectedFolder] = useState<WatchedFolder | null>(null);
   const [pools, setPools] = useState<Pool[]>([]);
   const [accent, setAccent] = useState('#2c455d');
+  // Effective accent: strictly pure white #ffffff for monochromatic Black theme
+  const effectiveAccent = theme === 'black'
+    ? '#ffffff'
+    : (theme === 'custom' ? (customTheme.accent || accent) : ((THEMES[theme] as any)?.accent || accent));
   const [motionMultiplier, setMotionMultiplier] = useState(1);
   const [dbStats, setDbStats] = useState<DatabaseStats | null>(null);
   const [maxPerPage, setMaxPerPage] = useState<MaxPerPage>(() => {
@@ -441,14 +445,14 @@ export const App: React.FC = () => {
       root.style.setProperty('--rail', customTheme.rail);
       root.style.setProperty('--rail-ink', customTheme.ink);
       root.style.setProperty('--rail-border', `rgba(${inkc}, 0.12)`);
-      root.style.setProperty('--accent', customTheme.accent || accent);
+      root.style.setProperty('--accent', effectiveAccent);
       document.body.style.background = customTheme.bg;
     } else {
       const t = THEMES[theme] || THEMES.dark;
       Object.entries(t).forEach(([k, val]) => {
         root.style.setProperty(`--${k}`, val);
       });
-      root.style.setProperty('--accent', accent);
+      root.style.setProperty('--accent', effectiveAccent);
       document.body.style.background = t.bg;
     }
 
@@ -463,7 +467,7 @@ export const App: React.FC = () => {
         stagger: { each: 0.008, from: 'random' }
       }
     );
-  }, [theme, customTheme, accent, motionMultiplier]);
+  }, [theme, customTheme, effectiveAccent, motionMultiplier]);
 
   // Session Background Configuration Application
   useEffect(() => {
@@ -1325,11 +1329,12 @@ export const App: React.FC = () => {
           }}
           onOpenModal={() => setModalOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
-          accent={accent}
+          accent={effectiveAccent}
         />
 
         {/* Toolbar Row */}
         <Toolbar
+          theme={theme}
           view={view}
           onViewChange={handleViewChange}
           density={density}
@@ -1339,7 +1344,7 @@ export const App: React.FC = () => {
           totalCount={filteredEntries.length}
           onPrev={() => setFocusIndex((f) => Math.max(0, f - 1))}
           onNext={() => setFocusIndex((f) => Math.min(pagedEntries.length - 1, f + 1))}
-          accent={accent}
+          accent={effectiveAccent}
           maxPerPage={maxPerPage}
           onMaxPerPageChange={handleMaxPerPageChange}
           currentPage={currentPage}
@@ -1533,7 +1538,7 @@ export const App: React.FC = () => {
           stars={stars}
           onToggleStar={handleToggleStar}
           hoverPool={hoverPool}
-          accent={accent}
+          accent={effectiveAccent}
           motionMultiplier={motionMultiplier}
           onOpenModal={() => setModalOpen(true)}
           onScanNativeFolder={handleScanNativeFolder}

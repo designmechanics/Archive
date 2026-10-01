@@ -141,7 +141,8 @@ export const THEMES = {
     "tint-ink": "#ffffff",
     rail: "#000000",
     "rail-ink": "#ffffff",
-    "rail-border": "rgba(255,255,255,0.14)"
+    "rail-border": "rgba(255,255,255,0.14)",
+    accent: "#ffffff"
   },
   custom: {
     bg: "#10161d",

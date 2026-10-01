@@ -37,6 +37,8 @@ export const Header: React.FC<HeaderProps> = ({
   accent
 }) => {
 
+  const isBlack = theme === 'black';
+
   const themes: { id: ThemeMode; label: string }[] = [
     { id: 'light', label: 'Light' },
     { id: 'mid', label: 'Mid' },
@@ -142,9 +144,9 @@ export const Header: React.FC<HeaderProps> = ({
                 gap: '6px',
                 padding: '3px 8px',
                 borderRadius: '8px',
-                background: 'rgba(56,239,125,.12)',
-                border: '1px solid rgba(56,239,125,.3)',
-                color: '#38ef7d',
+                background: isBlack ? 'rgba(255, 255, 255, 0.12)' : 'rgba(56,239,125,.12)',
+                border: isBlack ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid rgba(56,239,125,.3)',
+                color: isBlack ? '#ffffff' : '#38ef7d',
                 fontSize: '10px',
                 fontFamily: 'ui-monospace, Menlo, monospace',
                 textTransform: 'uppercase'
@@ -157,7 +159,7 @@ export const Header: React.FC<HeaderProps> = ({
                   style={{
                     background: 'transparent',
                     border: 0,
-                    color: '#38ef7d',
+                    color: isBlack ? '#ffffff' : '#38ef7d',
                     cursor: 'pointer',
                     padding: '0 2px',
                     fontSize: '10px',
@@ -205,8 +207,8 @@ export const Header: React.FC<HeaderProps> = ({
                 letterSpacing: '.05em',
                 textTransform: 'uppercase',
                 whiteSpace: 'nowrap',
-                color: isActive ? '#f2f2f3' : 'var(--ink, #1d1f20)',
-                background: isActive ? accent : 'transparent',
+                color: isActive ? (isBlack ? '#000000' : '#f2f2f3') : 'var(--ink, #1d1f20)',
+                background: isActive ? (isBlack ? '#ffffff' : accent) : 'transparent',
                 transition: 'background 0.2s, color 0.2s'
               }}
             >
@@ -242,8 +244,8 @@ export const Header: React.FC<HeaderProps> = ({
             transition: 'transform 0.15s, background 0.18s, border-color 0.18s'
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--tint, #eef6ff)';
-            e.currentTarget.style.borderColor = '#94bce3';
+            e.currentTarget.style.background = isBlack ? '#1c1c1c' : 'var(--tint, #eef6ff)';
+            e.currentTarget.style.borderColor = isBlack ? '#ffffff' : '#94bce3';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = 'var(--surface, #ffffff)';
@@ -268,9 +270,11 @@ export const Header: React.FC<HeaderProps> = ({
           display: 'inline-flex',
           alignItems: 'stretch',
           borderRadius: '12px',
-          border: `1px solid ${isShuffled ? '#94bce3' : 'rgba(var(--inkc, 29,31,32), .14)'}`,
-          background: isShuffled ? 'var(--tint, #eef6ff)' : 'var(--surface, #ffffff)',
-          boxShadow: isShuffled ? '0 1px 3px rgba(148,188,227,.25)' : '0 1px 2px rgba(43,43,45,.14)',
+          border: isBlack
+            ? (isShuffled ? '1px solid #ffffff' : '1px solid rgba(var(--inkc, 29,31,32), .14)')
+            : (isShuffled ? '1px solid #94bce3' : '1px solid rgba(var(--inkc, 29,31,32), .14)'),
+          background: isShuffled ? (isBlack ? '#1c1c1c' : 'var(--tint, #eef6ff)') : 'var(--surface, #ffffff)',
+          boxShadow: isShuffled ? (isBlack ? '0 1px 3px rgba(0,0,0,.6)' : '0 1px 3px rgba(148,188,227,.25)') : '0 1px 2px rgba(43,43,45,.14)',
           overflow: 'hidden',
           transition: 'all 0.18s ease'
         }}
@@ -320,7 +324,7 @@ export const Header: React.FC<HeaderProps> = ({
               style={{
                 width: '1px',
                 margin: '7px 0',
-                background: 'rgba(148,188,227,.4)'
+                background: isBlack ? 'rgba(255, 255, 255, 0.2)' : 'rgba(148,188,227,.4)'
               }}
             />
             <button
@@ -346,8 +350,8 @@ export const Header: React.FC<HeaderProps> = ({
                 transition: 'background 0.15s, color 0.15s, transform 0.1s'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(148,188,227,.25)';
-                e.currentTarget.style.color = '#2c455d';
+                e.currentTarget.style.background = isBlack ? 'rgba(255, 255, 255, 0.15)' : 'rgba(148,188,227,.25)';
+                e.currentTarget.style.color = isBlack ? '#ffffff' : '#2c455d';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = 'transparent';
@@ -360,7 +364,7 @@ export const Header: React.FC<HeaderProps> = ({
                 e.currentTarget.style.transform = 'scale(1)';
               }}
             >
-              <span style={{ fontSize: '13px', color: '#5980a6' }}>↺</span>
+              <span style={{ fontSize: '13px', color: isBlack ? '#ffffff' : '#5980a6' }}>↺</span>
               <span>Revert</span>
             </button>
           </>
@@ -375,31 +379,40 @@ export const Header: React.FC<HeaderProps> = ({
           padding: '10px 16px',
           borderRadius: '12px',
           cursor: 'pointer',
-          border: '1px solid #416180',
-          color: '#f2f2f3',
+          border: isBlack ? '1px solid rgba(255, 255, 255, 0.35)' : '1px solid #416180',
+          color: '#ffffff',
           fontFamily: "'Barlow Condensed', sans-serif",
           fontSize: '14px',
           fontWeight: 600,
           letterSpacing: '.05em',
           textTransform: 'uppercase',
-          background: 'linear-gradient(180deg, #6b91b6, #5980a6)',
-          boxShadow: '0 2px 0 #416180, 0 6px 14px rgba(65,97,128,.3), inset 0 1px 0 rgba(255,255,255,.28)',
+          background: isBlack ? 'linear-gradient(180deg, #262626, #141414)' : 'linear-gradient(180deg, #6b91b6, #5980a6)',
+          boxShadow: isBlack
+            ? '0 2px 0 rgba(255, 255, 255, 0.15), 0 6px 14px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, .2)'
+            : '0 2px 0 #416180, 0 6px 14px rgba(65,97,128,.3), inset 0 1px 0 rgba(255,255,255,.28)',
           transition: 'background 0.2s, transform 0.1s, box-shadow 0.1s'
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.background = 'linear-gradient(180deg, #7a9ec1, #597ea3)';
+          e.currentTarget.style.background = isBlack
+            ? 'linear-gradient(180deg, #333333, #1f1f1f)'
+            : 'linear-gradient(180deg, #7a9ec1, #597ea3)';
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'linear-gradient(180deg, #6b91b6, #5980a6)';
+          e.currentTarget.style.background = isBlack
+            ? 'linear-gradient(180deg, #262626, #141414)'
+            : 'linear-gradient(180deg, #6b91b6, #5980a6)';
         }}
         onMouseDown={(e) => {
           e.currentTarget.style.transform = 'translateY(2px)';
-          e.currentTarget.style.boxShadow = '0 0 0 #416180, inset 0 1px 0 rgba(255,255,255,.2)';
+          e.currentTarget.style.boxShadow = isBlack
+            ? '0 0 0 rgba(255, 255, 255, 0.15), inset 0 1px 0 rgba(255, 255, 255, .15)'
+            : '0 0 0 #416180, inset 0 1px 0 rgba(255,255,255,.2)';
         }}
         onMouseUp={(e) => {
           e.currentTarget.style.transform = 'translateY(0)';
-          e.currentTarget.style.boxShadow =
-            '0 2px 0 #416180, 0 6px 14px rgba(65,97,128,.3), inset 0 1px 0 rgba(255,255,255,.28)';
+          e.currentTarget.style.boxShadow = isBlack
+            ? '0 2px 0 rgba(255, 255, 255, 0.15), 0 6px 14px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, .2)'
+            : '0 2px 0 #416180, 0 6px 14px rgba(65,97,128,.3), inset 0 1px 0 rgba(255,255,255,.28)';
         }}
       >
         Ingest
