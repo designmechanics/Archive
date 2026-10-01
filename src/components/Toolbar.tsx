@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Density, ViewMode, MaxPerPage, MAX_PER_PAGE_OPTIONS, SortOption, SortDirection } from '../types';
+import { Density, ViewMode, MaxPerPage, MAX_PER_PAGE_OPTIONS, SortOption, SortDirection, ListColumns, ListOrder } from '../types';
 import { SORT_CONFIGS, SORT_OPTIONS } from '../services/sortService';
 
 interface ToolbarProps {
@@ -22,6 +22,10 @@ interface ToolbarProps {
   sortDirection: SortDirection;
   onSortChange: (option: SortOption, direction?: SortDirection) => void;
   onToggleSortDirection: () => void;
+  listColumns?: ListColumns;
+  onListColumnsChange?: (cols: ListColumns) => void;
+  listOrder?: ListOrder;
+  onListOrderChange?: (order: ListOrder) => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -43,7 +47,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   sortOption,
   sortDirection,
   onSortChange,
-  onToggleSortDirection
+  onToggleSortDirection,
+  listColumns = 1,
+  onListColumnsChange,
+  listOrder = 'down',
+  onListOrderChange
 }) => {
   const [maxMenuOpen, setMaxMenuOpen] = useState(false);
   const maxMenuRef = useRef<HTMLDivElement>(null);
@@ -144,60 +152,213 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         })}
       </div>
 
-      {/* Density Selector (Grid only) */}
-      <div
-        data-density="1"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '2px',
-          padding: '3px',
-          borderRadius: '13px',
-          background: 'var(--well, #e3e4e6)',
-          border: '1px solid rgba(var(--inkc, 29,31,32), .09)',
-          boxShadow: 'inset 0 2px 5px rgba(29,45,61,.09)',
-          opacity: view === 'grid' ? 1 : 0.3,
-          pointerEvents: view === 'grid' ? 'auto' : 'none',
-          transition: 'opacity 0.3s'
-        }}
-      >
-        <span
+      {/* Density Selector (Grid) OR List Columns & Flow Order (List) */}
+      {view === 'list' ? (
+        <div
+          data-list-controls="1"
           style={{
-            padding: '0 8px',
-            fontFamily: 'ui-monospace, Menlo, monospace',
-            fontSize: '9.5px',
-            letterSpacing: '.1em',
-            textTransform: 'uppercase',
-            color: 'rgba(var(--inkc, 29,31,32), .5)',
-            whiteSpace: 'nowrap'
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
           }}
         >
-          Per row
-        </span>
-        {DENSITIES.map((n) => {
-          const isActive = density === n && view === 'grid';
-          return (
-            <button
-              key={n}
-              onClick={() => onDensityChange(n)}
+          {/* Columns Selector: 1 Col | 2 Col (Dual) */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '2px',
+              padding: '3px',
+              borderRadius: '13px',
+              background: 'var(--well, #e3e4e6)',
+              border: '1px solid rgba(var(--inkc, 29,31,32), .09)',
+              boxShadow: 'inset 0 2px 5px rgba(29,45,61,.09)'
+            }}
+          >
+            <span
               style={{
-                width: '28px',
-                padding: '7px 0',
+                padding: '0 8px',
+                fontFamily: 'ui-monospace, Menlo, monospace',
+                fontSize: '9.5px',
+                letterSpacing: '.1em',
+                textTransform: 'uppercase',
+                color: 'rgba(var(--inkc, 29,31,32), .5)',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              Columns
+            </span>
+            <button
+              onClick={() => onListColumnsChange?.(1)}
+              title="Single Column Table"
+              style={{
+                padding: '6px 11px',
                 border: 0,
                 borderRadius: '9px',
                 cursor: 'pointer',
-                fontFamily: 'ui-monospace, Menlo, monospace',
-                fontSize: '11px',
-                color: isActive ? '#f2f2f3' : 'rgba(var(--inkc, 29,31,32), .6)',
-                background: isActive ? accent : 'transparent',
+                fontFamily: "'Barlow Condensed', sans-serif",
+                fontSize: '12px',
+                fontWeight: 600,
+                letterSpacing: '.04em',
+                textTransform: 'uppercase',
+                color: listColumns === 1 ? '#f2f2f3' : 'rgba(var(--inkc, 29,31,32), .65)',
+                background: listColumns === 1 ? accent : 'transparent',
+                boxShadow: listColumns === 1 ? '0 1px 3px rgba(0,0,0,.2)' : 'none',
                 transition: 'background 0.18s, color 0.18s'
               }}
             >
-              {n}
+              1 Col
             </button>
-          );
-        })}
-      </div>
+            <button
+              onClick={() => onListColumnsChange?.(2)}
+              title="Dual Column Table (Side-by-side on 1920+ displays)"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '6px 11px',
+                border: 0,
+                borderRadius: '9px',
+                cursor: 'pointer',
+                fontFamily: "'Barlow Condensed', sans-serif",
+                fontSize: '12px',
+                fontWeight: 600,
+                letterSpacing: '.04em',
+                textTransform: 'uppercase',
+                color: listColumns === 2 ? '#f2f2f3' : 'rgba(var(--inkc, 29,31,32), .65)',
+                background: listColumns === 2 ? accent : 'transparent',
+                boxShadow: listColumns === 2 ? '0 1px 3px rgba(0,0,0,.2)' : 'none',
+                transition: 'background 0.18s, color 0.18s'
+              }}
+            >
+              <span>2 Col</span>
+              <span
+                style={{
+                  fontSize: '9px',
+                  fontFamily: 'ui-monospace, Menlo, monospace',
+                  padding: '1px 5px',
+                  borderRadius: '4px',
+                  background: listColumns === 2 ? 'rgba(255,255,255,0.22)' : 'rgba(var(--inkc, 29,31,32), .1)',
+                  fontWeight: 700
+                }}
+              >
+                DUAL
+              </span>
+            </button>
+          </div>
+
+          {/* List Flow Order (only when 2 columns active): Down (Col 1 then Col 2) vs Across (Alternating rows) */}
+          {listColumns === 2 && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '2px',
+                padding: '3px',
+                borderRadius: '13px',
+                background: 'var(--well, #e3e4e6)',
+                border: '1px solid rgba(var(--inkc, 29,31,32), .09)',
+                boxShadow: 'inset 0 2px 5px rgba(29,45,61,.09)'
+              }}
+            >
+              <button
+                onClick={() => onListOrderChange?.('down')}
+                title="Top-to-bottom split (First half in Col 1, second half in Col 2)"
+                style={{
+                  padding: '6px 9px',
+                  border: 0,
+                  borderRadius: '9px',
+                  cursor: 'pointer',
+                  fontFamily: "'Barlow Condensed', sans-serif",
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  letterSpacing: '.04em',
+                  textTransform: 'uppercase',
+                  color: listOrder === 'down' ? '#f2f2f3' : 'rgba(var(--inkc, 29,31,32), .65)',
+                  background: listOrder === 'down' ? accent : 'transparent',
+                  transition: 'background 0.18s, color 0.18s'
+                }}
+              >
+                ⇅ Col
+              </button>
+              <button
+                onClick={() => onListOrderChange?.('across')}
+                title="Row alternating split (Card 1 left, Card 2 right)"
+                style={{
+                  padding: '6px 9px',
+                  border: 0,
+                  borderRadius: '9px',
+                  cursor: 'pointer',
+                  fontFamily: "'Barlow Condensed', sans-serif",
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  letterSpacing: '.04em',
+                  textTransform: 'uppercase',
+                  color: listOrder === 'across' ? '#f2f2f3' : 'rgba(var(--inkc, 29,31,32), .65)',
+                  background: listOrder === 'across' ? accent : 'transparent',
+                  transition: 'background 0.18s, color 0.18s'
+                }}
+              >
+                ⇄ Row
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div
+          data-density="1"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '2px',
+            padding: '3px',
+            borderRadius: '13px',
+            background: 'var(--well, #e3e4e6)',
+            border: '1px solid rgba(var(--inkc, 29,31,32), .09)',
+            boxShadow: 'inset 0 2px 5px rgba(29,45,61,.09)',
+            opacity: view === 'grid' ? 1 : 0.3,
+            pointerEvents: view === 'grid' ? 'auto' : 'none',
+            transition: 'opacity 0.3s'
+          }}
+        >
+          <span
+            style={{
+              padding: '0 8px',
+              fontFamily: 'ui-monospace, Menlo, monospace',
+              fontSize: '9.5px',
+              letterSpacing: '.1em',
+              textTransform: 'uppercase',
+              color: 'rgba(var(--inkc, 29,31,32), .5)',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            Per row
+          </span>
+          {DENSITIES.map((n) => {
+            const isActive = density === n && view === 'grid';
+            return (
+              <button
+                key={n}
+                onClick={() => onDensityChange(n)}
+                style={{
+                  width: '28px',
+                  padding: '7px 0',
+                  border: 0,
+                  borderRadius: '9px',
+                  cursor: 'pointer',
+                  fontFamily: 'ui-monospace, Menlo, monospace',
+                  fontSize: '11px',
+                  color: isActive ? '#f2f2f3' : 'rgba(var(--inkc, 29,31,32), .6)',
+                  background: isActive ? accent : 'transparent',
+                  transition: 'background 0.18s, color 0.18s'
+                }}
+              >
+                {n}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Maximum Per Page Toggle & Popover */}
       <div

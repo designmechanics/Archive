@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import gsap from 'gsap';
-import { AssetEntry, Density, ThemeMode, ViewMode, WatchedFolder, Pool, MaxPerPage, ActiveZipArchive, SortOption, SortDirection } from './types';
+import { AssetEntry, Density, ThemeMode, ViewMode, WatchedFolder, Pool, MaxPerPage, ActiveZipArchive, SortOption, SortDirection, ListColumns, ListOrder } from './types';
 import { sortEntries, SORT_CONFIGS } from './services/sortService';
 import { CATS, KINDS, THEMES } from './data/seedData';
 import {
@@ -112,6 +112,46 @@ export const App: React.FC = () => {
     const nextDir = sortDirection === 'asc' ? 'desc' : 'asc';
     setSortDirection(nextDir);
     localStorage.setItem('archive.sortDirection', nextDir);
+  };
+
+  // Screen width tracking for responsive List View layout (1920+ dual column)
+  const [screenWidth, setScreenWidth] = useState<number>(() =>
+    typeof window !== 'undefined' ? window.innerWidth : 1920
+  );
+  useEffect(() => {
+    const onResize = () => setScreenWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // List View Columns (1 or 2). Default 2 Col on 1920+ displays, 1 Col under 1920px.
+  // User can manually override via toolbar toggle.
+  const [userListColsOverride, setUserListColsOverride] = useState<ListColumns | null>(() => {
+    const saved = localStorage.getItem('archive.listColumns');
+    if (saved === '1' || saved === '2') {
+      return parseInt(saved, 10) as ListColumns;
+    }
+    return null;
+  });
+
+  const listColumns: ListColumns = userListColsOverride !== null
+    ? userListColsOverride
+    : (screenWidth >= 1920 ? 2 : 1);
+
+  const handleListColumnsChange = (cols: ListColumns) => {
+    setUserListColsOverride(cols);
+    localStorage.setItem('archive.listColumns', String(cols));
+  };
+
+  // List View Flow Order: 'down' (col 1 then col 2) or 'across' (alternating rows)
+  const [listOrder, setListOrder] = useState<ListOrder>(() => {
+    const saved = localStorage.getItem('archive.listOrder');
+    return (saved === 'across' ? 'across' : 'down') as ListOrder;
+  });
+
+  const handleListOrderChange = (order: ListOrder) => {
+    setListOrder(order);
+    localStorage.setItem('archive.listOrder', order);
   };
   const [deferFolderIngestion, setDeferFolderIngestion] = useState<boolean>(() => {
     const saved = localStorage.getItem('archive.deferFolderIngestion');
@@ -1202,6 +1242,10 @@ export const App: React.FC = () => {
           sortDirection={sortDirection}
           onSortChange={handleSortChange}
           onToggleSortDirection={handleToggleSortDirection}
+          listColumns={listColumns}
+          onListColumnsChange={handleListColumnsChange}
+          listOrder={listOrder}
+          onListOrderChange={handleListOrderChange}
         />
 
         {/* Archive Contents Active Header / Exit Bar */}
@@ -1393,6 +1437,10 @@ export const App: React.FC = () => {
           onSortChange={handleSortChange}
           isPreviewOpen={!!openEntry}
           isStudioMode={isStudioMode}
+          listColumns={listColumns}
+          onListColumnsChange={handleListColumnsChange}
+          listOrder={listOrder}
+          onListOrderChange={handleListOrderChange}
         />
 
         {/* Floating Selection Bar */}

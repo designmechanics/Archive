@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
-import { AssetEntry, Density, ViewMode, WatchedFolder, SortOption, SortDirection, ThemeMode } from '../types';
+import { AssetEntry, Density, ViewMode, WatchedFolder, SortOption, SortDirection, ThemeMode, ListColumns, ListOrder } from '../types';
 import { KINDS } from '../data/seedData';
 import { ListView } from './ListView';
 import { isZipArchive } from '../services/zipService';
@@ -35,6 +35,10 @@ interface StageProps {
   onSortChange?: (option: SortOption, direction?: SortDirection) => void;
   isPreviewOpen?: boolean;
   isStudioMode?: boolean;
+  listColumns?: ListColumns;
+  listOrder?: ListOrder;
+  onListColumnsChange?: (cols: ListColumns) => void;
+  onListOrderChange?: (order: ListOrder) => void;
 }
 
 const getCardDepthStyling = (
@@ -140,7 +144,11 @@ export const Stage: React.FC<StageProps> = ({
   sortDirection = 'asc',
   onSortChange,
   isPreviewOpen = false,
-  isStudioMode = false
+  isStudioMode = false,
+  listColumns = 1,
+  listOrder = 'down',
+  onListColumnsChange,
+  onListOrderChange
 }) => {
   const isLight = theme === 'light';
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -1421,6 +1429,11 @@ export const Stage: React.FC<StageProps> = ({
             sortOption={sortOption}
             sortDirection={sortDirection}
             onSortChange={onSortChange}
+            listColumns={listColumns}
+            listOrder={listOrder}
+            onListColumnsChange={onListColumnsChange}
+            onListOrderChange={onListOrderChange}
+            isPreviewOpen={isPreviewOpen}
           />
         ) : allEntries.length === 0 ? (
         <div
