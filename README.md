@@ -12,6 +12,7 @@
 [![GSAP 3D](https://img.shields.io/badge/GSAP-3D_Choreography-88CE02?style=for-the-badge&logo=greensock&logoColor=white)](https://greensock.com/)
 [![Three.js](https://img.shields.io/badge/Three.js-WebGL_3D-000000?style=for-the-badge&logo=threedotjs&logoColor=white)](https://threejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![Website](https://img.shields.io/badge/Website-designmechanic.co.uk-2563EB?style=for-the-badge&logo=googlechrome&logoColor=white)](https://www.designmechanic.co.uk/)
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -281,5 +282,5 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 ---
 
 <div align="center">
-  <sub>Built with precision by <b>Design Mechanics</b> for creative technologists worldwide.</sub>
+  <sub>Built with precision by <a href="https://www.designmechanic.co.uk/" target="_blank"><b>designmechanics</b></a> for creative technologists worldwide.</sub>
 </div>

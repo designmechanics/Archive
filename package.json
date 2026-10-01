@@ -4,7 +4,11 @@
   "description": "Personal visual asset library & UI-effects studio engineered local-first with React, SQLite WAL, GSAP 3D choreography, and universal multi-format previews.",
   "private": true,
   "license": "MIT",
-  "author": "Design Mechanics",
+  "author": {
+    "name": "designmechanics",
+    "url": "https://www.designmechanic.co.uk/"
+  },
+  "homepage": "https://www.designmechanic.co.uk/",
   "type": "module",
   "scripts": {
     "dev": "vite",
