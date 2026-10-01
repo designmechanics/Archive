@@ -26,9 +26,33 @@
 
 ## ⚡ Overview
 
-**Archive** is a fast, local-first visual media library designed to bring all of your assets into one place. Built with **React, TypeScript, SQLite, and hardware-accelerated 3D presentation**, Archive lets you organize, search, and preview your media instantly with zero cloud reliance.
+**Archive** brings all of your media together into one fast, beautiful, and interactive space. Whether you have thousands of photos, videos, vector logos, font packages, 3D models, audio tracks, or documents scattered across different folders and drives, Archive lets you organize, search, and preview everything without slowing down.
 
-Whether you're organizing videos, photos, vector graphics, fonts, audio, 3D models, or sandboxed code experiments, Archive delivers a fluid, desktop-class experience right in your browser.
+### Why You'll Love It:
+* 🔒 **100% Private & Local-First**: Runs directly on your computer. Zero subscriptions, zero cloud fees, and your files never leave your machine.
+* ⚡ **Instant Search**: Find any asset in milliseconds by name, file extension, tag, or collection.
+* 🎭 **7 Dynamic Visual Views**: Switch between responsive grids, 3D Coverflow, filmstrips, radial wheels, card peels, and structured data tables with a single click.
+* 👁️ **Universal In-App Previews**: Inspect videos with frame-by-frame scrubbing, rotate 3D models in 360°, test fonts with live typing specimens, read PDFs, and extract color palettes without opening heavy external apps.
+* 📦 **Inspect ZIPs Without Extracting**: Peek inside ZIP packages and preview inner assets directly without unzipping them to disk.
+* 🎨 **Organize Your Way**: Group assets into custom colored pools and collections that match your unique workflow.
+
+<details>
+<summary><b>🔧 Bypass the boring bits: Technical Architecture & Under the Hood</b></summary>
+
+<br/>
+
+**For developers, creative technologists, and system builders:**
+
+Archive is an industrial-grade, local-first visual asset operating system engineered for high throughput, sub-millisecond search, and hardware-accelerated spatial presentation:
+
+* **SQLite WAL & FTS5 Full-Text Engine**: Powered by a high-throughput **SQLite WAL (Write-Ahead Logging)** backend with memory-mapped I/O (`mmap_size = 30GB`), PRAGMA cache optimizations, and an **FTS5 full-text search index** capable of indexing multi-gigabyte asset folders with sub-millisecond query execution.
+* **Reactive Frontend**: Built on a modern **React 18 + TypeScript + Vite** architecture with instant hot-module replacement and zero runtime overhead.
+* **GSAP 3D Spatial Choreography**: Custom **GSAP** hardware-accelerated matrix transforms (`rotateY = ±46°`, `rotateX = ±40°`, dynamic z-depth layer translation, and spring physics) running at a locked 60fps.
+* **Universal Rendering Pipeline**: Integrated **Three.js** WebGL renderer for 3D glTF/OBJ models, **PDF.js** web-worker canvas renderer, client-side color quantization palette extractors, and sandboxed iframe runners for interactive HTML/CSS/WebGL code experiments.
+* **Streaming Disk Ingestion**: Dual-engine ingestion using the HTML5 File System Access API and an asynchronous Node.js crawler with chunked streaming and background thumbnail generation.
+* **Automated Point-in-Time Backups**: One-click database snapshots saved to `/backups/archive_YYYY-MM-DD_HH-mm-ss.db` with database `VACUUM` and `PRAGMA optimize` built in.
+
+</details>
 
 ---
 
