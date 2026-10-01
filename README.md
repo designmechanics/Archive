@@ -1,9 +1,7 @@
 <div align="center">
 
 # ARCHIVE
-### `PERSONAL VISUAL ASSET LIBRARY & UI-EFFECTS STUDIO`
-
-**Local-First High-Performance Workspace for 20+ Years of Creative Files**
+### All of your media, all in one place.
 
 [![Vite](https://img.shields.io/badge/Vite-5.4-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![React](https://img.shields.io/badge/React-18.3-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
@@ -28,9 +26,9 @@
 
 ## ⚡ Overview
 
-**Archive** is an industrial-grade, local-first visual asset operating system engineered for visual directors, prompt engineers, motion designers, and creative technologists. Built with a reactive **React + TypeScript + Vite** architecture, a high-throughput **SQLite WAL (Write-Ahead Logging) & FTS5 full-text engine**, and hardware-accelerated **GSAP 3D spatial presentation**, Archive handles multi-gigabyte asset folders with sub-millisecond search and zero cloud reliance.
+**Archive** is a fast, local-first visual media library designed to bring all of your assets into one place. Built with **React, TypeScript, SQLite, and hardware-accelerated 3D presentation**, Archive lets you organize, search, and preview your media instantly with zero cloud reliance.
 
-Whether organizing tens of thousands of stock videos, raw vector brand marks, font specimens, 3D glTF models, or running sandboxed HTML/CSS/WebGL code experiments in real time, Archive delivers a fluid, tactile desktop-class experience right in the browser.
+Whether you're organizing videos, photos, vector graphics, fonts, audio, 3D models, or sandboxed code experiments, Archive delivers a fluid, desktop-class experience right in your browser.
 
 ---
 
