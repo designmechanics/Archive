@@ -1,12 +1,16 @@
 {
   "name": "archive-asset-library",
-  "private": true,
   "version": "1.0.0",
+  "description": "Personal visual asset library & UI-effects studio engineered local-first with React, SQLite WAL, GSAP 3D choreography, and universal multi-format previews.",
+  "private": true,
+  "license": "MIT",
+  "author": "Design Mechanics",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "snapshots": "node scripts/capture_all.js"
   },
   "dependencies": {
     "@types/better-sqlite3": "^9.6.0",

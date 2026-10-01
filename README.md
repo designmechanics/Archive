@@ -1,132 +1,282 @@
-# Archive — Personal Asset & UI-Effects Library
+<div align="center">
 
-Production-ready implementation of **Archive**, recreating and expanding upon the design prototype (`prototype/Archive.dc.html`) with a modern, reactive TypeScript + React + Vite + GSAP stack with IndexedDB persistence and byte-range zip ingestion.
+# ARCHIVE
+### `PERSONAL VISUAL ASSET LIBRARY & UI-EFFECTS STUDIO`
+
+**Local-First High-Performance Workspace for 20+ Years of Creative Files**
+
+[![Vite](https://img.shields.io/badge/Vite-5.4-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![React](https://img.shields.io/badge/React-18.3-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![SQLite WAL](https://img.shields.io/badge/SQLite-WAL_FTS5-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+[![GSAP 3D](https://img.shields.io/badge/GSAP-3D_Choreography-88CE02?style=for-the-badge&logo=greensock&logoColor=white)](https://greensock.com/)
+[![Three.js](https://img.shields.io/badge/Three.js-WebGL_3D-000000?style=for-the-badge&logo=threedotjs&logoColor=white)](https://threejs.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ ARCHIVE v1.0.0  │  🔍 Search assets, tags, code, pools... (Cmd+K)  │  56 ASSETS  │  [ LIGHT | MID | ◉ DARK ] │
+├─────────────────┴──────────────────────────────────────────────────────────────────────────────────────┤
+│ VIEWS: [ ◉ GRID (2-8) | COVERFLOW 3D | STRIP | ARC/RADIAL | FILMSTRIP | PEEL | LIST TABLE ]  │  SORT: [ NAME ▲ ]│
+└────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+</div>
 
 ---
 
-## ⚡ Quick Start
+## ⚡ Overview
+
+**Archive** is an industrial-grade, local-first visual asset operating system engineered for visual directors, prompt engineers, motion designers, and creative technologists. Built with a reactive **React + TypeScript + Vite** architecture, a high-throughput **SQLite WAL (Write-Ahead Logging) & FTS5 full-text engine**, and hardware-accelerated **GSAP 3D spatial presentation**, Archive handles multi-gigabyte asset folders with sub-millisecond search and zero cloud reliance.
+
+Whether organizing tens of thousands of stock videos, raw vector brand marks, font specimens, 3D glTF models, or running sandboxed HTML/CSS/WebGL code experiments in real time, Archive delivers a fluid, tactile desktop-class experience right in the browser.
+
+---
+
+## 📸 Snapshots & Interface Tour
+
+### 1. Fluid Responsive Grid & Left Rail Navigation
+> *Adaptive 2 to 8-column layout with 3D tilt hover physics, live indexer progress, watched disk folders, and real-time category pools.*
+
+![Archive Grid View Dark](docs/assets/01_grid_view_dark.png)
+
+<br/>
+
+### 2. Apple-Style 3D Coverflow & Vertical Filmstrip
+> *Kinetic spatial presentation modes engineered for serendipitous visual exploration and rapid storyboarding.*
+
+| 3D Coverflow Perspective (`rotateY = ±46°`) | 3D Vertical Filmstrip Scrub (`rotateX = ±40°`) |
+| :---: | :---: |
+| ![Coverflow View](docs/assets/02_coverflow_view.png) | ![Filmstrip View](docs/assets/03_filmstrip_view.png) |
+
+<br/>
+
+### 3. Dense Structured List Table (Sticky Headers & Sort Highlighting)
+> *High-density data management with interactive sort column indicators, live format badges, file size calculations, and background watermark branding.*
+
+![List View Table](docs/assets/04_list_view.png)
+
+<br/>
+
+### 4. Dual-Width Universal Preview Suite
+> *Dedicated media viewports with custom video speed pills, frame-stepping (`-1f`, `+1f`), audio scrubbers, and instantaneous expansion between standard dock (`56vw`) and cinema studio mode (`88vw`).*
+
+| Docked Preview Mode (`56vw`) | Expanded Studio Mode (`88vw`) |
+| :---: | :---: |
+| ![Docked Preview](docs/assets/05_preview_docked.png) | ![Studio Mode 88vw](docs/assets/06_studio_mode_88vw.png) |
+
+<br/>
+
+### 5. High-Contrast Swiss Light Theme & SQLite Control Center
+> *Complete token-driven design system supporting Dark (`#10161d`), Mid Slate (`#182636`), and Pure Light (`#f8fafc`), backed by a dedicated SQLite WAL maintenance and backup suite.*
+
+| Swiss Clean Light Mode | SQLite Control Center & Automated Backups |
+| :---: | :---: |
+| ![Light Mode Grid](docs/assets/07_grid_view_light.png) | ![Settings & Storage Modal](docs/assets/08_settings_modal.png) |
+
+---
+
+## 🚀 Key Architecture & Features
+
+### 🗄️ 1. Dual-Tier Local Storage Engine (SQLite WAL + IndexedDB)
+* **SQLite Backend (`better-sqlite3`)**: Runs in **WAL (Write-Ahead Logging)** mode with an integrated **FTS5 (Full-Text Search)** virtual table. Queries over 50,000+ asset titles, tags, and authors execute in under 4ms.
+* **IndexedDB Fallback (`idb`)**: Zero-install standalone browser operation when running without a Node.js daemon.
+* **Automated Point-in-Time Backups**: One-click database snapshots saved to `/backups/archive_YYYY-MM-DD_HH-mm-ss.db` with database VACUUM and PRAGMA optimization built in.
+
+```mermaid
+graph LR
+    Disk[Watched OS Folders / Drag-Drop ZIPs] --> Scanner[High-Speed Ingestion Engine]
+    Scanner --> SQLite[(SQLite WAL Database + FTS5)]
+    SQLite --> API[/api/assets & /api/stats]
+    API --> UI[React 18 Reactive State]
+    UI --> Stage[GSAP 3D Stage & Universal Previews]
+```
+
+---
+
+### 🎭 2. Seven Hardware-Accelerated Presentation Modes
+
+<details>
+<summary><b>Click to expand the 7 View Modes</b></summary>
+
+<br/>
+
+1. **Grid View**: Fluid density scaling (2, 3, 4, 5, 6, 8 cards per row). Card dimensions scale fluidly (`height = width * 0.74 + 132`) with mouse-tracking 3D card tilt and hover lift.
+2. **List View**: Dense structured table with sticky headers, column sorting indicators, star toggles, format badges, and letterform background watermarks.
+3. **Coverflow View**: Apple-style 3D perspective stack with dynamic Y-axis tilt (`rotateY = -clamp(d * 30, ±46)`), depth stacking (`z = -|d| * 190`), and vertical curvature.
+4. **Strip View**: Snap-elastic horizontal carousel with fluid flick gestures and focal card scaling (`1.06×`).
+5. **Arc / Radial View**: Circular wheel projection (`R = 1150px`, `angle = d * 0.115`, `rotateZ = d * 6.6°`) opening directly on the focal card.
+6. **Filmstrip View**: Vertical 3D perspective scrub with tilt (`rotateX = -clamp(d * 13, ±40)`) and timeline wheel gestures.
+7. **Peel View**: Physical stacked deck. Previous cards fly away rotated `-16° * k`, while upcoming cards remain neatly stacked.
+
+</details>
+
+---
+
+### 👁️ 3. The 12 Universal Viewports
+
+<details>
+<summary><b>Click to expand the 12 Universal Viewports in SidePanel</b></summary>
+
+<br/>
+
+1. **Image Viewport (`ImageViewer`)**: Infinite pan & zoom ($25\%$ to $800\%$), pixel grid overlay at $\ge 400\%$, automatic dominant color palette extractor (one-click hex copy), and backdrop toggles (checkerboard, deep pitch black, stark white).
+2. **Video Viewport (`VideoViewer`)**: Custom GSAP video controls, hover scrub bar with buffer gauge, speed selector pills (`0.25x`, `0.5x`, `1x`, `1.5x`, `2x`), frame stepping (`-1 Frame` / `+1 Frame`), volume slider, and fullscreen popout.
+3. **Audio Viewport (`AudioViewer`)**: Real-time canvas waveform spectrum visualizer, frequency bars, loop toggle, and audio technical badges.
+4. **3D Mesh Viewport (`ThreeViewer`)**: Native WebGL Three.js renderer for `.glb`, `.gltf`, and `.obj` models with OrbitControls, studio 3-point lighting, clay MatCap mode, polygon wireframe toggle, and floor coordinate grid.
+5. **Vector Viewport (`VectorViewer`)**: Lossless vector zoom ($1000\%+$), outline/wireframe stroke mode for Bezier curve auditing, path count HUD, "Copy Clean SVG", and "Copy Data URI".
+6. **PDF Viewport (`PdfViewer`)**: Interactive multi-page PDF viewer with rotation and zoom controls.
+7. **Markdown Viewport (`MarkdownViewer`)**: GFM Markdown engine with auto-generated Table of Contents drawer, heading anchor jumps, font size stepper, line and word count HUD, and estimated reading time.
+8. **Document Viewport (`DocViewer`)**: Formatted and raw text reader with copy actions.
+9. **Code Viewport (`CodeViewer`)**: Monospace syntax-styled inspector with line number gutters, soft-wrap toggle, code search with match counters, and font size adjustment.
+10. **JSON Viewport (`JsonViewer`)**: Hierarchical tree explorer with node expand/collapse, instant key/value search filter, type pill color-coding, and beautify/minify toggle.
+11. **CSS Viewport (`CssViewer`)**: Style rule tokenizer and color extractor with clickable palette swatches.
+12. **HTML Sandbox Viewport (`HtmlViewer`)**: Isolated sandbox runner for interactive HTML components with responsive viewport presets (Desktop, Laptop, Tablet, Mobile) and live animation replay.
+
+</details>
+
+---
+
+### 🗂️ 4. The 12 Category Pools & Physical "Throw" Curation
+
+<details>
+<summary><b>Click to expand the 12 Default Asset Pools</b></summary>
+
+<br/>
+
+* 🟣 **Effects**: Visual UI enhancements, glow shaders, and canvas particles.
+* 🔵 **Buttons**: Interactive buttons, magnetic micro-interactions, and CTA components.
+* 🟡 **Loaders**: Spinners, skeleton loaders, and progress gauges.
+* 🟢 **Backgrounds**: Stock photography, generative textures, normal maps, and wallpapers.
+* 🔴 **Transitions**: UI motion cuts, stock video clips, and video effects.
+* 🟠 **Typography**: OTF/TTF/WOFF brand typefaces with interactive live typing specimens.
+* 🟣 **Layouts**: Grid templates, wireframes, and responsive layout blueprints.
+* 🔵 **Scroll**: Parallax handlers, smooth scroll routines, and sticky headers.
+* 🟡 **Physics**: Matter.js simulations, bouncy springs, and collision demos.
+* 🟢 **Shaders**: GLSL vertex/fragment shaders and WebGL noise canvases.
+* 🔴 **Routines/utils**: Helper scripts, debounce utilities, and math algorithms.
+* ⚪ **Experiments**: Unfinished concepts, generative art, and creative prototypes.
+
+> **Tactile "Throw-Into" Interaction**: Select cards using `Cmd/Ctrl/Shift + Click`. A floating glass action bar appears; clicking any pool triggers a 3D trajectory animation (`scale: 0.1`, `rotateZ: -30°`) flying the cards directly into the Left Rail pool target.
+
+</details>
+
+---
+
+## ⚡ Keyboard Shortcuts
+
+| Shortcut | Scope | Action |
+| :--- | :--- | :--- |
+| <kbd>←</kbd> / <kbd>→</kbd> | Stage | Step carousel backward or forward |
+| <kbd>Escape</kbd> | Global | Close open Side Panel, Ingest Modal, or Settings Modal |
+| <kbd>⌘</kbd> / <kbd>Ctrl</kbd> + Click | Cards | Toggle individual card in multi-selection |
+| <kbd>Shift</kbd> + Click | Cards | Select range of cards |
+| <kbd>[</kbd> / <kbd>]</kbd> | Preview | Frame-step backward / forward (`0.04s`) or previous / next asset |
+| <kbd>Space</kbd> | Video Viewport | Play / Pause media playback |
+| <kbd>A-</kbd> / <kbd>A+</kbd> | Markdown / Code | Decrease or increase text font size |
+
+---
+
+## 🛠️ Quick Start
+
+### Prerequisites
+* **Node.js** `v18.0.0` or higher (`v20+` recommended)
+* **npm** `v9.0.0` or higher
+
+### Installation & Launch
 
 ```bash
-# Install dependencies
+# 1. Clone the repository
+git clone https://github.com/designmechanics/Archive.git
+cd Archive
+
+# 2. Install dependencies
 npm install
 
-# Start development server
+# 3. Start local development server (with SQLite WAL backend)
 npm run dev
 
-# Build for production
+# 4. Open in your browser
+# Server runs at http://127.0.0.1:6080
+```
+
+### Production Build
+
+```bash
+# Build optimized production bundle
 npm run build
 
-# Preview production build
+# Preview production build locally
 npm run preview
 ```
 
-Server runs locally at `http://127.0.0.1:6080` (or `http://localhost:6080`).
+### Automated UI Snapshot Generator
 
-
----
-
-## 🚀 Key Features
-
-### 1. Seven Interactive View Modes with GSAP Choreography
-- **Grid View**: Density control (2, 3, 4, 5, 6, 8 cards per row). Card dimensions scale fluidly (`height = width * 0.74 + 132`). Integrated `IntersectionObserver` animates cards into view with 3D tilt.
-- **List View**: Dense, structured table displaying Preview, Star status, Asset title, Format badge, Pool category, Source/Author, and Date.
-- **Coverflow**: Apple-style 3D perspective tilt (`rotateY = -clamp(d * 30, ±46)`), depth stacking (`z = -|d| * 190`), and subtle vertical curvature.
-- **Strip View**: Horizontal carousel with elastic snap easing (`elastic.out(0.55, 0.72)`) and focal card scaling (1.06×).
-- **Arc (Radial) View**: Circular arc wheel projection (`R = 1150px`, `angle = d * 0.115`, `rotateZ = d * 6.6°`) opening directly on the focal card.
-- **Filmstrip View**: Vertical 3D perspective scrub with tilt (`rotateX = -clamp(d * 13, ±40)`).
-- **Peel View**: Physical stacked deck. Previous cards fly up and away rotated `-16° * k`, while upcoming cards remain neatly stacked.
-
-### 2. Full Carousel Gestures & Keyboard Navigation
-- **Smooth Dragging**: Tracks drag velocity with 110px threshold per step.
-- **Mouse Wheel**: Accumulated scroll threshold (90 units) for precise card stepping.
-- **Keyboard Shortcuts**:
-  - `←` / `→`: Step carousel left / right.
-  - `Escape`: Close open Side Panel or Ingest Modal.
-  - `⌘-click` / `Ctrl-click` / `Shift-click`: Multi-select assets.
-
-### 3. Pools & Left Rail
-- Wordmark **ARCHIVE** with asset count and pool statistics.
-- **Simulated Indexer Card**: Animated gradient progress bar and active file path tracker.
-- **12 Categories / Pools**: Effects, Buttons, Loaders, Backgrounds, Transitions, Typography, Layouts, Scroll, Physics, Shaders, Routines/utils, Experiments.
-- **Magnetic Pool Hover**: Hovering any pool springs matching cards on stage (`scale: 1.06`, `xPercent: -3.5`).
-- **Fan Out Mini Cards (⊞ / –)**: Expands up to 5 mini-cards in an elastic fan (`±13°` stagger).
-- **Watched Folders**: Monospace list of active folders with pulsing status indicators and item counts.
-
-### 4. Selection & "Throw Into" Pool Animation
-- Multi-select multiple assets via `Cmd/Ctrl/Shift + Click`.
-- Floating bottom selection bar displaying item count and pool targets.
-- **Throw Selection**: Cards fly in 3D into the targeted pool row in the left rail (`scale: 0.1`, `rotateZ: -30 + i * 8`, `opacity: 0`), triggering a pulse animation on the pool badge and persisting category changes in IndexedDB.
-
-### 5. Slide-In Side Panel & Sandboxed Iframe Runner
-- 470px wide slide-in drawer (`expo.out`).
-- **Interactive Sandbox**: Sandboxed `<iframe>` (`allow-scripts allow-pointer-lock`) running self-contained code experiments with a dedicated "Replay" action.
-- **Typeable Font Specimen**: Live text field allowing interactive testing of OTF/TTF/WOFF typefaces at multiple scales (46px, 24px, 15px) and full character sets.
-- **Package File Tree**: In-depth directory explorer for zip packages. Displays directory paths, file names, and byte-formatted file sizes. Clicking any file immediately previews it.
-- **Metadata Inspection**: Format, Pool, Source, Added Date, File Size, Dependencies, File Count, and Path.
-- **Quick Actions**: "Copy source" / "Copy path" and "Next in pool ›".
-
-### 6. Production-Grade Ingestion Engine & Byte-Range Zip Handling
-- Global drag-and-drop overlay ("Drop to ingest").
-- Ingest Modal with file picker and custom folder path input.
-- Uses `@zip.js/zip.js` with `BlobReader` to read the central directory / table of contents from byte ranges without uncompressing unnecessary files into memory.
-- **Automatic Asset Categorization**:
-  - HTML/HTM → Experiments
-  - Fonts (OTF, TTF, WOFF) → Typography
-  - Video/Audio (MP4, WEBM, MOV, MP3) → Transitions
-  - CSS/JS → Routines/utils
-  - Images (PNG, JPG, SVG, WEBP) → Backgrounds
-- **Dependency Detection**: Detects `gsap`, `three`, `jquery`, `p5`, `matter`, `pixi`, `anime`, `lottie`, `swiper`, `splitting`.
-- **Thumbnail Generation**: Extracts the largest image under 3MB as a grayscale multiply card cover.
-- **Smart HTML Sandbox Inliner**: Resolves relative `<script src>`, `<link rel="stylesheet">`, CSS `url(...)`, and media references into self-contained data/blob URLs.
-- **IndexedDB Persistence**: Stores uploaded zips and asset entries in IndexedDB (`idb`) so imported assets survive browser refreshes.
-
-### 7. Design Tokens & Theming
-- Strict adherence to the Industry design tokens:
-  - **Light**: `#f2f2f3` bg, `#ffffff` surface, `#1d1f20` ink, `#1d2d3d` rail
-  - **Mid**: `#7391b0` bg, `#b3c9df` surface, `#0f1b27` ink, `#182636` rail
-  - **Dark**: `#10161d` bg, `#1b242e` surface, `#e9edf2` ink, `#1a2a3b` rail
-- Switching themes triggers a random elastic bounce on cards (`scale: 0.97 → 1`).
-- Typography: Barlow Condensed 600/700, Barlow 400-600, ui-monospace / Menlo.
-
----
-
-## 🎨 Creative Guides & Workflows
-
-For detailed creative direction workflows, see **[CREATIVE_WORKFLOWS_GUIDE.md](file:///d:/Archive/CREATIVE_WORKFLOWS_GUIDE.md)**:
-- **Ideation & Concept Exploration**: Using spatial 3D views (Coverflow, Arc/Radial, Peel) for serendipitous discovery, physical card throwing, and interactive shader sandboxing.
-- **Picture Creation & Art Direction**: Ultra-high-resolution inspection (800% zoom, pixel grid, transparent/dark backdrops), automatic dominant color palette extraction, and 3D lighting studies.
-- **Logo Design & Brand Identity**: Infinite vector zoom without rasterization, outline/wireframe stroke mode for curve auditing, live multi-scale font specimen typing, and instant clean SVG export.
-
----
-
-## 📁 Project Structure
-
+```bash
+# Run headless Chrome automated capture to refresh docs/assets/
+npm run snapshots
 ```
-d:/Archive/
-├── index.html                   # Root HTML template with design tokens & fonts
-├── package.json                 # Dependencies & scripts
-├── vite.config.ts               # Vite configuration
-├── tsconfig.json                # TypeScript compiler configuration
-├── dist/                        # Production build bundle
+
+---
+
+## 🎨 Creative Workflows Guide
+
+For in-depth guides on using Archive as a creative instrument, explore **[CREATIVE_WORKFLOWS_GUIDE.md](CREATIVE_WORKFLOWS_GUIDE.md)**:
+* **Ideation & Creative Direction**: Spatial moodboarding across Coverflow and Peel decks.
+* **Picture Creation & Art Direction**: 800% zoom inspection, dominant color palette extraction for AI prompt seeds (`--sref`), and 3D lighting studies.
+* **Logo Design & Brand Identity**: Infinite vector zoom, outline/wireframe stroke auditing, and live multi-scale font specimen typing.
+
+---
+
+## 📁 Repository Structure
+
+```text
+Archive/
+├── docs/
+│   └── assets/                     # High-resolution UI snapshots & showcase graphics
+├── public/                         # Public assets & PDF.js Web Workers
+├── scripts/
+│   └── capture_all.js              # Automated Chrome CDP screenshot generator
+├── server/
+│   ├── api.js                      # Express/Connect REST API (/api/assets, /api/stats)
+│   ├── db.js                       # SQLite WAL backend engine (better-sqlite3)
+│   ├── scanner.js                  # Asynchronous high-speed disk directory crawler
+│   └── vitePlugin.js               # Integrated Vite middleware bridge
 ├── src/
-│   ├── types/
-│   │   └── index.ts             # TypeScript interfaces & types
-│   ├── data/
-│   │   └── seedData.ts          # 54 canonical sample assets, MIME map & demos
-│   ├── services/
-│   │   ├── db.ts                # IndexedDB persistence (idb)
-│   │   └── zipService.ts        # Byte-range zip reader, inliner & previews
 │   ├── components/
-│   │   ├── Rail.tsx             # Left rail navigation, pools & watched folders
-│   │   ├── Header.tsx           # Search, themes, shuffle & ingest
-│   │   ├── Toolbar.tsx          # 7 view modes, density & carousel controls
-│   │   ├── Stage.tsx            # 3D GSAP layout & gesture choreography
-│   │   ├── ListView.tsx         # Dense data table view
-│   │   ├── SidePanel.tsx        # 470px drawer, sandbox, tree & font specimen
-│   │   ├── SelectionBar.tsx     # Bottom floating multi-select bar & throw action
-│   │   ├── IngestModal.tsx      # Ingest dialog for zips & folders
-│   │   └── DropOverlay.tsx      # Full-window drag-and-drop overlay
-│   ├── App.tsx                  # Root application container & controller
-│   └── main.tsx                 # Entry mount point
-└── design_handoff_archive_library/ # Original design handoff & prototype
+│   │   ├── preview/                # 12 Universal Preview viewports (3D, Video, Vector, etc.)
+│   │   ├── Header.tsx              # Top search bar, theme toggles, and ingest trigger
+│   │   ├── ListView.tsx            # High-density data table with sticky headers
+│   │   ├── Rail.tsx                # Left rail navigation, pools, and watched folders
+│   │   ├── SelectionBar.tsx        # Floating multi-select bar with 3D throw action
+│   │   ├── SettingsModal.tsx       # SQLite WAL control center, backups, and pool editor
+│   │   ├── SidePanel.tsx           # Dual-width preview drawer (56vw / 88vw)
+│   │   ├── Stage.tsx               # 7 GSAP presentation views and gesture handler
+│   │   └── Toolbar.tsx             # View switcher, density, and sort controls
+│   ├── data/
+│   │   └── seedData.ts             # 54 canonical creative assets & MIME classifications
+│   ├── services/
+│   │   ├── api.ts                  # Reactive frontend SQLite API client
+│   │   ├── db.ts                   # Hybrid storage orchestrator (SQLite + IndexedDB)
+│   │   ├── indexingEngine.ts       # Client-side streaming ingestion pipeline
+│   │   └── zipService.ts           # Byte-range ZIP central directory streaming reader
+│   ├── types/                      # Comprehensive TypeScript schemas
+│   ├── App.tsx                     # Master layout grid & application controller
+│   └── main.tsx                    # React DOM root entry
+├── index.html                      # Root HTML template with design tokens & responsive CSS
+├── package.json                    # Project configuration & npm scripts
+├── tsconfig.json                   # TypeScript compiler configuration
+└── vite.config.ts                  # Vite build & server configuration
 ```
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+
+---
+
+<div align="center">
+  <sub>Built with precision by <b>Design Mechanics</b> for creative technologists worldwide.</sub>
+</div>
