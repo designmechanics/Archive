@@ -151,6 +151,7 @@ export const Stage: React.FC<StageProps> = ({
   onListOrderChange
 }) => {
   const isLight = theme === 'light';
+  const rootRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -163,7 +164,7 @@ export const Stage: React.FC<StageProps> = ({
 
   useEffect(() => {
     const updateWidth = () => {
-      const w = stageRef.current?.clientWidth || wrapRef.current?.clientWidth || (window.innerWidth - 220);
+      const w = rootRef.current?.clientWidth || stageRef.current?.clientWidth || (typeof window !== 'undefined' ? window.innerWidth - 220 : 1200);
       setStageWidth(w);
     };
     updateWidth();
@@ -1282,6 +1283,7 @@ export const Stage: React.FC<StageProps> = ({
 
   return (
     <div
+      ref={rootRef}
       style={{
         position: 'relative',
         flex: 1,
@@ -1414,7 +1416,13 @@ export const Stage: React.FC<StageProps> = ({
           flex: 1,
           minHeight: 0,
           overflow: view === 'grid' || view === 'list' ? 'auto' : 'hidden',
-          padding: view === 'grid' || view === 'list' ? '6px 26px 120px' : '0 26px'
+          padding: view === 'list'
+            ? (isDocked56vw ? '6px 12px 120px' : '6px 26px 120px')
+            : view === 'grid'
+            ? '6px 26px 120px'
+            : '0 26px',
+          marginRight: (view === 'list' && isDocked56vw) ? `${panelWidth}px` : 0,
+          transition: 'margin-right 0.45s cubic-bezier(0.16, 1, 0.3, 1), padding 0.45s cubic-bezier(0.16, 1, 0.3, 1)'
         }}
       >
         {view === 'list' ? (

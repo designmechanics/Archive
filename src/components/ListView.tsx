@@ -71,8 +71,24 @@ export const ListView: React.FC<ListViewProps> = ({
     return groups;
   }, [entries, effectiveColumns, listOrder]);
 
-  // Responsive column dimensions based on effective column count
+  // Responsive column dimensions based on effective column count and preview mode
   const colSizes = useMemo(() => {
+    if (isPreviewOpen) {
+      return {
+        gap: '7px',
+        padding: '5px 8px',
+        titleFont: '15px',
+        prevWidth: '32px',
+        prevHeight: '26px',
+        starWidth: '16px',
+        assetFlex: '1.4',
+        formatWidth: '60px',
+        sizeWidth: '52px',
+        poolFlex: '0.7',
+        sourceWidth: '66px',
+        dateWidth: '60px'
+      };
+    }
     switch (effectiveColumns) {
       case 4:
         return {
@@ -135,7 +151,7 @@ export const ListView: React.FC<ListViewProps> = ({
           dateWidth: '84px'
         };
     }
-  }, [effectiveColumns]);
+  }, [effectiveColumns, isPreviewOpen]);
 
   const handleHeaderSort = (opt: SortOption) => {
     if (!onSortChange) return;
