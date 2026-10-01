@@ -312,13 +312,17 @@ export const App: React.FC = () => {
         { y: 0, opacity: 1, duration: 0.5, stagger: 0.026, ease: 'power3.out', delay: 0.1 }
       );
 
+      // Trigger smooth transition from solid loading screen to subtle in-app watermark
+      document.documentElement.classList.add('app-ready');
+      document.body.classList.add('app-ready');
+
       // Dismiss immediate session loader screen
       const loader = document.getElementById('app-loader');
       if (loader) {
         loader.classList.add('loaded');
         setTimeout(() => {
           loader.remove();
-        }, 700);
+        }, 1000);
       }
     };
 

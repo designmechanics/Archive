@@ -32,6 +32,15 @@
         } catch (e) {
           document.documentElement.style.setProperty('--session-bg', 'url(/backgrounds/logo_bg_3.jpg)');
         }
+        // Safety fallback to fade into app if React mount is delayed
+        setTimeout(function() {
+          document.documentElement.classList.add('app-ready');
+          var l = document.getElementById('app-loader');
+          if (l) {
+            l.classList.add('loaded');
+            setTimeout(function() { if (l && l.parentNode) l.parentNode.removeChild(l); }, 1000);
+          }
+        }, 4500);
       })();
     </script>
     <style>
@@ -511,19 +520,28 @@
         background-size: cover;
         background-position: center center;
         background-repeat: no-repeat;
-        opacity: 0.085;
+        opacity: 1; /* Solid during loading screen */
         filter: saturate(1.1) contrast(1.05);
-        transition: opacity 0.5s ease;
+        transition: opacity 1.4s cubic-bezier(0.16, 1, 0.3, 1);
+        will-change: opacity;
       }
-      html[data-theme="light"] #app-session-bg {
-        opacity: 0.045;
+      /* Smooth fade down to subtle in-app watermark once app is ready */
+      html.app-ready #app-session-bg,
+      body.app-ready #app-session-bg {
+        opacity: 0.025;
+      }
+      html[data-theme="dark"].app-ready #app-session-bg,
+      body[data-theme="dark"].app-ready #app-session-bg {
+        opacity: 0.025;
+      }
+      html[data-theme="mid"].app-ready #app-session-bg,
+      body[data-theme="mid"].app-ready #app-session-bg {
+        opacity: 0.02;
+      }
+      html[data-theme="light"].app-ready #app-session-bg,
+      body[data-theme="light"].app-ready #app-session-bg {
+        opacity: 0.015;
         mix-blend-mode: multiply;
-      }
-      html[data-theme="mid"] #app-session-bg {
-        opacity: 0.07;
-      }
-      html[data-theme="dark"] #app-session-bg {
-        opacity: 0.095;
       }
 
       #app-loader {
@@ -533,32 +551,18 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: #090e14;
+        background: transparent;
+        pointer-events: none;
         transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.65s;
       }
       #app-loader.loaded {
         opacity: 0;
         visibility: hidden;
-        pointer-events: none;
-      }
-      #app-loader-backdrop {
-        position: absolute;
-        inset: 0;
-        background-image: var(--session-bg, none);
-        background-size: cover;
-        background-position: center center;
-        background-repeat: no-repeat;
-        filter: brightness(0.4) saturate(1.2);
-        transform: scale(1.01);
-        transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
-      }
-      #app-loader.loaded #app-loader-backdrop {
-        transform: scale(1.06);
       }
       #app-loader-vignette {
         position: absolute;
         inset: 0;
-        background: radial-gradient(circle at center, rgba(9, 14, 20, 0.45) 0%, rgba(9, 14, 20, 0.88) 100%);
+        background: radial-gradient(circle at center, rgba(9, 14, 20, 0.35) 0%, rgba(9, 14, 20, 0.78) 100%);
       }
       #app-loader-card {
         position: relative;
@@ -637,7 +641,6 @@
 
     <!-- Immediate Session Loading Screen -->
     <div id="app-loader" role="status" aria-live="polite">
-      <div id="app-loader-backdrop"></div>
       <div id="app-loader-vignette"></div>
       <div id="app-loader-card">
         <div class="app-loader-logo">ARCHIVE</div>
