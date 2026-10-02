@@ -671,39 +671,21 @@ export const Stage: React.FC<StageProps> = ({
     const dur = 0.62 * m;
     const ease = view === 'strip' ? 'elastic.out(0.55, 0.72)' : 'expo.out';
 
-    allEntries.forEach((entry) => {
+    entries.forEach((entry, idxInVis) => {
       const el = cardRefs.current.get(entry.id);
       if (!el) return;
 
       const t = T[entry.id];
       const isSelected = !!selectedIds[entry.id];
 
-      if (!t) {
-        // Filtered out: animate towards rail
-        gsap.to(el, {
-          x: -160,
-          y: 120,
-          z: -300,
-          scale: 0.12,
-          rotateZ: -24,
-          opacity: 0,
-          duration: 0.6 * m,
-          ease: 'power3.inOut',
-          overwrite: true,
-          onComplete: () => {
-            el.style.pointerEvents = 'none';
-          }
-        });
-        return;
-      }
+      if (!t) return;
 
       el.style.pointerEvents = t.o === 0 ? 'none' : 'auto';
       el.style.width = `${t.w}px`;
       el.style.height = `${t.h}px`;
       el.style.zIndex = String(t.zi);
 
-      const idxInVis = entries.findIndex((x) => x.id === entry.id);
-      const ad = isCarousel && idxInVis >= 0 ? Math.abs(idxInVis - focus) : 0;
+      const ad = isCarousel ? Math.abs(idxInVis - focus) : 0;
       const isActivePreview = Boolean(activeEntryId && entry.id === activeEntryId && isPreviewOpen);
       const depth = getCardDepthStyling(ad, isSelected, isCarousel, isLight, isBlack, isActivePreview);
 
@@ -771,11 +753,22 @@ export const Stage: React.FC<StageProps> = ({
         gsap.set(r, { opacity: 1, y: 0, rotateX: 0 });
       });
     }
-  }, [entries, allEntries, view, density, focusIndex, selectedIds, activeEntryId, motionMultiplier, isPreviewOpen, isStudioMode, stageWidth]);
+  }, [entries, view, density, focusIndex, selectedIds, activeEntryId, motionMultiplier, isPreviewOpen, isStudioMode, stageWidth]);
+
+  // Clean up detached card refs when entries change to prevent memory leaks and zombie tweens
+  useEffect(() => {
+    const activeIds = new Set(entries.map((e) => e.id));
+    for (const [id, el] of cardRefs.current.entries()) {
+      if (!activeIds.has(id)) {
+        gsap.killTweensOf(el);
+        cardRefs.current.delete(id);
+      }
+    }
+  }, [entries]);
 
   // Magnetic hover effect when pool in rail is hovered
   useEffect(() => {
-    allEntries.forEach((entry) => {
+    entries.forEach((entry) => {
       const el = cardRefs.current.get(entry.id);
       if (!el || el.style.pointerEvents === 'none') return;
       const isMatch = hoverPool && entry.cat === hoverPool;
@@ -787,7 +780,7 @@ export const Stage: React.FC<StageProps> = ({
         overwrite: 'auto'
       });
     });
-  }, [hoverPool, allEntries, motionMultiplier]);
+  }, [hoverPool, entries, motionMultiplier]);
 
   // Auto-scroll the active preview item to keep it central in grid / list views
   useEffect(() => {
@@ -808,7 +801,7 @@ export const Stage: React.FC<StageProps> = ({
     }, 70);
 
     return () => clearTimeout(timer);
-  }, [activeEntryId, view, entries, isPreviewOpen]);
+  }, [activeEntryId, view, isPreviewOpen]);
 
   // Direction and watermark transition state
   const prevFocusRef = useRef(focusIndex);
@@ -1736,13 +1729,12 @@ export const Stage: React.FC<StageProps> = ({
             userSelect: 'none'
           }}
         >
-          {allEntries.map((e) => {
+          {entries.map((e, idxInEntries) => {
             const isStarred = !!stars[e.id];
             const isSelected = !!selectedIds[e.id];
             const isCopied = copiedKey === e.id;
-            const idxInEntries = entries.findIndex((x) => x.id === e.id);
             const focus = Math.max(0, Math.min(focusIndex, entries.length - 1));
-            const ad = isCarousel && idxInEntries >= 0 ? Math.abs(idxInEntries - focus) : 0;
+            const ad = isCarousel ? Math.abs(idxInEntries - focus) : 0;
             const isActivePreview = Boolean(activeEntryId && e.id === activeEntryId && isPreviewOpen);
             const depth = getCardDepthStyling(ad, isSelected, isCarousel, isLight, isBlack, isActivePreview);
             const sortInfo = getSortDisplayInfo(e, sortOption);

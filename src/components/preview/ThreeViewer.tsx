@@ -80,11 +80,17 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
 
   // Animation Playback State
   const [isPlaying, setIsPlaying] = useState(true);
-  const [animTime, setAnimTime] = useState(0);
   const [animDuration, setAnimDuration] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(() => getVRMSettings().playbackSpeed || 1);
   const [availableAnimations, setAvailableAnimations] = useState<string[]>([]);
   const [selectedAnimationIndex, setSelectedAnimationIndex] = useState(0);
+
+  // Animation Scrubber DOM Refs (Eliminates 60fps React re-renders during playback)
+  const timeSliderRef = useRef<HTMLInputElement>(null);
+  const timeDisplayRef = useRef<HTMLSpanElement>(null);
+  const isScrubbingRef = useRef<boolean>(false);
+  const animDurationRef = useRef<number>(0);
+  animDurationRef.current = animDuration;
 
   // VRM Expression State
   const [availableExpressions, setAvailableExpressions] = useState<string[]>([]);
@@ -184,13 +190,13 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
     cameraRef.current = camera;
 
     // Renderer
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     renderer.setSize(mount.clientWidth, mount.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.05;
-    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.enabled = false;
     mount.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
@@ -228,9 +234,9 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
     let animId: number;
     const animate = () => {
       animId = requestAnimationFrame(animate);
-      const delta = clockRef.current.getDelta();
+      const delta = Math.min(clockRef.current.getDelta(), 0.04);
 
-      // Update VRM springs/expressions
+      // Update VRM springs/expressions with bounded delta to prevent physics spiral
       if (currentVrmRef.current) {
         currentVrmRef.current.update(delta);
       }
@@ -239,7 +245,16 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
       if (mixerRef.current) {
         mixerRef.current.update(delta * playbackSpeedRef.current);
         if (actionRef.current) {
-          setAnimTime(actionRef.current.time);
+          const curTime = actionRef.current.time;
+          // Direct DOM updates for zero-lag 60fps playback without React re-renders
+          if (!isScrubbingRef.current) {
+            if (timeSliderRef.current) {
+              timeSliderRef.current.value = String(curTime);
+            }
+            if (timeDisplayRef.current) {
+              timeDisplayRef.current.textContent = `${formatTime(curTime)} / ${formatTime(animDurationRef.current)}`;
+            }
+          }
         }
       }
 
@@ -298,7 +313,8 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
     setAvailableAnimations([]);
     setAvailableExpressions([]);
     setAnimDuration(0);
-    setAnimTime(0);
+    if (timeSliderRef.current) timeSliderRef.current.value = '0';
+    if (timeDisplayRef.current) timeDisplayRef.current.textContent = '00:00.0 / 00:00.0';
 
     const targetMannequinType: MannequinType = vrmSettings.mannequinType || '12point';
     const targetMannequinKey = targetMannequinType === '12point'
@@ -500,7 +516,8 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
             actionRef.current = action;
 
             setAnimDuration(clip.duration);
-            setAnimTime(0);
+            if (timeSliderRef.current) timeSliderRef.current.value = '0';
+            if (timeDisplayRef.current) timeDisplayRef.current.textContent = `00:00.0 / ${formatTime(clip.duration)}`;
             setIsPlaying(true);
             setAvailableAnimations([motionName]);
             setIsLoading(false);
@@ -772,9 +789,11 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const time = parseFloat(e.target.value);
-    setAnimTime(time);
     if (actionRef.current) {
       actionRef.current.time = time;
+    }
+    if (timeDisplayRef.current) {
+      timeDisplayRef.current.textContent = `${formatTime(time)} / ${formatTime(animDurationRef.current)}`;
     }
   };
 
@@ -1177,11 +1196,16 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
           {/* Scrubber Range Slider */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '140px' }}>
             <input
+              ref={timeSliderRef}
               type="range"
               min="0"
               max={animDuration || 1}
               step="0.01"
-              value={animTime}
+              defaultValue={0}
+              onMouseDown={() => { isScrubbingRef.current = true; }}
+              onTouchStart={() => { isScrubbingRef.current = true; }}
+              onMouseUp={() => { isScrubbingRef.current = false; }}
+              onTouchEnd={() => { isScrubbingRef.current = false; }}
               onChange={handleSeek}
               style={{
                 flex: 1,
@@ -1190,6 +1214,7 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
               }}
             />
             <span
+              ref={timeDisplayRef}
               style={{
                 fontFamily: 'ui-monospace, monospace',
                 fontSize: '9.5px',
@@ -1197,7 +1222,7 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
                 whiteSpace: 'nowrap'
               }}
             >
-              {formatTime(animTime)} / {formatTime(animDuration)}
+              00:00.0 / {formatTime(animDuration)}
             </span>
           </div>
 

@@ -35,7 +35,8 @@ import { scanDirectoryOnDisk, scannerState } from './scanner.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const THUMBNAILS_DIR = path.resolve(__dirname, '..', '.thumbnails');
+const ROOT_DIR = path.resolve(__dirname, '..');
+const THUMBNAILS_DIR = path.resolve(ROOT_DIR, '.thumbnails');
 if (!fs.existsSync(THUMBNAILS_DIR)) {
   fs.mkdirSync(THUMBNAILS_DIR, { recursive: true });
 }
