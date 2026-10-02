@@ -41,35 +41,23 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
 }) => {
   const isLight = theme === 'light';
   const isBlack = theme === 'black';
-  const [activeFormat, setActiveFormat] = useState<PreviewFormat>('code');
-  const [contentString, setContentString] = useState<string>('');
-  const [mediaBlobUrl, setMediaBlobUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const containerRef = React.useRef<HTMLDivElement>(null);
-
-  // Compute the detected format based on pack selection or entry properties
-  const detectedFormat = useMemo<PreviewFormat>(() => {
+  // Helper to compute initial format synchronously
+  const computeInitialFormat = (): PreviewFormat => {
     if (pack && packSel) {
       const ext = packSel.split('.').pop() || '';
-      return detectFormat(ext, packSel);
+      return detectFormat(ext, packSel) || 'code';
     }
-
-    // Check title extension directly
     const titleExt = (entry.title || '').split('.').pop() || '';
     if (titleExt) {
       const titleFmt = detectFormat(titleExt, entry.title);
       if (titleFmt && titleFmt !== 'code') return titleFmt;
     }
-
-    // Check entry extensions
     if (entry.exts && entry.exts.length > 0) {
       for (const ext of entry.exts) {
         const fmt = detectFormat(ext, entry.title);
         if (fmt && fmt !== 'code') return fmt;
       }
     }
-
-    // Fallback based on entry.type
     switch (entry.type) {
       case 'photo':
       case 'psd':
@@ -88,7 +76,17 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
       default:
         return 'code';
     }
-  }, [entry, pack, packSel]);
+  };
+
+  const detectedFormat = useMemo<PreviewFormat>(computeInitialFormat, [entry, pack, packSel]);
+  const [activeFormat, setActiveFormat] = useState<PreviewFormat>(computeInitialFormat);
+  const [contentString, setContentString] = useState<string>('');
+  const initialMediaUrl = entry.id && ['image', 'video', 'audio', '3d', 'pdf'].includes(detectedFormat)
+    ? `/api/file?id=${encodeURIComponent(entry.id)}`
+    : null;
+  const [mediaBlobUrl, setMediaBlobUrl] = useState<string | null>(initialMediaUrl);
+  const [isLoading, setIsLoading] = useState(false);
+  const containerRef = React.useRef<HTMLDivElement>(null);
 
   // Set activeFormat when detectedFormat changes
   useEffect(() => {
@@ -475,7 +473,10 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
       case '3d':
         return (
           <ThreeViewer
+            src={mediaBlobUrl || (entry.id ? `/api/file?id=${encodeURIComponent(entry.id)}` : '')}
             name={activeTitle}
+            ext={((packSel ? packSel.split('.').pop() : (entry.title ? entry.title.split('.').pop() : (entry.exts && entry.exts[0]))) || '').toLowerCase()}
+            theme={theme}
           />
         );
 

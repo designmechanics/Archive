@@ -34,6 +34,13 @@ import {
   generateInnerZipVideoThumbnail,
   isZipArchive
 } from './services/zipService';
+import {
+  FileTypeFilterConfig,
+  getFileTypeFilterConfig,
+  saveFileTypeFilterConfig,
+  filterEntriesByFileType,
+  DEFAULT_FILE_TYPE_CONFIG
+} from './services/fileTypeFilterService';
 import { ensureThumbnailForEntry } from './services/thumbnailService';
 import { Rail } from './components/Rail';
 import { Header } from './components/Header';
@@ -124,11 +131,11 @@ export const App: React.FC = () => {
   const [maxPerPage, setMaxPerPage] = useState<MaxPerPage>(() => {
     const saved = localStorage.getItem('archive.maxPerPage');
     if (saved === 'ALL') return 'ALL';
-    const parsed = saved ? parseInt(saved, 10) : 64;
+    const parsed = saved ? parseInt(saved, 10) : 24;
     if ([256, 128, 64, 48, 32, 24, 16].includes(parsed)) {
       return parsed as MaxPerPage;
     }
-    return 64;
+    return 24;
   });
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [sortOption, setSortOption] = useState<SortOption>(() => {
@@ -216,6 +223,38 @@ export const App: React.FC = () => {
 
   // Active ZIP archive drill-down view state
   const [activeZipArchive, setActiveZipArchive] = useState<ActiveZipArchive | null>(null);
+
+  // File Type Filter State
+  const [fileTypeConfig, setFileTypeConfig] = useState<FileTypeFilterConfig>(getFileTypeFilterConfig);
+  const [isFileTypeSubmenuOpen, setIsFileTypeSubmenuOpen] = useState(false);
+
+  useEffect(() => {
+    const handleFilterChanged = (e: Event) => {
+      const customEvent = e as CustomEvent<FileTypeFilterConfig>;
+      if (customEvent.detail) {
+        setFileTypeConfig(customEvent.detail);
+      } else {
+        setFileTypeConfig(getFileTypeFilterConfig());
+      }
+    };
+    window.addEventListener('archive-filetype-filter-changed', handleFilterChanged);
+    return () => window.removeEventListener('archive-filetype-filter-changed', handleFilterChanged);
+  }, []);
+
+  const handleToggleFileTypeActive = (active: boolean) => {
+    const next = { ...fileTypeConfig, active };
+    setFileTypeConfig(next);
+    saveFileTypeFilterConfig(next);
+    setCurrentPage(1);
+    setFocusIndex(0);
+  };
+
+  const handleApplyFileTypeConfig = (next: FileTypeFilterConfig) => {
+    setFileTypeConfig(next);
+    saveFileTypeFilterConfig(next);
+    setCurrentPage(1);
+    setFocusIndex(0);
+  };
 
   // Viewed history for pool fan preview (tracks last items opened/viewed)
   const [viewedHistory, setViewedHistory] = useState<string[]>(() => {
@@ -606,6 +645,9 @@ export const App: React.FC = () => {
     // If active ZIP archive drill-down view is open:
     if (activeZipArchive) {
       let vis = activeZipArchive.innerEntries;
+      if (fileTypeConfig.active) {
+        vis = filterEntriesByFileType(vis, fileTypeConfig);
+      }
       if (q) {
         vis = vis.filter((e) => {
           const haystack = (
@@ -666,6 +708,11 @@ export const App: React.FC = () => {
       return haystack.includes(q);
     });
 
+    // Additionally filter by file type if active
+    if (fileTypeConfig.active) {
+      vis = filterEntriesByFileType(vis, fileTypeConfig);
+    }
+
     if (seed > 0) {
       vis = vis.slice().sort(() => Math.random() - 0.5);
     } else {
@@ -673,7 +720,7 @@ export const App: React.FC = () => {
     }
 
     return vis;
-  }, [entries, query, selectedPool, selectedFolder, folders, seed, deferFolderIngestion, activeZipArchive, sortOption, sortDirection]);
+  }, [entries, query, selectedPool, selectedFolder, folders, seed, deferFolderIngestion, activeZipArchive, sortOption, sortDirection, fileTypeConfig]);
 
   // Pagination & Max Per Page logic
   const totalPages = useMemo(() => {
@@ -918,12 +965,13 @@ export const App: React.FC = () => {
     }
 
     if (newEntries.length > 0) {
+      handleMaxPerPageChange(24);
       setSelectedPool(null);
       setSelectedFolder(null);
       setQuery('');
       setFocusIndex(0);
       setTimeout(() => {
-        setOpenId(newEntries[0].id);
+        handleSelectAndFocusEntry(newEntries[0].id);
       }, 650 * motionMultiplier);
     }
   };
@@ -989,6 +1037,7 @@ export const App: React.FC = () => {
         const readyFolder = readyFolders.find(
           (f) => f.path.toLowerCase() === res.folder.path.toLowerCase()
         );
+        handleMaxPerPageChange(24);
         showFolderNotification(folderName, res.folder.count, readyFolder || res.folder);
         return;
       } catch (err) {
@@ -1076,6 +1125,7 @@ export const App: React.FC = () => {
         setFolders(clearedFolders);
 
         setEntries(freshAssets);
+        handleMaxPerPageChange(24);
         const stats = await getDatabaseStatus();
         setDbStats(stats);
 
@@ -1185,27 +1235,46 @@ export const App: React.FC = () => {
     return entries.find((e) => e.id === openId) || null;
   }, [entries, openId, activeZipArchive]);
 
+  // Select and focus entry helper ensuring page & focusIndex alignment
+  const handleSelectAndFocusEntry = (id: string | null) => {
+    setOpenId(id);
+    if (!id) return;
+    const list = activeZipArchive ? activeZipArchive.innerEntries : filteredEntries;
+    const idx = list.findIndex((e) => e.id === id);
+    if (idx >= 0) {
+      if (maxPerPage !== 'ALL') {
+        const targetPage = Math.floor(idx / maxPerPage) + 1;
+        if (targetPage !== currentPage) {
+          setCurrentPage(targetPage);
+        }
+        setFocusIndex(idx % maxPerPage);
+      } else {
+        setFocusIndex(idx);
+      }
+    }
+  };
+
   // Previous in pool handler
   const handlePrevInPool = () => {
-    if (!openEntry || filteredEntries.length === 0) return;
-    const curIdx = filteredEntries.findIndex((e) => e.id === openEntry.id);
-    const prevIdx = (curIdx - 1 + filteredEntries.length) % filteredEntries.length;
-    const prevEntry = filteredEntries[prevIdx];
+    const list = activeZipArchive ? activeZipArchive.innerEntries : filteredEntries;
+    if (!openEntry || list.length === 0) return;
+    const curIdx = list.findIndex((e) => e.id === openEntry.id);
+    const prevIdx = (curIdx - 1 + list.length) % list.length;
+    const prevEntry = list[prevIdx];
     if (prevEntry) {
-      setOpenId(prevEntry.id);
-      setFocusIndex(prevIdx);
+      handleSelectAndFocusEntry(prevEntry.id);
     }
   };
 
   // Next in pool handler
   const handleNextInPool = () => {
-    if (!openEntry || filteredEntries.length === 0) return;
-    const curIdx = filteredEntries.findIndex((e) => e.id === openEntry.id);
-    const nextIdx = (curIdx + 1) % filteredEntries.length;
-    const nextEntry = filteredEntries[nextIdx];
+    const list = activeZipArchive ? activeZipArchive.innerEntries : filteredEntries;
+    if (!openEntry || list.length === 0) return;
+    const curIdx = list.findIndex((e) => e.id === openEntry.id);
+    const nextIdx = (curIdx + 1) % list.length;
+    const nextEntry = list[nextIdx];
     if (nextEntry) {
-      setOpenId(nextEntry.id);
-      setFocusIndex(nextIdx);
+      handleSelectAndFocusEntry(nextEntry.id);
     }
   };
 
@@ -1220,6 +1289,9 @@ export const App: React.FC = () => {
     setQuery('');
     setSelectedPool(null);
     setSelectedFolder(null);
+    if (fileTypeConfig.active) {
+      handleToggleFileTypeActive(false);
+    }
     setFocusIndex(0);
     setCurrentPage(1);
   };
@@ -1282,9 +1354,14 @@ export const App: React.FC = () => {
               setActiveZipArchive(null);
             }
           }
-          setOpenId(id);
+          handleSelectAndFocusEntry(id);
         }}
         onOpenZipContents={handleOpenZipContents}
+        fileTypeConfig={fileTypeConfig}
+        onToggleFileTypeActive={handleToggleFileTypeActive}
+        onApplyFileTypeConfig={handleApplyFileTypeConfig}
+        isFileTypeSubmenuOpen={isFileTypeSubmenuOpen}
+        onToggleFileTypeSubmenu={setIsFileTypeSubmenuOpen}
       />
 
       {/* Main Content Area */}
@@ -1330,6 +1407,10 @@ export const App: React.FC = () => {
           onOpenModal={() => setModalOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
           accent={effectiveAccent}
+          fileTypeFilterActive={fileTypeConfig.active}
+          fileTypeActiveCount={Object.values(fileTypeConfig.enabledTypes).filter(Boolean).length}
+          onClearFileTypeFilter={() => handleToggleFileTypeActive(false)}
+          onOpenFileTypeFilter={() => setIsFileTypeSubmenuOpen(true)}
         />
 
         {/* Toolbar Row */}
@@ -1361,6 +1442,9 @@ export const App: React.FC = () => {
           onListColumnsChange={handleListColumnsChange}
           listOrder={listOrder}
           onListOrderChange={handleListOrderChange}
+          fileTypeConfig={fileTypeConfig}
+          onToggleFileTypeActive={handleToggleFileTypeActive}
+          onOpenFileTypeFilter={() => setIsFileTypeSubmenuOpen((prev) => !prev)}
         />
 
         {/* Archive Contents Active Header / Exit Bar */}
@@ -1531,7 +1615,7 @@ export const App: React.FC = () => {
           density={density}
           focusIndex={focusIndex}
           onFocusChange={setFocusIndex}
-          onSelectEntry={(id) => setOpenId(id)}
+          onSelectEntry={(id) => handleSelectAndFocusEntry(id)}
           onOpenZipContents={handleOpenZipContents}
           selectedIds={selectedIds}
           onToggleSelect={handleToggleSelect}
@@ -1551,6 +1635,7 @@ export const App: React.FC = () => {
           sortDirection={sortDirection}
           onSortChange={handleSortChange}
           isPreviewOpen={!!openEntry}
+          activeEntryId={openId}
           isStudioMode={isStudioMode}
           listColumns={listColumns}
           onListColumnsChange={handleListColumnsChange}

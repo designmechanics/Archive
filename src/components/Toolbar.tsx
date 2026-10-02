@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Density, ViewMode, MaxPerPage, MAX_PER_PAGE_OPTIONS, SortOption, SortDirection, ListColumns, ListOrder, ThemeMode } from '../types';
 import { SORT_CONFIGS, SORT_OPTIONS } from '../services/sortService';
+import { FileTypeFilterConfig } from '../services/fileTypeFilterService';
 
 interface ToolbarProps {
   theme?: ThemeMode;
@@ -27,6 +28,9 @@ interface ToolbarProps {
   onListColumnsChange?: (cols: ListColumns) => void;
   listOrder?: ListOrder;
   onListOrderChange?: (order: ListOrder) => void;
+  fileTypeConfig?: FileTypeFilterConfig;
+  onToggleFileTypeActive?: (active: boolean) => void;
+  onOpenFileTypeFilter?: () => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -53,9 +57,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   listColumns = 1,
   onListColumnsChange,
   listOrder = 'down',
-  onListOrderChange
+  onListOrderChange,
+  fileTypeConfig,
+  onToggleFileTypeActive,
+  onOpenFileTypeFilter
 }) => {
   const isBlack = theme === 'black';
+  const enabledTypesCount = fileTypeConfig
+    ? Object.values(fileTypeConfig.enabledTypes).filter(Boolean).length
+    : 0;
   const [maxMenuOpen, setMaxMenuOpen] = useState(false);
   const maxMenuRef = useRef<HTMLDivElement>(null);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
@@ -758,6 +768,108 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           </div>
         )}
       </div>
+
+      {/* File Type Filter Button & Trigger */}
+      {fileTypeConfig && onOpenFileTypeFilter && (
+        <div
+          data-filetype-toolbar="1"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '3px'
+          }}
+        >
+          <button
+            onClick={onOpenFileTypeFilter}
+            title={
+              fileTypeConfig.active
+                ? `File type filter active (${enabledTypesCount} formats). Click to configure.`
+                : 'Click to open File Types filter'
+            }
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '7px 11px',
+              borderRadius: '13px',
+              cursor: 'pointer',
+              border: fileTypeConfig.active
+                ? (isBlack ? '1px solid #ffffff' : '1px solid #38bdf8')
+                : '1px solid rgba(var(--inkc, 29,31,32), .14)',
+              background: fileTypeConfig.active
+                ? (isBlack ? '#1c1c1c' : 'var(--tint, #eef6ff)')
+                : 'var(--surface, #ffffff)',
+              color: 'var(--ink, #1d1f20)',
+              fontFamily: "'Barlow Condensed', sans-serif",
+              fontSize: '13.5px',
+              fontWeight: 600,
+              letterSpacing: '.05em',
+              textTransform: 'uppercase',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 1px 2px rgba(43,43,45,.14)',
+              transition: 'background 0.18s, border-color 0.18s, box-shadow 0.18s'
+            }}
+          >
+            <span style={{ fontSize: '11px' }}>🏷️</span>
+            <span
+              style={{
+                fontFamily: 'ui-monospace, Menlo, monospace',
+                fontSize: '9.5px',
+                letterSpacing: '.1em',
+                color: 'rgba(var(--inkc, 29,31,32), .55)'
+              }}
+            >
+              Filter:
+            </span>
+            <span style={{ fontWeight: 700 }}>
+              {fileTypeConfig.active ? `${enabledTypesCount} Types` : 'Types'}
+            </span>
+            <span style={{ fontSize: '8.5px', opacity: 0.55 }}>›</span>
+          </button>
+
+          {/* Quick Active / Inactive switch right next to button when submenu is hidden */}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={fileTypeConfig.active}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onToggleFileTypeActive) {
+                onToggleFileTypeActive(!fileTypeConfig.active);
+              }
+            }}
+            title={
+              fileTypeConfig.active
+                ? 'File type filter is ACTIVE — click to bypass'
+                : 'File type filter is INACTIVE — click to activate'
+            }
+            style={{
+              width: '32px',
+              height: '24px',
+              borderRadius: '10px',
+              border: '1px solid rgba(var(--inkc, 29,31,32), .14)',
+              background: 'var(--surface, #ffffff)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '2px',
+              cursor: 'pointer',
+              boxShadow: '0 1px 2px rgba(43,43,45,.14)'
+            }}
+          >
+            <span
+              style={{
+                width: '10px',
+                height: '10px',
+                borderRadius: '50%',
+                background: fileTypeConfig.active ? '#38ef7d' : 'rgba(var(--inkc, 29,31,32), .25)',
+                boxShadow: fileTypeConfig.active ? '0 0 6px rgba(56,239,125,.8)' : 'none',
+                transition: 'background 0.2s, box-shadow 0.2s'
+              }}
+            />
+          </button>
+        </div>
+      )}
 
       {/* Page Navigation Controls (when totalPages > 1) */}
       {totalPages > 1 && maxPerPage !== 'ALL' && (

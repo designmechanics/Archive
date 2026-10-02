@@ -35,7 +35,7 @@ export function detectFormat(ext: string, name?: string): PreviewFormat {
   if (['mp3', 'wav', 'flac', 'aac', 'ogg', 'aiff', 'm4a'].includes(e)) {
     return 'audio';
   }
-  if (['glb', 'gltf', 'obj', 'blend', 'fbx', 'stl', 'dae'].includes(e)) {
+  if (['glb', 'gltf', 'obj', 'blend', 'fbx', 'stl', 'dae', 'vrm', 'vrma'].includes(e)) {
     return '3d';
   }
   if (['svg', 'ai', 'eps'].includes(e)) {

@@ -39,6 +39,7 @@ interface StageProps {
   listOrder?: ListOrder;
   onListColumnsChange?: (cols: ListColumns) => void;
   onListOrderChange?: (order: ListOrder) => void;
+  activeEntryId?: string | null;
 }
 
 const getCardDepthStyling = (
@@ -46,8 +47,31 @@ const getCardDepthStyling = (
   isSelected: boolean,
   isCarousel: boolean,
   isLight: boolean,
-  isBlack: boolean = false
+  isBlack: boolean = false,
+  isActivePreview: boolean = false
 ) => {
+  if (isActivePreview) {
+    if (isBlack) {
+      return {
+        border: '2px solid #ffffff',
+        borderColor: '#ffffff',
+        boxShadow: '0 0 0 2px rgba(255, 255, 255, 0.8), 0 0 28px rgba(255, 255, 255, 0.45), 0 12px 36px rgba(0, 0, 0, 0.95)'
+      };
+    }
+    if (isLight) {
+      return {
+        border: '2px solid #2563eb',
+        borderColor: '#2563eb',
+        boxShadow: '0 0 0 2px rgba(37, 99, 235, 0.45), 0 0 24px rgba(37, 99, 235, 0.35), 0 12px 32px rgba(37, 99, 235, 0.25)'
+      };
+    }
+    return {
+      border: '2px solid #38bdf8',
+      borderColor: '#38bdf8',
+      boxShadow: '0 0 0 2px rgba(56, 189, 248, 0.5), 0 0 26px rgba(56, 189, 248, 0.4), 0 12px 36px rgba(0, 0, 0, 0.75)'
+    };
+  }
+
   if (!isCarousel) {
     if (isBlack) {
       return {
@@ -179,7 +203,8 @@ export const Stage: React.FC<StageProps> = ({
   listColumns = 1,
   listOrder = 'down',
   onListColumnsChange,
-  onListOrderChange
+  onListOrderChange,
+  activeEntryId = null
 }) => {
   const isLight = theme === 'light';
   const isBlack = theme === 'black';
@@ -679,7 +704,8 @@ export const Stage: React.FC<StageProps> = ({
 
       const idxInVis = entries.findIndex((x) => x.id === entry.id);
       const ad = isCarousel && idxInVis >= 0 ? Math.abs(idxInVis - focus) : 0;
-      const depth = getCardDepthStyling(ad, isSelected, isCarousel, isLight, isBlack);
+      const isActivePreview = Boolean(activeEntryId && entry.id === activeEntryId && isPreviewOpen);
+      const depth = getCardDepthStyling(ad, isSelected, isCarousel, isLight, isBlack, isActivePreview);
 
       const innerSurface = el.querySelector('[data-reveal] > div') as HTMLElement | null;
       if (innerSurface) {
@@ -745,7 +771,7 @@ export const Stage: React.FC<StageProps> = ({
         gsap.set(r, { opacity: 1, y: 0, rotateX: 0 });
       });
     }
-  }, [entries, allEntries, view, density, focusIndex, selectedIds, motionMultiplier, isPreviewOpen, isStudioMode, stageWidth]);
+  }, [entries, allEntries, view, density, focusIndex, selectedIds, activeEntryId, motionMultiplier, isPreviewOpen, isStudioMode, stageWidth]);
 
   // Magnetic hover effect when pool in rail is hovered
   useEffect(() => {
@@ -762,6 +788,27 @@ export const Stage: React.FC<StageProps> = ({
       });
     });
   }, [hoverPool, allEntries, motionMultiplier]);
+
+  // Auto-scroll the active preview item to keep it central in grid / list views
+  useEffect(() => {
+    if (!activeEntryId || !wrapRef.current || !isPreviewOpen) return;
+
+    const timer = setTimeout(() => {
+      if (view === 'list') {
+        const row = wrapRef.current?.querySelector(`[data-row="${activeEntryId}"]`) as HTMLElement | null;
+        if (row) {
+          row.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+        }
+      } else if (view === 'grid') {
+        const card = cardRefs.current.get(activeEntryId);
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+        }
+      }
+    }, 70);
+
+    return () => clearTimeout(timer);
+  }, [activeEntryId, view, entries, isPreviewOpen]);
 
   // Direction and watermark transition state
   const prevFocusRef = useRef(focusIndex);
@@ -1474,6 +1521,7 @@ export const Stage: React.FC<StageProps> = ({
             onListColumnsChange={onListColumnsChange}
             onListOrderChange={onListOrderChange}
             isPreviewOpen={isPreviewOpen}
+            activeEntryId={activeEntryId}
           />
         ) : allEntries.length === 0 ? (
         <div
@@ -1695,7 +1743,8 @@ export const Stage: React.FC<StageProps> = ({
             const idxInEntries = entries.findIndex((x) => x.id === e.id);
             const focus = Math.max(0, Math.min(focusIndex, entries.length - 1));
             const ad = isCarousel && idxInEntries >= 0 ? Math.abs(idxInEntries - focus) : 0;
-            const depth = getCardDepthStyling(ad, isSelected, isCarousel, isLight, isBlack);
+            const isActivePreview = Boolean(activeEntryId && e.id === activeEntryId && isPreviewOpen);
+            const depth = getCardDepthStyling(ad, isSelected, isCarousel, isLight, isBlack, isActivePreview);
             const sortInfo = getSortDisplayInfo(e, sortOption);
             const sortMeta = SORT_CONFIGS[sortOption] || SORT_CONFIGS.name;
 
@@ -1733,10 +1782,21 @@ export const Stage: React.FC<StageProps> = ({
                       overflow: 'hidden',
                       display: 'flex',
                       flexDirection: 'column',
+                      position: 'relative',
                       transition:
                         'box-shadow .32s cubic-bezier(.16,1,.3,1), border-color .24s, transform .28s cubic-bezier(.16,1,.3,1)'
                     }}
                     onMouseEnter={(el) => {
+                      if (isActivePreview) {
+                        el.currentTarget.style.boxShadow = isBlack
+                          ? '0 0 0 2px rgba(255,255,255,1), 0 0 32px rgba(255,255,255,0.6), 0 16px 40px rgba(0,0,0,0.95)'
+                          : isLight
+                          ? '0 0 0 2px rgba(37,99,235,0.6), 0 0 28px rgba(37,99,235,0.45), 0 16px 36px rgba(37,99,235,0.3)'
+                          : '0 0 0 2px rgba(56,189,248,0.7), 0 0 32px rgba(56,189,248,0.5), 0 16px 40px rgba(0,0,0,0.8)';
+                        el.currentTarget.style.borderColor = isBlack ? '#ffffff' : (isLight ? '#2563eb' : '#38bdf8');
+                        el.currentTarget.style.transform = 'translateY(-3px)';
+                        return;
+                      }
                       el.currentTarget.style.boxShadow = isSelected
                         ? (isBlack ? '0 16px 36px rgba(0,0,0,.95), 0 0 24px rgba(255,255,255,.4)' : isLight ? '0 16px 36px rgba(37,99,235,.4), 0 0 20px rgba(37,99,235,.2)' : '0 16px 36px rgba(89,128,166,.5), 0 0 20px rgba(89,128,166,.3)')
                         : (isBlack ? '0 20px 48px rgba(0,0,0,.9), 0 0 0 1px rgba(255,255,255,.6)' : isLight ? '0 16px 36px rgba(15,23,42,.15), 0 0 0 1px rgba(37,99,235,.5)' : '0 20px 48px rgba(0,0,0,.65), 0 0 0 1px rgba(181,217,253,.6)');
@@ -1749,6 +1809,34 @@ export const Stage: React.FC<StageProps> = ({
                       el.currentTarget.style.transform = 'translateY(0)';
                     }}
                   >
+                    {/* Active Preview Badge */}
+                    {isActivePreview && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '10px',
+                          left: '10px',
+                          zIndex: 6,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          background: isBlack ? '#ffffff' : (isLight ? '#2563eb' : '#38bdf8'),
+                          color: isBlack ? '#000000' : '#ffffff',
+                          fontFamily: "'Barlow Condensed', sans-serif",
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          letterSpacing: '.06em',
+                          textTransform: 'uppercase',
+                          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.45)',
+                          pointerEvents: 'none'
+                        }}
+                      >
+                        <span style={{ fontSize: '10px' }}>👁</span>
+                        <span>Previewing</span>
+                      </div>
+                    )}
                     {/* Thumbnail Slot */}
                     <div
                       style={{

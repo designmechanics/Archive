@@ -1,6 +1,12 @@
-import React, { useLayoutEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
 import { WatchedFolder, Pool, AssetEntry, ThemeMode } from '../types';
 import { isZipArchive } from '../services/zipService';
+import {
+  FileTypeFilterConfig,
+  DEFAULT_FILE_TYPE_CONFIG,
+  getCatalogExtensionCounts
+} from '../services/fileTypeFilterService';
+import { FileTypeFilterSubmenu } from './FileTypeFilterSubmenu';
 
 interface RailProps {
   theme?: ThemeMode;
@@ -31,6 +37,11 @@ interface RailProps {
   viewedHistory?: string[];
   onSelectEntry?: (id: string) => void;
   onOpenZipContents?: (entry: AssetEntry) => void;
+  fileTypeConfig?: FileTypeFilterConfig;
+  onToggleFileTypeActive?: (active: boolean) => void;
+  onApplyFileTypeConfig?: (config: FileTypeFilterConfig) => void;
+  isFileTypeSubmenuOpen?: boolean;
+  onToggleFileTypeSubmenu?: (open: boolean) => void;
 }
 
 export const Rail: React.FC<RailProps> = ({
@@ -61,8 +72,55 @@ export const Rail: React.FC<RailProps> = ({
   entries = [],
   viewedHistory = [],
   onSelectEntry,
-  onOpenZipContents
+  onOpenZipContents,
+  fileTypeConfig = DEFAULT_FILE_TYPE_CONFIG,
+  onToggleFileTypeActive,
+  onApplyFileTypeConfig,
+  isFileTypeSubmenuOpen,
+  onToggleFileTypeSubmenu
 }) => {
+  const [internalSubmenuOpen, setInternalSubmenuOpen] = useState(false);
+  const isSubmenuOpen = isFileTypeSubmenuOpen !== undefined ? isFileTypeSubmenuOpen : internalSubmenuOpen;
+  const setSubmenuOpen = (open: boolean) => {
+    if (onToggleFileTypeSubmenu) {
+      onToggleFileTypeSubmenu(open);
+    } else {
+      setInternalSubmenuOpen(open);
+    }
+  };
+
+  const fileTypeRowRef = useRef<HTMLDivElement>(null);
+  const [anchorPos, setAnchorPos] = useState<{ top: number; left: number }>({ top: 180, left: 260 });
+
+  const updateAnchorPos = () => {
+    if (fileTypeRowRef.current) {
+      const rect = fileTypeRowRef.current.getBoundingClientRect();
+      setAnchorPos({ top: rect.top, left: rect.right + 10 });
+    }
+  };
+
+  const handleOpenSubmenu = () => {
+    updateAnchorPos();
+    setSubmenuOpen(!isSubmenuOpen);
+  };
+
+  useEffect(() => {
+    if (isSubmenuOpen) {
+      updateAnchorPos();
+      const handleResize = () => updateAnchorPos();
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, [isSubmenuOpen]);
+
+  const catalogCounts = useMemo(() => {
+    return getCatalogExtensionCounts(entries);
+  }, [entries]);
+
+  const enabledTypesCount = useMemo(() => {
+    if (!fileTypeConfig) return 0;
+    return Object.values(fileTypeConfig.enabledTypes).filter(Boolean).length;
+  }, [fileTypeConfig]);
   const poolList = pools.length > 0
     ? pools
     : [
@@ -317,6 +375,155 @@ export const Rail: React.FC<RailProps> = ({
             {totalCount}
           </span>
         </button>
+
+        {/* File Types Filter Menu Item */}
+        <div
+          ref={fileTypeRowRef}
+          data-filetype-filter-menu-item="1"
+          style={{
+            marginBottom: '6px',
+            marginTop: '2px',
+            position: 'relative'
+          }}
+        >
+          <div
+            onClick={handleOpenSubmenu}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '6px',
+              padding: '8px 10px',
+              borderRadius: '11px',
+              cursor: 'pointer',
+              background: fileTypeConfig.active
+                ? (isBlack ? 'rgba(255, 255, 255, 0.16)' : isLight ? 'rgba(37,99,235,.12)' : 'rgba(56,189,248,.18)')
+                : isLight ? 'rgba(15,23,42,.03)' : 'rgba(148,188,227,.07)',
+              border: fileTypeConfig.active
+                ? (isBlack ? '1px solid rgba(255,255,255,0.3)' : isLight ? '1px solid rgba(37,99,235,.3)' : '1px solid rgba(56,189,248,.35)')
+                : isLight ? '1px solid rgba(15,23,42,.08)' : '1px solid rgba(148,188,227,.14)',
+              transition: 'background 0.18s, border-color 0.18s',
+              boxShadow: fileTypeConfig.active
+                ? (isLight ? '0 2px 8px rgba(37,99,235,.15)' : '0 2px 10px rgba(56,189,248,.15)')
+                : 'none'
+            }}
+            onMouseEnter={(e) => {
+              if (!fileTypeConfig.active) {
+                e.currentTarget.style.background = isLight ? 'rgba(15,23,42,.06)' : 'rgba(148,188,227,.14)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!fileTypeConfig.active) {
+                e.currentTarget.style.background = isLight ? 'rgba(15,23,42,.03)' : 'rgba(148,188,227,.07)';
+              }
+            }}
+            title="Click to open File Types filter slideout submenu"
+          >
+            {/* Left: Icon & Label */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+              <span
+                style={{
+                  fontSize: '13px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: fileTypeConfig.active ? (isLight ? '#2563eb' : '#38bdf8') : undefined
+                }}
+              >
+                🏷️
+              </span>
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <div
+                  style={{
+                    fontFamily: "'Barlow Condensed', sans-serif",
+                    fontSize: '14.5px',
+                    fontWeight: 600,
+                    letterSpacing: '.03em',
+                    textTransform: 'uppercase',
+                    color: fileTypeConfig.active ? (isLight ? '#1d4ed8' : '#ffffff') : 'var(--rail-ink, var(--ink, #1d1f20))',
+                    lineHeight: 1.15
+                  }}
+                >
+                  File Types
+                </div>
+                <div
+                  style={{
+                    fontFamily: 'ui-monospace, monospace',
+                    fontSize: '9px',
+                    color: fileTypeConfig.active ? (isLight ? '#2563eb' : '#94bce3') : 'rgba(var(--inkc, 29,31,32), .55)',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {fileTypeConfig.active
+                    ? `${enabledTypesCount} active · Filtered`
+                    : 'Filter inactive'}
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Active/Inactive Toggle + Chevron */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {/* Active / Inactive switch on menu item when submenu is hidden */}
+              <button
+                type="button"
+                role="switch"
+                aria-checked={fileTypeConfig.active}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onToggleFileTypeActive) {
+                    onToggleFileTypeActive(!fileTypeConfig.active);
+                  }
+                }}
+                title={
+                  fileTypeConfig.active
+                    ? 'File type filter is ACTIVE (click to bypass)'
+                    : 'File type filter is INACTIVE (click to enable)'
+                }
+                style={{
+                  width: '32px',
+                  height: '18px',
+                  borderRadius: '10px',
+                  background: fileTypeConfig.active
+                    ? (isBlack ? '#ffffff' : isLight ? '#16a34a' : '#38ef7d')
+                    : (isLight ? 'rgba(15,23,42,0.18)' : 'rgba(255,255,255,0.18)'),
+                  border: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '2px',
+                  cursor: 'pointer',
+                  flex: 'none',
+                  transition: 'background 0.2s',
+                  boxShadow: fileTypeConfig.active ? '0 0 8px rgba(56,239,125,.4)' : 'none'
+                }}
+              >
+                <span
+                  style={{
+                    width: '14px',
+                    height: '14px',
+                    borderRadius: '50%',
+                    background: isBlack ? (fileTypeConfig.active ? '#000000' : '#ffffff') : '#ffffff',
+                    boxShadow: '0 1px 2px rgba(0,0,0,.35)',
+                    transform: fileTypeConfig.active ? 'translateX(14px)' : 'translateX(0)',
+                    transition: 'transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2)'
+                  }}
+                />
+              </button>
+
+              {/* Slideout open chevron indicator */}
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontFamily: 'ui-monospace, monospace',
+                  color: isLight ? 'rgba(15,23,42,.4)' : 'rgba(233,237,242,.4)',
+                  paddingLeft: '2px'
+                }}
+              >
+                ›
+              </span>
+            </div>
+          </div>
+        </div>
 
         {/* Pool Rows */}
         {poolList.map((poolItem) => {
@@ -1079,6 +1286,21 @@ export const Rail: React.FC<RailProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Slideout File Type Filter Submenu */}
+      <FileTypeFilterSubmenu
+        isOpen={isSubmenuOpen}
+        onClose={() => setSubmenuOpen(false)}
+        config={fileTypeConfig}
+        onApply={(nextConfig) => {
+          if (onApplyFileTypeConfig) {
+            onApplyFileTypeConfig(nextConfig);
+          }
+        }}
+        theme={theme}
+        catalogCounts={catalogCounts}
+        anchorPosition={anchorPos}
+      />
     </aside>
   );
 };

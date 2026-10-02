@@ -16,6 +16,10 @@ interface HeaderProps {
   onOpenModal: () => void;
   onOpenSettings?: () => void;
   accent: string;
+  fileTypeFilterActive?: boolean;
+  fileTypeActiveCount?: number;
+  onClearFileTypeFilter?: () => void;
+  onOpenFileTypeFilter?: () => void;
 }
 
 
@@ -34,7 +38,11 @@ export const Header: React.FC<HeaderProps> = ({
   onRevertShuffle,
   onOpenModal,
   onOpenSettings,
-  accent
+  accent,
+  fileTypeFilterActive = false,
+  fileTypeActiveCount = 0,
+  onClearFileTypeFilter,
+  onOpenFileTypeFilter
 }) => {
 
   const isBlack = theme === 'black';
@@ -134,7 +142,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Active Filter Chips */}
-      {(selectedPool || selectedFolder) && (
+      {(selectedPool || selectedFolder || fileTypeFilterActive) && (
         <div data-intro="1" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
           {selectedFolder && (
             <span
@@ -166,6 +174,49 @@ export const Header: React.FC<HeaderProps> = ({
                     fontWeight: 700
                   }}
                   title="Remove folder filter"
+                >
+                  ✕
+                </button>
+              )}
+            </span>
+          )}
+
+          {fileTypeFilterActive && (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '3px 8px',
+                borderRadius: '8px',
+                background: isBlack ? 'rgba(255, 255, 255, 0.12)' : 'rgba(56, 189, 248, 0.12)',
+                border: isBlack ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid rgba(56, 189, 248, 0.3)',
+                color: isBlack ? '#ffffff' : '#38bdf8',
+                fontSize: '10px',
+                fontFamily: 'ui-monospace, Menlo, monospace',
+                textTransform: 'uppercase',
+                cursor: onOpenFileTypeFilter ? 'pointer' : 'default'
+              }}
+              onClick={onOpenFileTypeFilter}
+              title="File Type Filter Active (click to edit)"
+            >
+              🏷️ {fileTypeActiveCount} Types Active
+              {onClearFileTypeFilter && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClearFileTypeFilter();
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: 0,
+                    color: isBlack ? '#ffffff' : '#38bdf8',
+                    cursor: 'pointer',
+                    padding: '0 2px',
+                    fontSize: '10px',
+                    fontWeight: 700
+                  }}
+                  title="Turn off file type filter"
                 >
                   ✕
                 </button>

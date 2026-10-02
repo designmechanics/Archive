@@ -79,7 +79,7 @@ function detectPool(ext, filePath, assetType) {
   if (['svg', 'ai', 'eps'].includes(e)) return 'vectors';
   if (['otf', 'ttf', 'woff', 'woff2'].includes(e)) return 'type';
   if (['mp3', 'wav', 'flac', 'aac', 'ogg', 'aif', 'aiff'].includes(e)) return 'audio';
-  if (['obj', 'fbx', 'blend', 'gltf', 'glb', 'c4d', 'max'].includes(e)) return '3d';
+  if (['obj', 'fbx', 'blend', 'gltf', 'glb', 'c4d', 'max', 'vrm', 'vrma'].includes(e)) return '3d';
   if (['mp4', 'mov', 'webm', 'prproj', 'aep'].includes(e)) return 'video';
   if (['psd', 'psb', 'jpg', 'jpeg', 'png', 'tiff', 'dng', 'cr2', 'nef'].includes(e)) return 'photo';
 

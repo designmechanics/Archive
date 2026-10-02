@@ -2,6 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { DatabaseStats, DatabaseBackup, api } from '../services/api';
 import { ThemeMode, Density, WatchedFolder, Pool, CustomThemeColors, CustomBackgroundConfig, BackgroundFit } from '../types';
 import { DEFAULT_CUSTOM_THEME } from '../data/seedData';
+import {
+  getVRMSettings,
+  saveVRMSettings,
+  setMannequinType,
+  resetVRMMannequinToDefault,
+  DEFAULT_AVATAR_NAME,
+  VRMSettings,
+  MannequinType
+} from '../services/vrmSettings';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -33,7 +42,7 @@ interface SettingsModalProps {
   onCustomBgConfigChange?: (config: CustomBackgroundConfig) => void;
 }
 
-type SettingsTab = 'database' | 'interface' | 'pools' | 'folders';
+type SettingsTab = 'database' | 'interface' | 'pools' | 'folders' | '3d';
 
 const POOL_PRESET_COLORS = [
   '#94bce3', // Steel blue (Archive signature)
@@ -201,6 +210,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [currentBg, setCurrentBg] = useState<string>(() => {
     return customBgConfig?.url || sessionStorage.getItem('archive_session_bg') || '/backgrounds/logo_bg_1.jpg';
   });
+
+  // 3D / VRM Settings State
+  const [vrmSettings, setVrmSettings] = useState<VRMSettings>(getVRMSettings);
+
+  useEffect(() => {
+    const handleVrmSettingsChanged = (e: Event) => {
+      const customEvent = e as CustomEvent<VRMSettings>;
+      if (customEvent.detail) {
+        setVrmSettings(customEvent.detail);
+      } else {
+        setVrmSettings(getVRMSettings());
+      }
+    };
+    window.addEventListener('archive-vrm-settings-changed', handleVrmSettingsChanged);
+    return () => window.removeEventListener('archive-vrm-settings-changed', handleVrmSettingsChanged);
+  }, []);
+
+  const updateVRM = (updates: Partial<VRMSettings>) => {
+    const next = saveVRMSettings(updates);
+    setVrmSettings(next);
+  };
 
   // Fetch backups whenever modal opens or database tab is selected
   useEffect(() => {
@@ -567,6 +597,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     cardBorder: isLight ? 'rgba(15, 23, 42, 0.09)' : isMid ? 'rgba(15, 27, 39, 0.18)' : isBlack ? 'rgba(255, 255, 255, 0.14)' : 'rgba(148, 188, 227, 0.20)',
     innerCardBg: isLight ? '#ffffff' : isMid ? 'rgba(255, 255, 255, 0.42)' : isBlack ? '#000000' : isCustom ? (customTheme?.surface || 'rgba(16, 26, 37, 0.85)') : 'rgba(16, 26, 37, 0.85)',
     innerCardBorder: isLight ? 'rgba(15, 23, 42, 0.08)' : isMid ? 'rgba(15, 27, 39, 0.15)' : isBlack ? 'rgba(255, 255, 255, 0.12)' : 'rgba(148, 188, 227, 0.14)',
+    wellBg: isLight ? '#f1f5f9' : isMid ? 'rgba(0, 0, 0, 0.08)' : isBlack ? '#0a0a0a' : isCustom ? (customTheme?.well || '#0d141b') : '#0d141b',
 
     // Text colors
     textPrimary: isLight ? '#0f172a' : isMid ? '#09131d' : isBlack ? '#ffffff' : isCustom ? (customTheme?.ink || '#e9edf2') : '#e9edf2',
@@ -789,6 +820,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             }}
           >
             📁 Watched Folders ({folders.length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab('3d')}
+            style={{
+              padding: '10px 16px',
+              background: 'transparent',
+              border: 0,
+              borderBottom: activeTab === '3d' ? `2px solid ${c.tabActiveBorder}` : '2px solid transparent',
+              color: activeTab === '3d' ? c.tabActiveText : c.tabInactiveText,
+              fontFamily: "'Barlow Condensed', sans-serif",
+              fontSize: '15px',
+              fontWeight: 600,
+              letterSpacing: '.04em',
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+              transition: 'color 0.15s, border-color 0.15s'
+            }}
+          >
+            🧊 3D & Avatars
           </button>
         </div>
 
@@ -3324,6 +3375,663 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </div>
                     );
                   })}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: 3D & AVATARS */}
+          {activeTab === '3d' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* Header / Intro Card */}
+              <div
+                style={{
+                  padding: '16px 20px',
+                  borderRadius: '16px',
+                  background: c.cardBg,
+                  border: `1px solid ${c.cardBorder}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '14px'
+                }}
+              >
+                <div
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '12px',
+                    background: isLight ? 'rgba(37,99,235,0.1)' : 'rgba(56,189,248,0.12)',
+                    border: isLight ? '1px solid rgba(37,99,235,0.25)' : '1px solid rgba(56,189,248,0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '22px',
+                    flexShrink: 0
+                  }}
+                >
+                  🧊
+                </div>
+                <div>
+                  <h3
+                    style={{
+                      margin: 0,
+                      fontFamily: "'Barlow Condensed', sans-serif",
+                      fontSize: '18px',
+                      fontWeight: 700,
+                      letterSpacing: '.03em',
+                      textTransform: 'uppercase',
+                      color: c.textHeaderHighlight
+                    }}
+                  >
+                    3D Viewport & Humanoid VRM Engine
+                  </h3>
+                  <p
+                    style={{
+                      margin: '3px 0 0',
+                      fontSize: '12.5px',
+                      color: c.textSecondary,
+                      lineHeight: 1.4
+                    }}
+                  >
+                    Configure rendering defaults for 3D models (.glb, .gltf, .obj, .stl) and humanoid motion avatar retargeting (.vrm, .vrma).
+                  </p>
+                </div>
+              </div>
+
+              {/* SECTION 1: VRMA Mannequin Retargeting */}
+              <div
+                style={{
+                  padding: '18px 20px',
+                  borderRadius: '16px',
+                  background: c.cardBg,
+                  border: `1px solid ${c.cardBorder}`,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '14px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                  <div>
+                    <div
+                      style={{
+                        fontFamily: "'Barlow Condensed', sans-serif",
+                        fontSize: '16px',
+                        fontWeight: 700,
+                        letterSpacing: '.03em',
+                        textTransform: 'uppercase',
+                        color: c.textPrimary
+                      }}
+                    >
+                      VRMA Motion Mannequin Engine
+                    </div>
+                    <div style={{ fontSize: '12px', color: c.textSecondary, marginTop: '2px' }}>
+                      Humanoid animation files (.vrma) require an avatar to retarget skeleton bones and blend shapes.
+                    </div>
+                  </div>
+
+                  <span
+                    style={{
+                      fontFamily: 'ui-monospace, monospace',
+                      fontSize: '10px',
+                      fontWeight: 600,
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      background: (vrmSettings.mannequinType || '12point') === '12point'
+                        ? (isBlack ? 'rgba(255,255,255,0.15)' : 'rgba(56,189,248,.18)')
+                        : vrmSettings.mannequinType === 'default'
+                        ? (isBlack ? 'rgba(255,255,255,0.12)' : 'rgba(168,85,247,.18)')
+                        : (isBlack ? 'rgba(255,255,255,0.15)' : 'rgba(56,239,125,.18)'),
+                      color: (vrmSettings.mannequinType || '12point') === '12point'
+                        ? (isBlack ? '#ffffff' : '#38bdf8')
+                        : vrmSettings.mannequinType === 'default'
+                        ? (isBlack ? '#d8b4fe' : '#c084fc')
+                        : (isBlack ? '#ffffff' : '#34d399'),
+                      border: (vrmSettings.mannequinType || '12point') === '12point'
+                        ? '1px solid rgba(56,189,248,.4)'
+                        : vrmSettings.mannequinType === 'default'
+                        ? '1px solid rgba(168,85,247,.4)'
+                        : '1px solid rgba(56,239,125,.4)'
+                    }}
+                  >
+                    {(vrmSettings.mannequinType || '12point') === '12point'
+                      ? '⚡ 12-POINT RIG ACTIVE'
+                      : vrmSettings.mannequinType === 'default'
+                      ? '✨ AAA REFERENCE ACTIVE'
+                      : '👤 CUSTOM AVATAR ACTIVE'}
+                  </span>
+                </div>
+
+                {/* Mannequin Type Selectors */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px' }}>
+                  {/* Option 1: 12-Point Mocap Rig */}
+                  <div
+                    onClick={() => {
+                      setMannequinType('12point');
+                      setVrmSettings(getVRMSettings());
+                    }}
+                    style={{
+                      padding: '14px 16px',
+                      borderRadius: '12px',
+                      background: (vrmSettings.mannequinType || '12point') === '12point'
+                        ? (isLight ? 'rgba(37,99,235,0.08)' : 'rgba(56,189,248,0.12)')
+                        : c.wellBg,
+                      border: (vrmSettings.mannequinType || '12point') === '12point'
+                        ? (isLight ? '2px solid #2563eb' : '2px solid #38bdf8')
+                        : `1px solid ${c.border}`,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '20px' }}>⚡</span>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '14px', color: c.textPrimary, fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '.02em' }}>
+                            Industry Standard 12-Point Rig
+                          </div>
+                          <div style={{ fontSize: '11px', color: c.textMuted, fontFamily: 'ui-monospace, monospace' }}>
+                            Mocap Kinematic Tracking Skeleton
+                          </div>
+                        </div>
+                      </div>
+                      <span
+                        style={{
+                          fontSize: '9px',
+                          fontWeight: 700,
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          background: 'rgba(56,189,248,0.2)',
+                          color: '#38bdf8',
+                          fontFamily: 'ui-monospace, monospace'
+                        }}
+                      >
+                        INSTANT BIND
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '12px', color: c.textSecondary, lineHeight: 1.4 }}>
+                      Constructs in &lt;0.5ms with zero network load. Optical tracking marker spheres, orientation visor, and instant animation retargeting.
+                    </div>
+                  </div>
+
+                  {/* Option 2: AAA Reference VRM Model */}
+                  <div
+                    onClick={() => {
+                      setMannequinType('default');
+                      setVrmSettings(getVRMSettings());
+                    }}
+                    style={{
+                      padding: '14px 16px',
+                      borderRadius: '12px',
+                      background: vrmSettings.mannequinType === 'default'
+                        ? (isLight ? 'rgba(168,85,247,0.08)' : 'rgba(168,85,247,0.15)')
+                        : c.wellBg,
+                      border: vrmSettings.mannequinType === 'default'
+                        ? (isLight ? '2px solid #a855f7' : '2px solid #c084fc')
+                        : `1px solid ${c.border}`,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '20px' }}>✨</span>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '14px', color: c.textPrimary, fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '.02em' }}>
+                            AAA Reference Humanoid
+                          </div>
+                          <div style={{ fontSize: '11px', color: c.textMuted, fontFamily: 'ui-monospace, monospace' }}>
+                            {DEFAULT_AVATAR_NAME.split(' ')[0]} (Consortium Model)
+                          </div>
+                        </div>
+                      </div>
+                      <span
+                        style={{
+                          fontSize: '9px',
+                          fontWeight: 700,
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          background: 'rgba(168,85,247,0.2)',
+                          color: '#c084fc',
+                          fontFamily: 'ui-monospace, monospace'
+                        }}
+                      >
+                        TEXTURED
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '12px', color: c.textSecondary, lineHeight: 1.4 }}>
+                      Full 3D textured mesh with spring bones and expressions. Cached in memory for rapid animation cycling without re-downloading.
+                    </div>
+                  </div>
+
+                  {/* Option 3: Custom Avatar (if assigned) */}
+                  {vrmSettings.customMannequinUrl && (
+                    <div
+                      onClick={() => {
+                        setMannequinType('custom');
+                        setVrmSettings(getVRMSettings());
+                      }}
+                      style={{
+                        padding: '14px 16px',
+                        borderRadius: '12px',
+                        background: vrmSettings.mannequinType === 'custom'
+                          ? (isLight ? 'rgba(16,185,129,0.08)' : 'rgba(56,239,125,0.15)')
+                          : c.wellBg,
+                        border: vrmSettings.mannequinType === 'custom'
+                          ? (isLight ? '2px solid #10b981' : '2px solid #34d399')
+                          : `1px solid ${c.border}`,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ fontSize: '20px' }}>👤</span>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: '14px', color: c.textPrimary, fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '.02em' }}>
+                              Custom Workspace Avatar
+                            </div>
+                            <div style={{ fontSize: '11px', color: c.textMuted, fontFamily: 'ui-monospace, monospace' }}>
+                              {vrmSettings.customMannequinName || 'User Avatar'}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            resetVRMMannequinToDefault();
+                            setVrmSettings(getVRMSettings());
+                          }}
+                          title="Remove custom avatar and reset back to 12-point rig"
+                          style={{
+                            padding: '3px 8px',
+                            borderRadius: '5px',
+                            background: 'rgba(239,68,68,0.12)',
+                            border: '1px solid rgba(239,68,68,0.3)',
+                            color: '#f87171',
+                            fontFamily: 'ui-monospace, monospace',
+                            fontSize: '10px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <div style={{ fontSize: '12px', color: c.textSecondary, lineHeight: 1.4 }}>
+                        Custom humanoid avatar assigned from your workspace files.
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Instructional Tip */}
+                <div
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    background: isLight ? 'rgba(59,130,246,0.06)' : 'rgba(148,188,227,0.07)',
+                    border: isLight ? '1px solid rgba(59,130,246,0.18)' : '1px solid rgba(148,188,227,0.16)',
+                    fontSize: '12px',
+                    color: c.textSecondary,
+                    lineHeight: 1.45,
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '8px'
+                  }}
+                >
+                  <span style={{ fontSize: '14px', flexShrink: 0 }}>💡</span>
+                  <div>
+                    <strong style={{ color: c.textPrimary }}>How to assign a custom mannequin:</strong> Open any <code style={{ fontFamily: 'ui-monospace, monospace', fontSize: '11px', color: '#94bce3' }}>.vrm</code> avatar file in Universal Preview, then click the <strong style={{ color: '#c084fc' }}>★ Set as VRMA Mannequin</strong> button in the top toolbar. Any <code style={{ fontFamily: 'ui-monospace, monospace', fontSize: '11px', color: '#f472b6' }}>.vrma</code> motion files will subsequently animate this avatar.
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 2: 3D Viewport Defaults */}
+              <div
+                style={{
+                  padding: '18px 20px',
+                  borderRadius: '16px',
+                  background: c.cardBg,
+                  border: `1px solid ${c.cardBorder}`,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '16px'
+                }}
+              >
+                <div>
+                  <div
+                    style={{
+                      fontFamily: "'Barlow Condensed', sans-serif",
+                      fontSize: '16px',
+                      fontWeight: 700,
+                      letterSpacing: '.03em',
+                      textTransform: 'uppercase',
+                      color: c.textPrimary
+                    }}
+                  >
+                    3D Viewport & Physics Defaults
+                  </div>
+                  <div style={{ fontSize: '12px', color: c.textSecondary, marginTop: '2px' }}>
+                    Set default camera, physics, and rendering options when opening 3D models.
+                  </div>
+                </div>
+
+                {/* Toggles Grid */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {/* Auto-Spin */}
+                  <div
+                    style={{
+                      padding: '12px 16px',
+                      borderRadius: '12px',
+                      background: c.wellBg,
+                      border: `1px solid ${c.border}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '12px'
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '13.5px', color: c.textPrimary }}>
+                        Default Orbit Auto-Spin
+                      </div>
+                      <div style={{ fontSize: '11.5px', color: c.textMuted }}>
+                        Automatically spin 3D models slowly when not being interacted with.
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={vrmSettings.autoRotate}
+                      onClick={() => updateVRM({ autoRotate: !vrmSettings.autoRotate })}
+                      style={{
+                        width: '42px',
+                        height: '24px',
+                        borderRadius: '12px',
+                        background: vrmSettings.autoRotate
+                          ? (isBlack ? '#ffffff' : isLight ? '#16a34a' : '#38ef7d')
+                          : (isLight ? 'rgba(15,23,42,0.18)' : 'rgba(255,255,255,.18)'),
+                        border: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '2px',
+                        cursor: 'pointer',
+                        flex: 'none',
+                        transition: 'background 0.2s',
+                        boxShadow: vrmSettings.autoRotate ? '0 0 10px rgba(56,239,125,.4)' : 'none'
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '50%',
+                          background: isBlack ? (vrmSettings.autoRotate ? '#000000' : '#ffffff') : '#ffffff',
+                          boxShadow: '0 1px 3px rgba(0,0,0,.35)',
+                          transform: vrmSettings.autoRotate ? 'translateX(18px)' : 'translateX(0)',
+                          transition: 'transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2)'
+                        }}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Ground Grid */}
+                  <div
+                    style={{
+                      padding: '12px 16px',
+                      borderRadius: '12px',
+                      background: c.wellBg,
+                      border: `1px solid ${c.border}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '12px'
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '13.5px', color: c.textPrimary }}>
+                        Show Ground Coordinate Grid
+                      </div>
+                      <div style={{ fontSize: '11.5px', color: c.textMuted }}>
+                        Display a coordinate ground plane for scale and orientation.
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={vrmSettings.showGrid}
+                      onClick={() => updateVRM({ showGrid: !vrmSettings.showGrid })}
+                      style={{
+                        width: '42px',
+                        height: '24px',
+                        borderRadius: '12px',
+                        background: vrmSettings.showGrid
+                          ? (isBlack ? '#ffffff' : isLight ? '#16a34a' : '#38ef7d')
+                          : (isLight ? 'rgba(15,23,42,0.18)' : 'rgba(255,255,255,.18)'),
+                        border: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '2px',
+                        cursor: 'pointer',
+                        flex: 'none',
+                        transition: 'background 0.2s',
+                        boxShadow: vrmSettings.showGrid ? '0 0 10px rgba(56,239,125,.4)' : 'none'
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '50%',
+                          background: isBlack ? (vrmSettings.showGrid ? '#000000' : '#ffffff') : '#ffffff',
+                          boxShadow: '0 1px 3px rgba(0,0,0,.35)',
+                          transform: vrmSettings.showGrid ? 'translateX(18px)' : 'translateX(0)',
+                          transition: 'transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2)'
+                        }}
+                      />
+                    </button>
+                  </div>
+
+                  {/* VRM Spring Bones */}
+                  <div
+                    style={{
+                      padding: '12px 16px',
+                      borderRadius: '12px',
+                      background: c.wellBg,
+                      border: `1px solid ${c.border}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '12px'
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '13.5px', color: c.textPrimary }}>
+                        VRM Spring Bone Physics
+                      </div>
+                      <div style={{ fontSize: '11.5px', color: c.textMuted }}>
+                        Simulate secondary physics on avatar hair, skirts, ties, and accessories.
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={vrmSettings.springBones}
+                      onClick={() => updateVRM({ springBones: !vrmSettings.springBones })}
+                      style={{
+                        width: '42px',
+                        height: '24px',
+                        borderRadius: '12px',
+                        background: vrmSettings.springBones
+                          ? (isBlack ? '#ffffff' : isLight ? '#16a34a' : '#38ef7d')
+                          : (isLight ? 'rgba(15,23,42,0.18)' : 'rgba(255,255,255,.18)'),
+                        border: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '2px',
+                        cursor: 'pointer',
+                        flex: 'none',
+                        transition: 'background 0.2s',
+                        boxShadow: vrmSettings.springBones ? '0 0 10px rgba(56,239,125,.4)' : 'none'
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '50%',
+                          background: isBlack ? (vrmSettings.springBones ? '#000000' : '#ffffff') : '#ffffff',
+                          boxShadow: '0 1px 3px rgba(0,0,0,.35)',
+                          transform: vrmSettings.springBones ? 'translateX(18px)' : 'translateX(0)',
+                          transition: 'transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2)'
+                        }}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Wireframe */}
+                  <div
+                    style={{
+                      padding: '12px 16px',
+                      borderRadius: '12px',
+                      background: c.wellBg,
+                      border: `1px solid ${c.border}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '12px'
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '13.5px', color: c.textPrimary }}>
+                        Default Wireframe Mesh
+                      </div>
+                      <div style={{ fontSize: '11.5px', color: c.textMuted }}>
+                        Render geometric polygon wireframes on load instead of textured surfaces.
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={vrmSettings.wireframe}
+                      onClick={() => updateVRM({ wireframe: !vrmSettings.wireframe })}
+                      style={{
+                        width: '42px',
+                        height: '24px',
+                        borderRadius: '12px',
+                        background: vrmSettings.wireframe
+                          ? (isBlack ? '#ffffff' : isLight ? '#16a34a' : '#38ef7d')
+                          : (isLight ? 'rgba(15,23,42,0.18)' : 'rgba(255,255,255,.18)'),
+                        border: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '2px',
+                        cursor: 'pointer',
+                        flex: 'none',
+                        transition: 'background 0.2s',
+                        boxShadow: vrmSettings.wireframe ? '0 0 10px rgba(56,239,125,.4)' : 'none'
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '50%',
+                          background: isBlack ? (vrmSettings.wireframe ? '#000000' : '#ffffff') : '#ffffff',
+                          boxShadow: '0 1px 3px rgba(0,0,0,.35)',
+                          transform: vrmSettings.wireframe ? 'translateX(18px)' : 'translateX(0)',
+                          transition: 'transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2)'
+                        }}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Default Animation Speed */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ fontWeight: 600, fontSize: '13.5px', color: c.textPrimary }}>
+                    Default Animation Speed
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {[0.5, 0.75, 1, 1.25, 1.5, 2].map((spd) => {
+                      const isSelected = (vrmSettings.playbackSpeed || 1) === spd;
+                      return (
+                        <button
+                          key={spd}
+                          onClick={() => updateVRM({ playbackSpeed: spd })}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '8px',
+                            border: isSelected ? '1px solid #38bdf8' : `1px solid ${c.border}`,
+                            background: isSelected
+                              ? (isLight ? '#2563eb' : 'rgba(56,189,248,0.22)')
+                              : c.wellBg,
+                            color: isSelected ? '#ffffff' : c.textPrimary,
+                            fontFamily: 'ui-monospace, monospace',
+                            fontSize: '12px',
+                            fontWeight: isSelected ? 700 : 500,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          {spd}x
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Environment Backdrop */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ fontWeight: 600, fontSize: '13.5px', color: c.textPrimary }}>
+                    Viewport Environment Backdrop
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
+                    {[
+                      { id: 'blueprint', label: 'Blueprint', desc: 'Archive Signature Cyan' },
+                      { id: 'black', label: 'Pure Black', desc: 'OLED Depth' },
+                      { id: 'studio', label: 'Studio Grey', desc: 'Neutral Soft Lighting' },
+                      { id: 'slate', label: 'Nordic Slate', desc: 'Ice & Cold Metal' }
+                    ].map((env) => {
+                      const isSelected = (vrmSettings.environment || 'blueprint') === env.id;
+                      return (
+                        <button
+                          key={env.id}
+                          onClick={() => updateVRM({ environment: env.id as VRMSettings['environment'] })}
+                          style={{
+                            padding: '12px 14px',
+                            borderRadius: '10px',
+                            border: isSelected ? '2px solid #38bdf8' : `1px solid ${c.border}`,
+                            background: isSelected
+                              ? (isLight ? 'rgba(37,99,235,0.08)' : 'rgba(56,189,248,0.12)')
+                              : c.wellBg,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'flex-start',
+                            textAlign: 'left',
+                            gap: '4px',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          <div style={{ fontWeight: 700, fontSize: '13px', color: isSelected ? '#38bdf8' : c.textPrimary }}>
+                            {env.label}
+                          </div>
+                          <div style={{ fontSize: '10.5px', color: c.textMuted }}>
+                            {env.desc}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
           )}

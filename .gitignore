@@ -48,6 +48,9 @@ lerna-debug.log*
 *.sln
 *.sw?
 
+# Scratch / temporary scripts
+scratch/
+
 # OS metadata
 .DS_Store
 Thumbs.db

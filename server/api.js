@@ -64,7 +64,13 @@ const MIME_TYPES = {
   '.avif': 'image/avif',
   '.zip': 'application/zip',
   '.pdf': 'application/pdf',
-  '.txt': 'text/plain'
+  '.txt': 'text/plain',
+  '.glb': 'model/gltf-binary',
+  '.gltf': 'model/gltf+json',
+  '.vrm': 'model/gltf-binary',
+  '.vrma': 'model/gltf-binary',
+  '.obj': 'text/plain',
+  '.stl': 'model/stl'
 };
 
 /**
@@ -144,18 +150,33 @@ function parseBody(req) {
   });
 }
 
+function resolveDiskPath(filePath) {
+  if (!filePath) return null;
+  if (fs.existsSync(filePath)) return filePath;
+  let p = path.resolve(ROOT_DIR, filePath);
+  if (fs.existsSync(p)) return p;
+  p = path.resolve(ROOT_DIR, 'public', filePath.replace(/^public[\\/]/, ''));
+  if (fs.existsSync(p)) return p;
+  p = path.resolve('D:\\Artistream', filePath);
+  if (fs.existsSync(p)) return p;
+  p = path.resolve('D:\\Artistream\\public', filePath.replace(/^public[\\/]/, ''));
+  if (fs.existsSync(p)) return p;
+  return null;
+}
+
 /**
  * Handle streaming media and direct disk access with HTTP Range support
  */
 function handleFileStream(req, res, filePath) {
-  if (!fs.existsSync(filePath)) {
+  const resolved = resolveDiskPath(filePath);
+  if (!resolved) {
     res.statusCode = 404;
-    return res.end('File not found');
+    return res.end(`File not found: ${filePath}`);
   }
 
-  const stat = fs.statSync(filePath);
+  const stat = fs.statSync(resolved);
   const fileSize = stat.size;
-  const ext = path.extname(filePath).toLowerCase();
+  const ext = path.extname(resolved).toLowerCase();
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
   const range = req.headers.range;
@@ -172,13 +193,16 @@ function handleFileStream(req, res, filePath) {
     }
 
     const chunksize = end - start + 1;
-    const file = fs.createReadStream(filePath, { start, end });
     res.writeHead(206, {
       'Content-Range': `bytes ${start}-${end}/${fileSize}`,
       'Accept-Ranges': 'bytes',
       'Content-Length': chunksize,
       'Content-Type': contentType
     });
+    if (req.method === 'HEAD') {
+      return res.end();
+    }
+    const file = fs.createReadStream(resolved, { start, end });
     file.pipe(res);
   } else {
     res.writeHead(200, {
@@ -186,7 +210,10 @@ function handleFileStream(req, res, filePath) {
       'Content-Type': contentType,
       'Accept-Ranges': 'bytes'
     });
-    fs.createReadStream(filePath).pipe(res);
+    if (req.method === 'HEAD') {
+      return res.end();
+    }
+    fs.createReadStream(resolved).pipe(res);
   }
 }
 
@@ -383,7 +410,7 @@ export async function handleApiRequest(req, res, next) {
     }
 
     // 8. Stream file from disk (by path or by asset ID)
-    if (pathname === '/api/file' && req.method === 'GET') {
+    if (pathname === '/api/file' && (req.method === 'GET' || req.method === 'HEAD')) {
       let targetFilePath = query.path ? String(query.path) : null;
       if (!targetFilePath && query.id) {
         const asset = getAssetById(String(query.id));
