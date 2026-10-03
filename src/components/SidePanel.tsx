@@ -21,7 +21,7 @@ interface SidePanelProps {
 
 type PanelTab = 'preview' | 'info' | 'files' | 'specimen';
 
-export const SidePanel: React.FC<SidePanelProps> = ({
+export const SidePanel: React.FC<SidePanelProps> = React.memo(({
   theme,
   entry,
   onClose,
@@ -1167,4 +1167,4 @@ export const SidePanel: React.FC<SidePanelProps> = ({
     </div>
     </>
   );
-};
+});

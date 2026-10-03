@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import gsap from 'gsap';
 import { AssetEntry, Density, ThemeMode, ViewMode, WatchedFolder, Pool, MaxPerPage, ActiveZipArchive, SortOption, SortDirection, ListColumns, ListOrder, CustomThemeColors, CustomBackgroundConfig, BackgroundFit } from './types';
 import { sortEntries, SORT_CONFIGS } from './services/sortService';
@@ -306,7 +306,7 @@ export const App: React.FC = () => {
     localStorage.setItem('archive.deferFolderIngestion', String(val));
   };
 
-  const handleOpenZipContents = async (entry: AssetEntry) => {
+  const handleOpenZipContents = useCallback(async (entry: AssetEntry) => {
     try {
       // Record ZIP in viewed history so it is recognized as viewed in its pool
       setViewedHistory((prev) => {
@@ -332,7 +332,7 @@ export const App: React.FC = () => {
       console.warn('Failed to extract zip entries:', err);
       setOpenId(entry.id);
     }
-  };
+  }, []);
 
   const handleCloseZipContents = () => {
     setActiveZipArchive(null);
@@ -1255,7 +1255,7 @@ export const App: React.FC = () => {
   };
 
   // Previous in pool handler
-  const handlePrevInPool = () => {
+  const handlePrevInPool = useCallback(() => {
     const list = activeZipArchive ? activeZipArchive.innerEntries : filteredEntries;
     if (!openEntry || list.length === 0) return;
     const curIdx = list.findIndex((e) => e.id === openEntry.id);
@@ -1264,10 +1264,10 @@ export const App: React.FC = () => {
     if (prevEntry) {
       handleSelectAndFocusEntry(prevEntry.id);
     }
-  };
+  }, [activeZipArchive, filteredEntries, openEntry]);
 
   // Next in pool handler
-  const handleNextInPool = () => {
+  const handleNextInPool = useCallback(() => {
     const list = activeZipArchive ? activeZipArchive.innerEntries : filteredEntries;
     if (!openEntry || list.length === 0) return;
     const curIdx = list.findIndex((e) => e.id === openEntry.id);
@@ -1276,7 +1276,15 @@ export const App: React.FC = () => {
     if (nextEntry) {
       handleSelectAndFocusEntry(nextEntry.id);
     }
-  };
+  }, [activeZipArchive, filteredEntries, openEntry]);
+
+  const handleCloseSidePanel = useCallback(() => {
+    setOpenId(null);
+  }, []);
+
+  const handleToggleStudioMode = useCallback(() => {
+    setIsStudioMode((prev) => !prev);
+  }, []);
 
   const handleLoadDemoCatalog = async () => {
     const demos = await loadDemoEntries();
@@ -1635,7 +1643,6 @@ export const App: React.FC = () => {
           sortDirection={sortDirection}
           onSortChange={handleSortChange}
           isPreviewOpen={!!openEntry}
-          activeEntryId={openId}
           isStudioMode={isStudioMode}
           listColumns={listColumns}
           onListColumnsChange={handleListColumnsChange}
@@ -1658,7 +1665,7 @@ export const App: React.FC = () => {
       <SidePanel
         theme={theme}
         entry={openEntry}
-        onClose={() => setOpenId(null)}
+        onClose={handleCloseSidePanel}
         onPrevInPool={handlePrevInPool}
         onNextInPool={handleNextInPool}
         specimenText={specimen}
@@ -1666,7 +1673,7 @@ export const App: React.FC = () => {
         motionMultiplier={motionMultiplier}
         onOpenZipContents={handleOpenZipContents}
         isStudioMode={isStudioMode}
-        onToggleStudioMode={() => setIsStudioMode((prev) => !prev)}
+        onToggleStudioMode={handleToggleStudioMode}
       />
 
       {/* Fullscreen Drop Overlay */}

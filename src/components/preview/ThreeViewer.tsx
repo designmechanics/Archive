@@ -190,13 +190,13 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
     cameraRef.current = camera;
 
     // Renderer
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(mount.clientWidth, mount.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.05;
-    renderer.shadowMap.enabled = false;
+    renderer.shadowMap.enabled = true;
     mount.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
@@ -453,19 +453,6 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
           };
         };
 
-        const sanitizeHumanoidAvatar = (targetVrm: VRM) => {
-          const toRemove: THREE.Object3D[] = [];
-          targetVrm.scene.traverse((child) => {
-            if (child.name.toLowerCase().includes('robo')) {
-              child.visible = false;
-              toRemove.push(child);
-            }
-          });
-          toRemove.forEach((c) => {
-            if (c.parent) c.parent.remove(c);
-          });
-        };
-
         // 1. VRM Avatar (.vrm)
         if (isVRM) {
           currentMannequinKeyRef.current = null;
@@ -477,7 +464,6 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
             currentVrmRef.current = vrm;
             // Handle VRM 0.x vs 1.0 coordinate rotation
             VRMUtils.rotateVRM0(vrm);
-            sanitizeHumanoidAvatar(vrm);
 
             scene.add(vrm.scene);
             loadedObjectRef.current = vrm.scene;
@@ -538,7 +524,6 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
             if (!loadedVrm) throw new Error('Default avatar does not contain valid VRM data');
             vrm = loadedVrm;
             VRMUtils.rotateVRM0(vrm);
-            sanitizeHumanoidAvatar(vrm);
           } else {
             // Custom avatar picked from workspace
             const avatarUrl = vrmSettings.customMannequinUrl || DEFAULT_AVATAR_URL;
@@ -554,7 +539,6 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
             if (!loadedVrm) throw new Error('Target mannequin avatar does not contain valid VRM data');
             vrm = loadedVrm;
             VRMUtils.rotateVRM0(vrm);
-            sanitizeHumanoidAvatar(vrm);
           }
 
           if (isCancelled) return;

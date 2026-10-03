@@ -26,7 +26,6 @@ interface ListViewProps {
   onListColumnsChange?: (cols: ListColumns) => void;
   onListOrderChange?: (order: ListOrder) => void;
   isPreviewOpen?: boolean;
-  activeEntryId?: string | null;
 }
 
 export const ListView: React.FC<ListViewProps> = ({
@@ -44,8 +43,7 @@ export const ListView: React.FC<ListViewProps> = ({
   listOrder = 'down',
   onListColumnsChange,
   onListOrderChange,
-  isPreviewOpen = false,
-  activeEntryId = null
+  isPreviewOpen = false
 }) => {
   const isLight = theme === 'light';
   const isMid = theme === 'mid';
@@ -382,7 +380,6 @@ export const ListView: React.FC<ListViewProps> = ({
 
   const renderRow = (e: AssetEntry) => {
     const isStarred = !!stars[e.id];
-    const isActivePreview = Boolean(activeEntryId && e.id === activeEntryId && isPreviewOpen);
     return (
       <div
         key={e.id}
@@ -401,29 +398,20 @@ export const ListView: React.FC<ListViewProps> = ({
           gap: colSizes.gap,
           padding: colSizes.padding,
           borderRadius: '13px',
-          background: isActivePreview
-            ? (isBlack ? 'rgba(255, 255, 255, 0.16)' : isLight ? 'rgba(37, 99, 235, 0.12)' : 'rgba(56, 189, 248, 0.16)')
-            : isBlack
+          background: isBlack
             ? 'rgba(0, 0, 0, 0.72)'
             : isLight
             ? 'rgba(255, 255, 255, 0.72)'
             : 'rgba(23, 32, 44, 0.44)',
           backdropFilter: isLight ? 'contrast(1.18) saturate(1.1) brightness(1.08)' : 'brightness(2.1) contrast(1.28) saturate(1.1)',
           WebkitBackdropFilter: isLight ? 'contrast(1.18) saturate(1.1) brightness(1.08)' : 'brightness(2.1) contrast(1.28) saturate(1.1)',
-          border: isActivePreview
-            ? (isBlack ? '1px solid rgba(255, 255, 255, 0.8)' : isLight ? '1px solid rgba(37, 99, 235, 0.65)' : '1px solid rgba(56, 189, 248, 0.65)')
-            : isBlack
+          border: isBlack
             ? '1px solid rgba(255, 255, 255, 0.12)'
             : isLight
             ? '1px solid rgba(15, 23, 42, 0.08)'
             : '1px solid rgba(233, 237, 242, 0.09)',
-          borderLeft: isActivePreview
-            ? (isBlack ? '4px solid #ffffff' : isLight ? '4px solid #2563eb' : '4px solid #38bdf8')
-            : undefined,
           cursor: 'pointer',
-          boxShadow: isActivePreview
-            ? (isBlack ? '0 0 0 1px rgba(255, 255, 255, 0.4), 0 6px 20px rgba(0, 0, 0, 0.6)' : isLight ? '0 0 0 1px rgba(37, 99, 235, 0.3), 0 6px 20px rgba(37, 99, 235, 0.2)' : '0 0 0 1px rgba(56, 189, 248, 0.35), 0 6px 22px rgba(56, 189, 248, 0.22)')
-            : isLight ? '0 2px 8px rgba(15, 23, 42, 0.05)' : '0 2px 8px rgba(0, 0, 0, 0.22)',
+          boxShadow: isLight ? '0 2px 8px rgba(15, 23, 42, 0.05)' : '0 2px 8px rgba(0, 0, 0, 0.22)',
           transition: 'background .2s, box-shadow .24s, border-color .2s, transform .24s'
         }}
         onMouseEnter={(el) => {
@@ -437,19 +425,13 @@ export const ListView: React.FC<ListViewProps> = ({
           el.currentTarget.style.transform = 'translateX(4px)';
         }}
         onMouseLeave={(el) => {
-          el.currentTarget.style.background = isActivePreview
-            ? (isBlack ? 'rgba(255, 255, 255, 0.16)' : isLight ? 'rgba(37, 99, 235, 0.12)' : 'rgba(56, 189, 248, 0.16)')
-            : isBlack
+          el.currentTarget.style.background = isBlack
             ? 'rgba(0, 0, 0, 0.72)'
             : isLight
             ? 'rgba(255, 255, 255, 0.72)'
             : 'rgba(23, 32, 44, 0.44)';
-          el.currentTarget.style.boxShadow = isActivePreview
-            ? (isBlack ? '0 0 0 1px rgba(255, 255, 255, 0.4), 0 6px 20px rgba(0, 0, 0, 0.6)' : isLight ? '0 0 0 1px rgba(37, 99, 235, 0.3), 0 6px 20px rgba(37, 99, 235, 0.2)' : '0 0 0 1px rgba(56, 189, 248, 0.35), 0 6px 22px rgba(56, 189, 248, 0.22)')
-            : isLight ? '0 2px 8px rgba(15, 23, 42, 0.05)' : '0 2px 8px rgba(0, 0, 0, 0.22)';
-          el.currentTarget.style.borderColor = isActivePreview
-            ? (isBlack ? 'rgba(255, 255, 255, 0.8)' : isLight ? 'rgba(37, 99, 235, 0.65)' : 'rgba(56, 189, 248, 0.65)')
-            : isBlack
+          el.currentTarget.style.boxShadow = isLight ? '0 2px 8px rgba(15, 23, 42, 0.05)' : '0 2px 8px rgba(0, 0, 0, 0.22)';
+          el.currentTarget.style.borderColor = isBlack
             ? 'rgba(255, 255, 255, 0.12)'
             : isLight
             ? 'rgba(15, 23, 42, 0.08)'
@@ -549,25 +531,6 @@ export const ListView: React.FC<ListViewProps> = ({
             </span>
           )}
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.title}</span>
-          {isActivePreview && (
-            <span
-              style={{
-                fontFamily: 'ui-monospace, Menlo, monospace',
-                fontSize: '9px',
-                fontWeight: 700,
-                padding: '1px 6px',
-                borderRadius: '4px',
-                background: isBlack ? '#ffffff' : (isLight ? '#2563eb' : '#38bdf8'),
-                color: isBlack ? '#000000' : '#ffffff',
-                letterSpacing: '.06em',
-                textTransform: 'uppercase',
-                flex: 'none',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.35)'
-              }}
-            >
-              👁 PREVIEW
-            </span>
-          )}
         </span>
 
         {/* Format */}

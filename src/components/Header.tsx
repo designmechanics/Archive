@@ -1,3 +1,4 @@
+import React from 'react';
 import { ThemeMode, WatchedFolder } from '../types';
 
 interface HeaderProps {
@@ -23,7 +24,7 @@ interface HeaderProps {
 }
 
 
-export const Header: React.FC<HeaderProps> = ({
+export const Header: React.FC<HeaderProps> = React.memo(({
   query,
   onQueryChange,
   totalCount,
@@ -470,4 +471,4 @@ export const Header: React.FC<HeaderProps> = ({
       </button>
     </header>
   );
-};
+});

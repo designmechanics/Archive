@@ -39,7 +39,6 @@ interface StageProps {
   listOrder?: ListOrder;
   onListColumnsChange?: (cols: ListColumns) => void;
   onListOrderChange?: (order: ListOrder) => void;
-  activeEntryId?: string | null;
 }
 
 const getCardDepthStyling = (
@@ -47,30 +46,8 @@ const getCardDepthStyling = (
   isSelected: boolean,
   isCarousel: boolean,
   isLight: boolean,
-  isBlack: boolean = false,
-  isActivePreview: boolean = false
+  isBlack: boolean = false
 ) => {
-  if (isActivePreview) {
-    if (isBlack) {
-      return {
-        border: '2px solid #ffffff',
-        borderColor: '#ffffff',
-        boxShadow: '0 0 0 2px rgba(255, 255, 255, 0.8), 0 0 28px rgba(255, 255, 255, 0.45), 0 12px 36px rgba(0, 0, 0, 0.95)'
-      };
-    }
-    if (isLight) {
-      return {
-        border: '2px solid #2563eb',
-        borderColor: '#2563eb',
-        boxShadow: '0 0 0 2px rgba(37, 99, 235, 0.45), 0 0 24px rgba(37, 99, 235, 0.35), 0 12px 32px rgba(37, 99, 235, 0.25)'
-      };
-    }
-    return {
-      border: '2px solid #38bdf8',
-      borderColor: '#38bdf8',
-      boxShadow: '0 0 0 2px rgba(56, 189, 248, 0.5), 0 0 26px rgba(56, 189, 248, 0.4), 0 12px 36px rgba(0, 0, 0, 0.75)'
-    };
-  }
 
   if (!isCarousel) {
     if (isBlack) {
@@ -97,713 +74,83 @@ const getCardDepthStyling = (
     };
   }
 
-  // Border: Strong high contrast in center, progressively weaker/dimmer further away
-  let borderAlpha: number;
+  // 2. Carousel views:
   let borderColor: string;
-  if (isBlack) {
-    borderAlpha = Math.max(0.04, Number((0.75 * Math.pow(0.46, ad)).toFixed(3)));
-    borderColor = isSelected
-      ? (ad === 0 ? '#ffffff' : 'rgba(255, 255, 255, 0.9)')
-      : `rgba(255, 255, 255, ${borderAlpha})`;
-  } else if (isLight) {
-    borderAlpha = Math.max(0.02, Number((0.26 * Math.pow(0.46, ad)).toFixed(3)));
-    borderColor = isSelected
-      ? (ad === 0 ? '#2563eb' : 'rgba(37, 99, 235, 0.85)')
-      : `rgba(15, 23, 42, ${borderAlpha})`;
-  } else {
-    borderAlpha = Math.max(0.02, Number((0.68 * Math.pow(0.46, ad)).toFixed(3)));
-    borderColor = isSelected
-      ? (ad === 0 ? '#5980a6' : 'rgba(89, 128, 166, 0.85)')
-      : `rgba(255, 255, 255, ${borderAlpha})`;
-  }
-  const border = `${isSelected ? 2 : 1}px solid ${borderColor}`;
-
-  // Shadow: Slight in center, progressively larger and deeper further away
   let boxShadow: string;
+
   if (isBlack) {
     if (ad === 0) {
+      borderColor = isSelected ? '#ffffff' : 'rgba(255, 255, 255, 0.75)';
       boxShadow = isSelected
         ? '0 0 0 2px #ffffff, 0 10px 36px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.4)'
         : '0 8px 24px -2px rgba(0, 0, 0, 0.8), 0 2px 8px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2)';
     } else {
-      const blur = Math.round(18 + ad * 16);
-      const offsetY = Math.round(6 + ad * 7);
-      const spread = Math.round(ad * 2.8);
-      const opacity = Math.min(0.95, Number((0.45 + ad * 0.12).toFixed(2)));
+      borderColor = isSelected ? 'rgba(255, 255, 255, 0.85)' : 'rgba(255, 255, 255, 0.14)';
       boxShadow = isSelected
-        ? `0 ${offsetY}px ${blur}px ${spread}px rgba(0, 0, 0, ${opacity}), 0 0 26px rgba(255, 255, 255, 0.35)`
-        : `0 ${offsetY}px ${blur}px ${spread}px rgba(0, 0, 0, ${opacity})`;
+        ? '0 12px 32px rgba(0, 0, 0, 0.9), 0 0 24px rgba(255, 255, 255, 0.3)'
+        : '0 10px 28px rgba(0, 0, 0, 0.75)';
     }
   } else if (isLight) {
     if (ad === 0) {
+      borderColor = isSelected ? '#2563eb' : 'rgba(37, 99, 235, 0.45)';
       boxShadow = isSelected
         ? '0 8px 28px rgba(37, 99, 235, 0.35), 0 2px 8px rgba(15, 23, 42, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.9)'
         : '0 6px 20px -2px rgba(15, 23, 42, 0.09), 0 2px 6px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9)';
     } else {
-      const blur = Math.round(18 + ad * 16);
-      const offsetY = Math.round(6 + ad * 7);
-      const spread = Math.round(ad * 2.5);
-      const opacity = Math.min(0.24, Number((0.08 + ad * 0.04).toFixed(2)));
-      const subOpacity = Number((opacity * 0.6).toFixed(2));
-
+      borderColor = isSelected ? 'rgba(37, 99, 235, 0.75)' : 'rgba(15, 23, 42, 0.08)';
       boxShadow = isSelected
-        ? `0 ${offsetY}px ${blur}px ${spread}px rgba(15, 23, 42, ${opacity}), 0 0 26px rgba(37, 99, 235, 0.35)`
-        : `0 ${offsetY}px ${blur}px ${spread}px rgba(15, 23, 42, ${opacity}), 0 ${Math.round(offsetY * 0.5)}px ${Math.round(blur * 0.4)}px rgba(15, 23, 42, ${subOpacity})`;
+        ? '0 8px 24px rgba(37, 99, 235, 0.3), 0 0 20px rgba(37, 99, 235, 0.2)'
+        : '0 4px 16px rgba(15, 23, 42, 0.08)';
     }
   } else {
     if (ad === 0) {
+      borderColor = isSelected ? '#5980a6' : 'rgba(255, 255, 255, 0.55)';
       boxShadow = isSelected
         ? '0 8px 28px rgba(89, 128, 166, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
         : '0 6px 18px -2px rgba(0, 0, 0, 0.34), 0 2px 6px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.22)';
     } else {
-      const blur = Math.round(18 + ad * 16);
-      const offsetY = Math.round(6 + ad * 7);
-      const spread = Math.round(ad * 2.8);
-      const opacity = Math.min(0.88, Number((0.34 + ad * 0.12).toFixed(2)));
-      const subOpacity = Number((opacity * 0.65).toFixed(2));
-
+      borderColor = isSelected ? 'rgba(89, 128, 166, 0.85)' : 'rgba(255, 255, 255, 0.12)';
       boxShadow = isSelected
-        ? `0 ${offsetY}px ${blur}px ${spread}px rgba(0, 0, 0, ${opacity}), 0 0 26px rgba(89, 128, 166, 0.45)`
-        : `0 ${offsetY}px ${blur}px ${spread}px rgba(0, 0, 0, ${opacity}), 0 ${Math.round(offsetY * 0.5)}px ${Math.round(blur * 0.4)}px rgba(0, 0, 0, ${subOpacity})`;
+        ? '0 10px 28px rgba(0, 0, 0, 0.7), 0 0 22px rgba(89, 128, 166, 0.35)'
+        : '0 8px 24px rgba(0, 0, 0, 0.45)';
     }
   }
 
+  const border = `${isSelected ? 2 : 1}px solid ${borderColor}`;
   return { border, borderColor, boxShadow };
 };
 
-export const Stage: React.FC<StageProps> = ({
-  theme,
+interface StageWatermarkProps {
+  entries: AssetEntry[];
+  focusIndex: number;
+  view: ViewMode;
+  density: Density;
+  sortOption?: SortOption;
+  isCarousel: boolean;
+  wrapRef: React.RefObject<HTMLDivElement>;
+  stageRef: React.RefObject<HTMLDivElement>;
+  motionMultiplier: number;
+  isBlack: boolean;
+  isLight: boolean;
+  isDocked56vw: boolean;
+  leftoverCenter: number;
+}
+
+const StageWatermark: React.FC<StageWatermarkProps> = React.memo(({
   entries,
-  allEntries,
+  focusIndex,
   view,
   density,
-  focusIndex,
-  onFocusChange,
-  onSelectEntry,
-  selectedIds,
-  onToggleSelect,
-  stars,
-  onToggleStar,
-  hoverPool,
-  accent,
+  sortOption,
+  isCarousel,
+  wrapRef,
+  stageRef,
   motionMultiplier,
-  onOpenModal,
-  onScanNativeFolder,
-  onLoadDemoCatalog,
-  onClearFilters,
-  query,
-  selectedPool,
-  selectedFolder,
-  onOpenZipContents,
-  sortOption = 'name',
-  sortDirection = 'asc',
-  onSortChange,
-  isPreviewOpen = false,
-  isStudioMode = false,
-  listColumns = 1,
-  listOrder = 'down',
-  onListColumnsChange,
-  onListOrderChange,
-  activeEntryId = null
+  isBlack,
+  isLight,
+  isDocked56vw,
+  leftoverCenter
 }) => {
-  const isLight = theme === 'light';
-  const isBlack = theme === 'black';
-  const rootRef = useRef<HTMLDivElement>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const stageRef = useRef<HTMLDivElement>(null);
-  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  const ioRef = useRef<IntersectionObserver | null>(null);
-
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const [stageWidth, setStageWidth] = useState<number>(() =>
-    typeof window !== 'undefined' ? Math.max(300, window.innerWidth - 220) : 1200
-  );
-
-  useEffect(() => {
-    const updateWidth = () => {
-      const w = rootRef.current?.clientWidth || stageRef.current?.clientWidth || (typeof window !== 'undefined' ? window.innerWidth - 220 : 1200);
-      setStageWidth(w);
-    };
-    updateWidth();
-    window.addEventListener('resize', updateWidth);
-    return () => window.removeEventListener('resize', updateWidth);
-  }, []);
-
-  const isDocked56vw = !!isPreviewOpen && !isStudioMode;
-  const panelWidth = Math.min(
-    typeof window !== 'undefined' ? window.innerWidth * 0.96 : 1400,
-    Math.max(580, typeof window !== 'undefined' ? window.innerWidth * 0.56 : 700)
-  );
-  const leftoverW = Math.max(0, stageWidth - panelWidth);
-  const leftoverCenter = Math.max(120, Math.round(leftoverW / 2));
-
-  const isPointerDownRef = useRef(false);
-  const isDraggingRef = useRef(false);
-  const hasMovedRef = useRef(false);
-  const dragStartXRef = useRef(0);
-  const dragStartYRef = useRef(0);
-  const dragStartFocusRef = useRef(0);
-  const capturedPointerIdRef = useRef<number | null>(null);
-  const wheelAccRef = useRef(0);
-
-  // Keep live references to avoid re-binding listeners during continuous gestures
-  const focusIndexRef = useRef(focusIndex);
-  const focusIndexRef_curr = focusIndex;
-  focusIndexRef.current = focusIndexRef_curr;
-
-  const entriesRef = useRef(entries);
-  entriesRef.current = entries;
-
-  const viewRef = useRef(view);
-  viewRef.current = view;
-
-  const onFocusChangeRef = useRef(onFocusChange);
-  onFocusChangeRef.current = onFocusChange;
-
-  const isCarousel = ['coverflow', 'strip', 'radial', 'filmstrip', 'peel'].includes(view);
-
-  // Copy helper
-  const handleCopy = (txt: string, key: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(txt);
-      }
-    } catch {}
-    setCopiedKey(key);
-    setTimeout(() => {
-      setCopiedKey(null);
-    }, 1400);
-  };
-
-  // Card click handler - opens zip contents for zip archives, or preview in ALL views
-  const handleCardClick = (e: AssetEntry, ev: React.MouseEvent) => {
-    if (hasMovedRef.current || isDraggingRef.current) return;
-    if (ev.metaKey || ev.ctrlKey || ev.shiftKey) {
-      onToggleSelect(e.id, ev);
-      return;
-    }
-    const idx = entries.findIndex((x) => x.id === e.id);
-    if (idx >= 0) {
-      onFocusChange(idx);
-    }
-    if (isZipArchive(e) && !e.isZipInnerFile && onOpenZipContents) {
-      onOpenZipContents(e);
-    } else {
-      onSelectEntry(e.id);
-    }
-  };
-
-  // Drag handling on stage with movement threshold (so clicks are never eaten)
-  useEffect(() => {
-    const st = stageRef.current;
-    if (!st || !isCarousel) return;
-
-    const onPointerDown = (e: PointerEvent) => {
-      // Only process primary mouse button (left button) or touch
-      if (e.button !== 0) return;
-      isPointerDownRef.current = true;
-      isDraggingRef.current = false;
-      hasMovedRef.current = false;
-      dragStartXRef.current = e.clientX;
-      dragStartYRef.current = e.clientY;
-      dragStartFocusRef.current = focusIndexRef.current;
-      capturedPointerIdRef.current = null;
-    };
-
-    const onPointerMove = (e: PointerEvent) => {
-      // CRITICAL: If the mouse button is NOT currently pressed, hover movement MUST DO NOTHING!
-      if (!isPointerDownRef.current || e.buttons === 0) {
-        if (isPointerDownRef.current) {
-          isPointerDownRef.current = false;
-          isDraggingRef.current = false;
-        }
-        return;
-      }
-
-      const dx = e.clientX - dragStartXRef.current;
-      const dy = e.clientY - dragStartYRef.current;
-      const dist = Math.hypot(dx, dy);
-
-      // Deadzone threshold (8px) before treating movement as a drag gesture
-      if (!isDraggingRef.current && dist > 8) {
-        isDraggingRef.current = true;
-        hasMovedRef.current = true;
-        try {
-          st.setPointerCapture(e.pointerId);
-          capturedPointerIdRef.current = e.pointerId;
-        } catch {}
-      }
-
-      if (!isDraggingRef.current) return;
-
-      // Calculate delta based on view mode's movement axis
-      let delta = 0;
-      if (viewRef.current === 'filmstrip') {
-        // Filmstrip stacks vertically
-        delta = (dragStartYRef.current - e.clientY) / 80;
-      } else {
-        // Coverflow, Strip, Radial, Peel stack horizontally
-        delta = (dragStartXRef.current - e.clientX) / 100;
-      }
-
-      const maxIdx = entriesRef.current.length - 1;
-      if (maxIdx <= 0) return;
-      const newFocus = Math.max(0, Math.min(maxIdx, Math.round(dragStartFocusRef.current + delta)));
-      if (newFocus !== focusIndexRef.current) {
-        onFocusChangeRef.current(newFocus);
-      }
-    };
-
-    const onPointerUp = (e: PointerEvent) => {
-      if (!isPointerDownRef.current) return;
-      isPointerDownRef.current = false;
-
-      if (capturedPointerIdRef.current !== null) {
-        try {
-          st.releasePointerCapture(capturedPointerIdRef.current);
-        } catch {}
-        capturedPointerIdRef.current = null;
-      }
-
-      isDraggingRef.current = false;
-      // Delay resetting hasMovedRef slightly so click events know a drag gesture just completed
-      setTimeout(() => {
-        hasMovedRef.current = false;
-      }, 100);
-    };
-
-    const onWindowPointerUp = () => {
-      if (isPointerDownRef.current) {
-        isPointerDownRef.current = false;
-        isDraggingRef.current = false;
-        if (capturedPointerIdRef.current !== null) {
-          try {
-            st.releasePointerCapture(capturedPointerIdRef.current);
-          } catch {}
-          capturedPointerIdRef.current = null;
-        }
-        setTimeout(() => {
-          hasMovedRef.current = false;
-        }, 100);
-      }
-    };
-
-    st.addEventListener('pointerdown', onPointerDown);
-    st.addEventListener('pointermove', onPointerMove);
-    st.addEventListener('pointerup', onPointerUp);
-    st.addEventListener('pointercancel', onPointerUp);
-    window.addEventListener('pointerup', onWindowPointerUp);
-    window.addEventListener('pointercancel', onWindowPointerUp);
-
-    return () => {
-      st.removeEventListener('pointerdown', onPointerDown);
-      st.removeEventListener('pointermove', onPointerMove);
-      st.removeEventListener('pointerup', onPointerUp);
-      st.removeEventListener('pointercancel', onPointerUp);
-      window.removeEventListener('pointerup', onWindowPointerUp);
-      window.removeEventListener('pointercancel', onWindowPointerUp);
-    };
-  }, [isCarousel]);
-
-  // Wheel handling on wrapper
-  useEffect(() => {
-    const wr = wrapRef.current;
-    if (!wr || !isCarousel) return;
-
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      wheelAccRef.current += e.deltaY + e.deltaX;
-      if (Math.abs(wheelAccRef.current) > 80) {
-        const step = wheelAccRef.current > 0 ? 1 : -1;
-        const maxIdx = entriesRef.current.length - 1;
-        if (maxIdx > 0) {
-          const nextIdx = Math.max(0, Math.min(maxIdx, focusIndexRef.current + step));
-          if (nextIdx !== focusIndexRef.current) {
-            onFocusChangeRef.current(nextIdx);
-          }
-        }
-        wheelAccRef.current = 0;
-      }
-    };
-
-    wr.addEventListener('wheel', onWheel, { passive: false });
-    return () => {
-      wr.removeEventListener('wheel', onWheel);
-    };
-  }, [isCarousel]);
-
-  // Main Layout Choreography with GSAP
-  useEffect(() => {
-    const st = stageRef.current;
-    const wr = wrapRef.current;
-    if (!st || !wr || view === 'list') return;
-
-    const W = st.clientWidth;
-    const displayH = wr.clientHeight || 800;
-    const m = motionMultiplier;
-    const focus = Math.max(0, Math.min(focusIndex, entries.length - 1));
-
-    const T: Record<
-      string,
-      {
-        x: number;
-        y: number;
-        w: number;
-        h: number;
-        rY: number;
-        rX: number;
-        rZ: number;
-        z: number;
-        s: number;
-        o: number;
-        zi: number;
-      }
-    > = {};
-
-    let stageH = displayH;
-
-    if (view === 'grid') {
-      wr.style.overflowY = 'scroll';
-      wr.style.overflowX = 'hidden';
-      const gridW = isDocked56vw ? leftoverW : W;
-      const cols = isDocked56vw ? Math.max(1, Math.min(density, 3)) : density;
-      const gap = 18;
-      const cw = Math.max(120, Math.floor((gridW - gap * (cols - 1)) / cols));
-      const ch = Math.round(cw * 0.74 + 132);
-
-      entries.forEach((e, i) => {
-        const r = Math.floor(i / cols);
-        const c = i % cols;
-        T[e.id] = {
-          x: c * (cw + gap),
-          y: r * (ch + gap),
-          w: cw,
-          h: ch,
-          rY: 0,
-          rX: 0,
-          rZ: 0,
-          z: 0,
-          s: 1,
-          o: 1,
-          zi: 10 + i
-        };
-      });
-      stageH = Math.ceil(entries.length / cols) * (ch + gap) + 8;
-    } else {
-      wr.style.overflow = 'hidden';
-
-      if (view === 'filmstrip') {
-        // Filmstrip: related to display area vh; card centered vertically at cy;
-        // In default state: strip at 33% width. In 56vw docked state: card centered in leftover space at left
-        const ch2 = isDocked56vw
-          ? Math.max(280, Math.min(520, Math.round(displayH * 0.42)))
-          : Math.max(300, Math.min(640, Math.round(displayH * 0.45)));
-        const maxW = isDocked56vw ? Math.round(leftoverW * 0.84) : Math.round(W * 0.36);
-        const cw2 = Math.min(Math.round(ch2 * 0.72), maxW);
-        const cxFilm = isDocked56vw ? Math.round(leftoverCenter - cw2 / 2) : Math.round(W * 0.33 - cw2 / 2);
-        const cy = Math.round((displayH - ch2) / 2);
-        const gap = Math.max(22, Math.round(displayH * 0.028));
-        const vStep = ch2 + gap;
-
-        entries.forEach((e, i) => {
-          const d = i - focus;
-          const ad = Math.abs(d);
-          T[e.id] = {
-            x: cxFilm,
-            y: cy + d * vStep,
-            w: cw2,
-            h: ch2,
-            rY: 0,
-            rX: -Math.max(-28, Math.min(28, d * 12)),
-            rZ: 0,
-            z: -ad * 100,
-            s: 1 - Math.min(ad * 0.04, 0.25),
-            o: ad > 3 ? 0 : 1,
-            zi: 200 - ad * 2
-          };
-        });
-      } else if (view === 'coverflow') {
-        // Coverflow: card size related to display area vh; center card in leftover space when 56vw docked, or W/2 normally
-        const ch2 = isDocked56vw
-          ? Math.max(280, Math.min(540, Math.round(displayH * 0.48)))
-          : Math.max(320, Math.min(660, Math.round(displayH * 0.56)));
-        const maxW = isDocked56vw ? Math.round(leftoverW * 0.84) : Math.round(W * 0.42);
-        const cw2 = Math.min(Math.round(ch2 * 0.74), maxW);
-        const cx = isDocked56vw ? Math.round(leftoverCenter - cw2 / 2) : Math.round(W / 2 - cw2 / 2);
-        const cy = Math.round((displayH - ch2) / 2);
-        const step = isDocked56vw ? Math.round(cw2 * 0.42) : Math.round(cw2 * 0.52);
-
-        entries.forEach((e, i) => {
-          const d = i - focus;
-          const ad = Math.abs(d);
-          T[e.id] = {
-            x: cx + d * step,
-            y: cy + ad * 8,
-            w: cw2,
-            h: ch2,
-            rY: -Math.max(-46, Math.min(46, d * 30)),
-            rX: 0,
-            rZ: 0,
-            z: -ad * 180,
-            s: 1 - Math.min(ad * 0.055, 0.38),
-            o: ad > 5 ? 0 : 1,
-            zi: 200 - ad * 2
-          };
-        });
-      } else if (view === 'peel') {
-        // Peel: scaled to display area vh; centered in leftover space when 56vw docked, or W/2 normally
-        const ch2 = isDocked56vw
-          ? Math.max(280, Math.min(520, Math.round(displayH * 0.46)))
-          : Math.max(320, Math.min(640, Math.round(displayH * 0.54)));
-        const maxW = isDocked56vw ? Math.round(leftoverW * 0.84) : Math.round(W * 0.42);
-        const cw2 = Math.min(Math.round(ch2 * 0.74), maxW);
-        const cx = isDocked56vw ? Math.round(leftoverCenter - cw2 / 2) : Math.round(W / 2 - cw2 / 2);
-        const cy = Math.round((displayH - ch2) / 2);
-
-        entries.forEach((e, i) => {
-          const d = i - focus;
-          if (d < 0) {
-            // Discard piles: alternating side of exit (left, right, repeat) + alternating organic scatter
-            const k = Math.min(6, -d);
-            const side = (i % 2 === 0) ? -1 : 1; // -1 = LEFT, +1 = RIGHT (Left, Right, repeat)
-            const pileIdx = Math.floor(i / 2);
-            const altTilt = (pileIdx % 2 === 0) ? 1 : -1;
-            const spreadStep = Math.min(k, 4) * (isDocked56vw ? 9 : 14);
-
-            const baseRZ = side * 14;
-            const scatterTilt = altTilt * (4 + (k % 3) * 3);
-            const rZ = baseRZ + scatterTilt;
-            const rY = side * 10 + altTilt * 4;
-            const discardOffset = isDocked56vw ? Math.round(cw2 * 0.6) : Math.round(cw2 * 0.84);
-
-            T[e.id] = {
-              x: cx + side * (discardOffset + spreadStep) + altTilt * (side === 1 ? 14 : -12),
-              y: cy + altTilt * 24 + Math.min(k, 4) * 6,
-              w: cw2,
-              h: ch2,
-              rY: rY,
-              rX: 4,
-              rZ: rZ,
-              z: -k * 30,
-              s: 0.94 - Math.min(k, 4) * 0.025,
-              o: k > 5 ? 0 : Math.max(0, 0.92 - k * 0.16),
-              zi: 100 - k
-            };
-          } else {
-            // Deck stack for active and future cards
-            T[e.id] = {
-              x: cx + d * 3,
-              y: cy + d * 7,
-              w: cw2,
-              h: ch2,
-              rY: 0,
-              rX: 0,
-              rZ: (d % 2 === 1 ? -1 : 1) * d * 0.8,
-              z: -d * 20,
-              s: 1 - d * 0.03,
-              o: d > 5 ? 0 : 1,
-              zi: 300 - d
-            };
-          }
-        });
-      } else if (view === 'radial') {
-        const ch2 = isDocked56vw
-          ? Math.max(280, Math.min(500, Math.round(displayH * 0.44)))
-          : Math.max(300, Math.min(620, Math.round(displayH * 0.52)));
-        const maxW = isDocked56vw ? Math.round(leftoverW * 0.84) : Math.round(W * 0.42);
-        const cw2 = Math.min(Math.round(ch2 * 0.74), maxW);
-        const cx = isDocked56vw ? Math.round(leftoverCenter - cw2 / 2) : Math.round(W / 2 - cw2 / 2);
-        const cy = Math.round((displayH - ch2) / 2);
-        const R = Math.max(isDocked56vw ? 600 : 900, Math.round((isDocked56vw ? leftoverW : W) * 0.88));
-
-        entries.forEach((e, i) => {
-          const d = i - focus;
-          const ad = Math.abs(d);
-          const a = d * 0.115;
-          T[e.id] = {
-            x: cx + R * Math.sin(a),
-            y: cy + R * (1 - Math.cos(a)) * 0.85,
-            w: cw2,
-            h: ch2,
-            rY: 0,
-            rX: 0,
-            rZ: d * 6.6,
-            z: -ad * 60,
-            s: 1 - Math.min(ad * 0.045, 0.35),
-            o: ad > 6 ? 0 : 1,
-            zi: 200 - ad * 2
-          };
-        });
-      } else {
-        // strip
-        const ch2 = isDocked56vw
-          ? Math.max(280, Math.min(500, Math.round(displayH * 0.44)))
-          : Math.max(300, Math.min(620, Math.round(displayH * 0.52)));
-        const maxW = isDocked56vw ? Math.round(leftoverW * 0.84) : Math.round(W * 0.42);
-        const cw2 = Math.min(Math.round(ch2 * 0.74), maxW);
-        const cx = isDocked56vw ? Math.round(leftoverCenter - cw2 / 2) : Math.round(W / 2 - cw2 / 2);
-        const cy = Math.round((displayH - ch2) / 2);
-        const step = isDocked56vw ? cw2 + 14 : cw2 + 24;
-
-        entries.forEach((e, i) => {
-          const d = i - focus;
-          const ad = Math.abs(d);
-          T[e.id] = {
-            x: cx + d * step,
-            y: cy + (d === 0 ? -10 : 8),
-            w: cw2,
-            h: ch2,
-            rY: 0,
-            rX: 0,
-            rZ: 0,
-            z: 0,
-            s: d === 0 ? 1.05 : 0.93,
-            o: ad > 4 ? 0 : 1,
-            zi: 200 - ad * 2
-          };
-        });
-      }
-    }
-
-    st.style.height = `${view === 'grid' ? stageH : displayH}px`;
-
-    const dur = 0.62 * m;
-    const ease = view === 'strip' ? 'elastic.out(0.55, 0.72)' : 'expo.out';
-
-    entries.forEach((entry, idxInVis) => {
-      const el = cardRefs.current.get(entry.id);
-      if (!el) return;
-
-      const t = T[entry.id];
-      const isSelected = !!selectedIds[entry.id];
-
-      if (!t) return;
-
-      el.style.pointerEvents = t.o === 0 ? 'none' : 'auto';
-      el.style.width = `${t.w}px`;
-      el.style.height = `${t.h}px`;
-      el.style.zIndex = String(t.zi);
-
-      const ad = isCarousel ? Math.abs(idxInVis - focus) : 0;
-      const isActivePreview = Boolean(activeEntryId && entry.id === activeEntryId && isPreviewOpen);
-      const depth = getCardDepthStyling(ad, isSelected, isCarousel, isLight, isBlack, isActivePreview);
-
-      const innerSurface = el.querySelector('[data-reveal] > div') as HTMLElement | null;
-      if (innerSurface) {
-        innerSurface.style.border = depth.border;
-        innerSurface.style.boxShadow = depth.boxShadow;
-      }
-
-      gsap.to(el, {
-        x: t.x,
-        y: t.y,
-        z: t.z,
-        rotateY: t.rY,
-        rotateX: t.rX,
-        rotateZ: t.rZ,
-        scale: t.s * (isSelected ? 0.94 : 1),
-        opacity: t.o,
-        duration: dur,
-        ease: ease,
-        overwrite: 'auto',
-        delay: isCarousel ? 0 : Math.min(idxInVis * 0.016 * m, 0.5)
-      });
-    });
-
-    // Reveal IntersectionObserver for Grid view
-    if (ioRef.current) ioRef.current.disconnect();
-
-    if (view === 'grid') {
-      ioRef.current = new IntersectionObserver(
-        (entriesObs) => {
-          entriesObs.forEach((entryObs) => {
-            const revealEl = entryObs.target.querySelector('[data-reveal]') as HTMLElement;
-            if (!revealEl || (entryObs.target as HTMLElement).style.pointerEvents === 'none') return;
-
-            if (entryObs.isIntersecting) {
-              gsap.to(revealEl, {
-                opacity: 1,
-                y: 0,
-                rotateX: 0,
-                duration: 0.55 * m,
-                ease: 'power3.out',
-                overwrite: true
-              });
-            } else {
-              gsap.to(revealEl, {
-                opacity: 0.08,
-                y: 26,
-                rotateX: -9,
-                duration: 0.4 * m,
-                ease: 'power2.in',
-                overwrite: true
-              });
-            }
-          });
-        },
-        { root: wr, rootMargin: '16% 0px 16% 0px', threshold: 0.01 }
-      );
-
-      cardRefs.current.forEach((c) => {
-        if (c) ioRef.current?.observe(c);
-      });
-    } else {
-      document.querySelectorAll('[data-reveal]').forEach((r) => {
-        gsap.set(r, { opacity: 1, y: 0, rotateX: 0 });
-      });
-    }
-  }, [entries, view, density, focusIndex, selectedIds, activeEntryId, motionMultiplier, isPreviewOpen, isStudioMode, stageWidth]);
-
-  // Clean up detached card refs when entries change to prevent memory leaks and zombie tweens
-  useEffect(() => {
-    const activeIds = new Set(entries.map((e) => e.id));
-    for (const [id, el] of cardRefs.current.entries()) {
-      if (!activeIds.has(id)) {
-        gsap.killTweensOf(el);
-        cardRefs.current.delete(id);
-      }
-    }
-  }, [entries]);
-
-  // Magnetic hover effect when pool in rail is hovered
-  useEffect(() => {
-    entries.forEach((entry) => {
-      const el = cardRefs.current.get(entry.id);
-      if (!el || el.style.pointerEvents === 'none') return;
-      const isMatch = hoverPool && entry.cat === hoverPool;
-      gsap.to(el, {
-        scale: isMatch ? 1.06 : 1,
-        xPercent: isMatch ? -3.5 : 0,
-        duration: 0.6 * motionMultiplier,
-        ease: 'elastic.out(0.5, 0.55)',
-        overwrite: 'auto'
-      });
-    });
-  }, [hoverPool, entries, motionMultiplier]);
-
-  // Auto-scroll the active preview item to keep it central in grid / list views
-  useEffect(() => {
-    if (!activeEntryId || !wrapRef.current || !isPreviewOpen) return;
-
-    const timer = setTimeout(() => {
-      if (view === 'list') {
-        const row = wrapRef.current?.querySelector(`[data-row="${activeEntryId}"]`) as HTMLElement | null;
-        if (row) {
-          row.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-        }
-      } else if (view === 'grid') {
-        const card = cardRefs.current.get(activeEntryId);
-        if (card) {
-          card.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-        }
-      }
-    }, 70);
-
-    return () => clearTimeout(timer);
-  }, [activeEntryId, view, isPreviewOpen]);
-
-  // Direction and watermark transition state
   const prevFocusRef = useRef(focusIndex);
   const prevScrollTopRef = useRef(0);
   const lastDirRef = useRef<number>(1);
@@ -1053,7 +400,6 @@ export const Stage: React.FC<StageProps> = ({
 
     if (exitEl && watermarkState.exiting) {
       if (view === 'filmstrip') {
-        // Filmstrip: cards move vertically and pitch along X axis
         gsap.fromTo(
           exitEl,
           { opacity: 1, y: 0, rotateX: 0, scale: 1 },
@@ -1071,9 +417,7 @@ export const Stage: React.FC<StageProps> = ({
           }
         );
       } else if (view === 'peel') {
-        // Peel: card peels off with alternating side of exit (left, right, repeat)
         const exitSide = watermarkState.exitSide;
-
         if (dir === 1) {
           gsap.fromTo(
             exitEl,
@@ -1113,7 +457,6 @@ export const Stage: React.FC<StageProps> = ({
           );
         }
       } else if (view === 'radial') {
-        // Arc / Radial: cards sweep along curved circular arc (dipping Y, rotating Z and Y)
         gsap.fromTo(
           exitEl,
           { opacity: 1, x: 0, y: 0, rotateZ: 0, rotateY: 0, scale: 1 },
@@ -1133,7 +476,6 @@ export const Stage: React.FC<StageProps> = ({
           }
         );
       } else if (view === 'coverflow') {
-        // Coverflow: classic horizontal 3D card rotation along Y axis
         gsap.fromTo(
           exitEl,
           { opacity: 1, x: 0, rotateY: 0, scale: 1 },
@@ -1151,7 +493,6 @@ export const Stage: React.FC<StageProps> = ({
           }
         );
       } else if (view === 'strip') {
-        // Strip: linear horizontal slide
         gsap.fromTo(
           exitEl,
           { opacity: 1, x: 0, scale: 1 },
@@ -1168,7 +509,6 @@ export const Stage: React.FC<StageProps> = ({
           }
         );
       } else {
-        // Grid & List: vertical scrolling
         gsap.fromTo(
           exitEl,
           { opacity: 1, y: 0, rotateX: 0, scale: 1 },
@@ -1197,154 +537,50 @@ export const Stage: React.FC<StageProps> = ({
           { opacity: 1, scale: 1, duration: 0.5 * m, ease: 'power3.out', overwrite: true }
         );
       } else if (view === 'filmstrip') {
-        // Filmstrip: incoming letter comes from below (dir=1) or above (dir=-1)
         gsap.fromTo(
           currentEl,
-          {
-            opacity: 0,
-            y: dir * 130,
-            rotateX: -dir * 32,
-            scale: 0.94
-          },
-          {
-            opacity: 1,
-            y: 0,
-            rotateX: 0,
-            scale: 1,
-            duration: 0.52 * m,
-            ease: 'power3.out',
-            overwrite: true
-          }
+          { opacity: 0, y: dir * 130, rotateX: -dir * 32, scale: 0.94 },
+          { opacity: 1, y: 0, rotateX: 0, scale: 1, duration: 0.52 * m, ease: 'power3.out', overwrite: true }
         );
       } else if (view === 'peel') {
-        // Peel: incoming letter reveals from underneath (dir=1) or returns from the peeled side (dir=-1)
         const exitSide = watermarkState.exitSide;
         const returnSide = watermarkState.returnSide;
-
         if (dir === 1) {
           gsap.fromTo(
             currentEl,
-            {
-              opacity: 0,
-              x: -exitSide * 30,
-              y: 20,
-              rotateZ: -exitSide * 4,
-              scale: 0.90
-            },
-            {
-              opacity: 1,
-              x: 0,
-              y: 0,
-              rotateZ: 0,
-              scale: 1,
-              duration: 0.52 * m,
-              ease: 'power3.out',
-              overwrite: true
-            }
+            { opacity: 0, x: -exitSide * 30, y: 20, rotateZ: -exitSide * 4, scale: 0.90 },
+            { opacity: 1, x: 0, y: 0, rotateZ: 0, scale: 1, duration: 0.52 * m, ease: 'power3.out', overwrite: true }
           );
         } else {
           gsap.fromTo(
             currentEl,
-            {
-              opacity: 0,
-              x: returnSide * 180,
-              y: -50,
-              rotateZ: returnSide * 16,
-              scale: 0.92
-            },
-            {
-              opacity: 1,
-              x: 0,
-              y: 0,
-              rotateZ: 0,
-              scale: 1,
-              duration: 0.52 * m,
-              ease: 'power3.out',
-              overwrite: true
-            }
+            { opacity: 0, x: returnSide * 180, y: -50, rotateZ: returnSide * 16, scale: 0.92 },
+            { opacity: 1, x: 0, y: 0, rotateZ: 0, scale: 1, duration: 0.52 * m, ease: 'power3.out', overwrite: true }
           );
         }
       } else if (view === 'radial') {
-        // Arc / Radial: incoming letter sweeps along the arc
         gsap.fromTo(
           currentEl,
-          {
-            opacity: 0,
-            x: dir * 170,
-            y: 65,
-            rotateZ: dir * 14,
-            rotateY: -dir * 18,
-            scale: 0.92
-          },
-          {
-            opacity: 1,
-            x: 0,
-            y: 0,
-            rotateZ: 0,
-            rotateY: 0,
-            scale: 1,
-            duration: 0.52 * m,
-            ease: 'power3.out',
-            overwrite: true
-          }
+          { opacity: 0, x: dir * 170, y: 65, rotateZ: dir * 14, rotateY: -dir * 18, scale: 0.92 },
+          { opacity: 1, x: 0, y: 0, rotateZ: 0, rotateY: 0, scale: 1, duration: 0.52 * m, ease: 'power3.out', overwrite: true }
         );
       } else if (view === 'coverflow') {
-        // Coverflow: horizontal 3D card rotation into center
         gsap.fromTo(
           currentEl,
-          {
-            opacity: 0,
-            x: dir * 160,
-            rotateY: -dir * 42,
-            scale: 0.93
-          },
-          {
-            opacity: 1,
-            x: 0,
-            rotateY: 0,
-            scale: 1,
-            duration: 0.52 * m,
-            ease: 'power3.out',
-            overwrite: true
-          }
+          { opacity: 0, x: dir * 160, rotateY: -dir * 42, scale: 0.93 },
+          { opacity: 1, x: 0, rotateY: 0, scale: 1, duration: 0.52 * m, ease: 'power3.out', overwrite: true }
         );
       } else if (view === 'strip') {
-        // Strip: linear slide
         gsap.fromTo(
           currentEl,
-          {
-            opacity: 0,
-            x: dir * 180,
-            scale: 0.93
-          },
-          {
-            opacity: 1,
-            x: 0,
-            scale: 1,
-            duration: 0.5 * m,
-            ease: 'power3.out',
-            overwrite: true
-          }
+          { opacity: 0, x: dir * 180, scale: 0.93 },
+          { opacity: 1, x: 0, scale: 1, duration: 0.5 * m, ease: 'power3.out', overwrite: true }
         );
       } else {
-        // Grid & List: vertical scrolling
         gsap.fromTo(
           currentEl,
-          {
-            opacity: 0,
-            y: dir * 120,
-            rotateX: -dir * 28,
-            scale: 0.94
-          },
-          {
-            opacity: 1,
-            y: 0,
-            rotateX: 0,
-            scale: 1,
-            duration: 0.52 * m,
-            ease: 'power3.out',
-            overwrite: true
-          }
+          { opacity: 0, y: dir * 120, rotateX: -dir * 28, scale: 0.94 },
+          { opacity: 1, y: 0, rotateX: 0, scale: 1, duration: 0.52 * m, ease: 'power3.out', overwrite: true }
         );
       }
     }
@@ -1352,6 +588,643 @@ export const Stage: React.FC<StageProps> = ({
 
   const isFilmstrip = view === 'filmstrip';
   const isListView = view === 'list';
+
+  if (!watermarkState.current && !watermarkState.exiting) return null;
+
+  return (
+    <div
+      aria-hidden="true"
+      className="watermark-backdrop"
+      style={{
+        perspectiveOrigin: isDocked56vw
+          ? `${leftoverCenter}px 50%`
+          : (isFilmstrip ? '67% 50%' : '50% 50%')
+      }}
+    >
+      {/* Exiting Letter & Script Group */}
+      {watermarkState.exiting && (
+        <div
+          key={`exit-${watermarkState.animKey}`}
+          ref={exitGroupRef}
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            left: isDocked56vw ? `${leftoverCenter}px` : (isFilmstrip ? '67%' : '50%'),
+            width: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+            transformStyle: 'preserve-3d',
+            willChange: 'transform, opacity',
+            transition: 'left 0.65s cubic-bezier(0.16, 1, 0.3, 1)'
+          }}
+        >
+          <span
+            className="watermark-glyph"
+            style={{
+              fontSize: '128vh',
+              lineHeight: 1,
+              marginTop: '-13.5vh',
+              position: 'absolute',
+              left: 0,
+              opacity: isBlack ? (isListView ? 0.05 : 0.035) : (isListView ? 0.08 : 0.05),
+              transform: 'translateX(-50%) translateZ(0)'
+            }}
+          >
+            {watermarkState.exiting}
+          </span>
+          <span
+            className="watermark-script"
+            style={{
+              fontSize: '25vh',
+              position: 'absolute',
+              bottom: '2vh',
+              left: 0,
+              opacity: isBlack ? (isListView ? 0.18 : 0.15) : (isListView ? 0.26 : 0.25),
+              transform: 'translateX(-50%) translateZ(20px)'
+            }}
+          >
+            {watermarkState.exiting}
+          </span>
+        </div>
+      )}
+
+      {/* Current / Entering Letter & Script Group */}
+      {watermarkState.current && (
+        <div
+          key={`current-${watermarkState.animKey}`}
+          ref={currentGroupRef}
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            left: isDocked56vw ? `${leftoverCenter}px` : (isFilmstrip ? '67%' : '50%'),
+            width: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+            transformStyle: 'preserve-3d',
+            willChange: 'transform, opacity',
+            transition: 'left 0.65s cubic-bezier(0.16, 1, 0.3, 1)'
+          }}
+        >
+          <span
+            className="watermark-glyph"
+            style={{
+              fontSize: '128vh',
+              lineHeight: 1,
+              marginTop: '-13.5vh',
+              position: 'absolute',
+              left: 0,
+              opacity: isBlack ? (isListView ? 0.05 : 0.035) : (isListView ? 0.08 : 0.05),
+              transform: 'translateX(-50%) translateZ(0)'
+            }}
+          >
+            {watermarkState.current}
+          </span>
+          <span
+            className="watermark-script"
+            style={{
+              fontSize: '25vh',
+              position: 'absolute',
+              bottom: '2vh',
+              left: 0,
+              opacity: isBlack ? (isListView ? 0.18 : 0.15) : (isListView ? 0.26 : 0.25),
+              transform: 'translateX(-50%) translateZ(20px)'
+            }}
+          >
+            {watermarkState.current}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+});
+
+export const Stage: React.FC<StageProps> = React.memo(({
+  theme,
+  entries,
+  allEntries,
+  view,
+  density,
+  focusIndex,
+  onFocusChange,
+  onSelectEntry,
+  selectedIds,
+  onToggleSelect,
+  stars,
+  onToggleStar,
+  hoverPool,
+  accent,
+  motionMultiplier,
+  onOpenModal,
+  onScanNativeFolder,
+  onLoadDemoCatalog,
+  onClearFilters,
+  query,
+  selectedPool,
+  selectedFolder,
+  onOpenZipContents,
+  sortOption = 'name',
+  sortDirection = 'asc',
+  onSortChange,
+  isPreviewOpen = false,
+  isStudioMode = false,
+  listColumns = 1,
+  listOrder = 'down',
+  onListColumnsChange,
+  onListOrderChange
+}) => {
+  const isLight = theme === 'light';
+  const isBlack = theme === 'black';
+  const rootRef = useRef<HTMLDivElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const ioRef = useRef<IntersectionObserver | null>(null);
+
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [stageWidth, setStageWidth] = useState<number>(() =>
+    typeof window !== 'undefined' ? Math.max(300, window.innerWidth - 220) : 1200
+  );
+  const containerHeightRef = useRef<number>(800);
+  const prevViewRef = useRef<ViewMode>(view);
+
+  useEffect(() => {
+    const updateDimensions = () => {
+      const w = rootRef.current?.clientWidth || stageRef.current?.clientWidth || (typeof window !== 'undefined' ? window.innerWidth - 220 : 1200);
+      const h = wrapRef.current?.clientHeight || (typeof window !== 'undefined' ? window.innerHeight - 180 : 800);
+      setStageWidth(w);
+      containerHeightRef.current = h;
+    };
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
+
+  const isDocked56vw = !!isPreviewOpen && !isStudioMode;
+  const panelWidth = Math.min(
+    typeof window !== 'undefined' ? window.innerWidth * 0.96 : 1400,
+    Math.max(580, typeof window !== 'undefined' ? window.innerWidth * 0.56 : 700)
+  );
+  const leftoverW = Math.max(0, stageWidth - panelWidth);
+  const leftoverCenter = Math.max(120, Math.round(leftoverW / 2));
+
+  const isPointerDownRef = useRef(false);
+  const isDraggingRef = useRef(false);
+  const hasMovedRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragStartYRef = useRef(0);
+  const dragStartFocusRef = useRef(0);
+  const capturedPointerIdRef = useRef<number | null>(null);
+  const wheelAccRef = useRef(0);
+  const lastWheelTimeRef = useRef(0);
+  const wheelVelocityRef = useRef(1);
+  const scrollDurRef = useRef<number | null>(null);
+  const isWheelingRef = useRef(false);
+  const wheelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const motionMultiplierRef = useRef(motionMultiplier);
+  motionMultiplierRef.current = motionMultiplier;
+
+  // Keep live references to avoid re-binding listeners during continuous gestures
+  const focusIndexRef = useRef(focusIndex);
+  const focusIndexRef_curr = focusIndex;
+  focusIndexRef.current = focusIndexRef_curr;
+
+  const entriesRef = useRef(entries);
+  entriesRef.current = entries;
+
+  const viewRef = useRef(view);
+  viewRef.current = view;
+
+  const onFocusChangeRef = useRef(onFocusChange);
+  onFocusChangeRef.current = onFocusChange;
+
+  const isCarousel = ['coverflow', 'strip', 'radial', 'filmstrip', 'peel'].includes(view);
+
+  // Copy helper
+  const handleCopy = (txt: string, key: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(txt);
+      }
+    } catch {}
+    setCopiedKey(key);
+    setTimeout(() => {
+      setCopiedKey(null);
+    }, 1400);
+  };
+
+  // Card click handler - opens zip contents for zip archives, or preview in ALL views
+  const handleCardClick = (e: AssetEntry, ev: React.MouseEvent) => {
+    if (hasMovedRef.current || isDraggingRef.current) return;
+    if (ev.metaKey || ev.ctrlKey || ev.shiftKey) {
+      onToggleSelect(e.id, ev);
+      return;
+    }
+    const idx = entries.findIndex((x) => x.id === e.id);
+    if (idx >= 0) {
+      onFocusChange(idx);
+    }
+    if (isZipArchive(e) && !e.isZipInnerFile && onOpenZipContents) {
+      onOpenZipContents(e);
+    } else {
+      onSelectEntry(e.id);
+    }
+  };
+
+  // Drag handling on stage with movement threshold (so clicks are never eaten)
+  useEffect(() => {
+    const st = stageRef.current;
+    if (!st || !isCarousel) return;
+
+    const onPointerDown = (e: PointerEvent) => {
+      // Only process primary mouse button (left button) or touch
+      if (e.button !== 0) return;
+      isPointerDownRef.current = true;
+      isDraggingRef.current = false;
+      hasMovedRef.current = false;
+      dragStartXRef.current = e.clientX;
+      dragStartYRef.current = e.clientY;
+      dragStartFocusRef.current = focusIndexRef.current;
+      capturedPointerIdRef.current = null;
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      // CRITICAL: If the mouse button is NOT currently pressed, hover movement MUST DO NOTHING!
+      if (!isPointerDownRef.current || e.buttons === 0) {
+        if (isPointerDownRef.current) {
+          isPointerDownRef.current = false;
+          isDraggingRef.current = false;
+        }
+        return;
+      }
+
+      const dx = e.clientX - dragStartXRef.current;
+      const dy = e.clientY - dragStartYRef.current;
+      const dist = Math.hypot(dx, dy);
+
+      // Deadzone threshold (8px) before treating movement as a drag gesture
+      if (!isDraggingRef.current && dist > 8) {
+        isDraggingRef.current = true;
+        hasMovedRef.current = true;
+        try {
+          st.setPointerCapture(e.pointerId);
+          capturedPointerIdRef.current = e.pointerId;
+        } catch {}
+      }
+
+      if (!isDraggingRef.current) return;
+
+      // Calculate delta based on view mode's movement axis
+      let delta = 0;
+      if (viewRef.current === 'filmstrip') {
+        // Filmstrip stacks vertically
+        delta = (dragStartYRef.current - e.clientY) / 80;
+      } else {
+        // Coverflow, Strip, Radial, Peel stack horizontally
+        delta = (dragStartXRef.current - e.clientX) / 100;
+      }
+
+      const maxIdx = entriesRef.current.length - 1;
+      if (maxIdx <= 0) return;
+      const newFocus = Math.max(0, Math.min(maxIdx, Math.round(dragStartFocusRef.current + delta)));
+      if (newFocus !== focusIndexRef.current) {
+        onFocusChangeRef.current(newFocus);
+      }
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      if (!isPointerDownRef.current) return;
+      isPointerDownRef.current = false;
+
+      if (capturedPointerIdRef.current !== null) {
+        try {
+          st.releasePointerCapture(capturedPointerIdRef.current);
+        } catch {}
+        capturedPointerIdRef.current = null;
+      }
+
+      isDraggingRef.current = false;
+      // Delay resetting hasMovedRef slightly so click events know a drag gesture just completed
+      setTimeout(() => {
+        hasMovedRef.current = false;
+      }, 100);
+    };
+
+    const onWindowPointerUp = () => {
+      if (isPointerDownRef.current) {
+        isPointerDownRef.current = false;
+        isDraggingRef.current = false;
+        if (capturedPointerIdRef.current !== null) {
+          try {
+            st.releasePointerCapture(capturedPointerIdRef.current);
+          } catch {}
+          capturedPointerIdRef.current = null;
+        }
+        setTimeout(() => {
+          hasMovedRef.current = false;
+        }, 100);
+      }
+    };
+
+    st.addEventListener('pointerdown', onPointerDown);
+    st.addEventListener('pointermove', onPointerMove);
+    st.addEventListener('pointerup', onPointerUp);
+    st.addEventListener('pointercancel', onPointerUp);
+    window.addEventListener('pointerup', onWindowPointerUp);
+    window.addEventListener('pointercancel', onWindowPointerUp);
+
+    return () => {
+      st.removeEventListener('pointerdown', onPointerDown);
+      st.removeEventListener('pointermove', onPointerMove);
+      st.removeEventListener('pointerup', onPointerUp);
+      st.removeEventListener('pointercancel', onPointerUp);
+      window.removeEventListener('pointerup', onWindowPointerUp);
+      window.removeEventListener('pointercancel', onWindowPointerUp);
+    };
+  }, [isCarousel]);
+
+  // Wheel handling on wrapper
+  useEffect(() => {
+    const wr = wrapRef.current;
+    if (!wr || !isCarousel) return;
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      
+      isWheelingRef.current = true;
+      if (wheelTimeoutRef.current) clearTimeout(wheelTimeoutRef.current);
+      wheelTimeoutRef.current = setTimeout(() => {
+        isWheelingRef.current = false;
+      }, 150);
+
+      wheelAccRef.current = (wheelAccRef.current || 0) + e.deltaY + e.deltaX;
+      
+      if (Math.abs(wheelAccRef.current) > 90) {
+        const step = wheelAccRef.current > 0 ? 1 : -1;
+        wheelAccRef.current = 0;
+        
+        const maxIdx = entriesRef.current.length - 1;
+        if (maxIdx > 0) {
+          const nextIdx = Math.max(0, Math.min(maxIdx, focusIndexRef.current + step));
+          if (nextIdx !== focusIndexRef.current) {
+            onFocusChangeRef.current(nextIdx);
+          }
+        }
+      }
+    };
+
+    wr.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      wr.removeEventListener('wheel', onWheel);
+    };
+  }, [isCarousel]);
+
+  // Main Layout Choreography with GSAP
+  useEffect(() => {
+    const st = stageRef.current;
+    const wr = wrapRef.current;
+    if (!st || !wr || view === 'list') return;
+
+    const W = stageWidth;
+    const displayH = containerHeightRef.current || wr.clientHeight || 800;
+    const m = motionMultiplier;
+    const focus = Math.max(0, Math.min(focusIndex, entries.length - 1));
+
+    const T: Record<
+      string,
+      {
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+        rY: number;
+        rX: number;
+        rZ: number;
+        z: number;
+        s: number;
+        o: number;
+        zi: number;
+      }
+    > = {};
+
+    let stageH = displayH;
+
+    if (view === 'grid') {
+      wr.style.overflowY = 'scroll';
+      wr.style.overflowX = 'hidden';
+      const gridW = isDocked56vw ? leftoverW : st.clientWidth;
+      const cols = isDocked56vw ? Math.max(1, Math.min(density, 3)) : density;
+      const gap = 18;
+      const cw = Math.max(120, Math.floor((gridW - gap * (cols - 1)) / cols));
+      const ch = Math.round(cw * 0.74 + 132);
+
+      entries.forEach((e, i) => {
+        const r = Math.floor(i / cols);
+        const c = i % cols;
+        T[e.id] = {
+          x: c * (cw + gap),
+          y: r * (ch + gap),
+          w: cw,
+          h: ch,
+          rY: 0,
+          rX: 0,
+          rZ: 0,
+          z: 0,
+          s: 1,
+          o: 1,
+          zi: 10 + i
+        };
+      });
+      stageH = Math.ceil(entries.length / cols) * (ch + gap) + 8;
+    } else {
+      wr.style.overflow = 'hidden';
+
+      const activeW = isDocked56vw ? leftoverW : st.clientWidth;
+      const cw2 = Math.min(300, Math.max(200, activeW * 0.22));
+      const ch2 = Math.round(cw2 * 1.3);
+      const cx = (isDocked56vw ? leftoverCenter : activeW / 2) - cw2 / 2;
+      const cy = Math.max(6, (displayH - ch2) / 2);
+
+      entries.forEach((e, i) => {
+        const d = i - focus;
+        const ad = Math.abs(d);
+        const t = { x: cx, y: cy, w: cw2, h: ch2, rY: 0, rX: 0, rZ: 0, z: 0, s: 1, o: 1, zi: 200 - ad * 2 };
+
+        if (view === 'coverflow') {
+          t.x = cx + d * (cw2 * 0.52);
+          t.z = -ad * 190;
+          t.rY = -Math.max(-46, Math.min(46, d * 30));
+          t.s = 1 - Math.min(ad * 0.06, 0.4);
+          t.o = ad > 5 ? 0 : 1;
+          t.y = cy + ad * 10;
+        } else if (view === 'strip') {
+          t.x = cx + d * (cw2 + 26);
+          t.s = d === 0 ? 1.06 : 0.93;
+          t.o = ad > 4 ? 0 : 1;
+          t.y = cy + (d === 0 ? -10 : 8);
+        } else if (view === 'radial') {
+          const R = 1150;
+          const a = d * 0.115;
+          t.x = cx + R * Math.sin(a);
+          t.y = cy + R * (1 - Math.cos(a)) * 0.9 - 40;
+          t.rZ = d * 6.6;
+          t.z = -ad * 60;
+          t.s = 1 - Math.min(ad * 0.045, 0.35);
+          t.o = ad > 6 ? 0 : 1;
+        } else if (view === 'filmstrip') {
+          t.y = cy + d * (ch2 * 0.34);
+          t.x = cx + ad * 14;
+          t.rX = -Math.max(-40, Math.min(40, d * 13));
+          t.z = -ad * 120;
+          t.s = 1 - Math.min(ad * 0.05, 0.35);
+          t.o = ad > 4 ? 0 : 1;
+        } else if (view === 'peel') {
+          if (d < 0) {
+            const k = Math.min(3, -d);
+            t.y = cy - 460;
+            t.x = cx - 160 * k;
+            t.rZ = -16 * k;
+            t.o = 0;
+            t.s = 0.9;
+          } else {
+            t.y = cy + d * 13;
+            t.x = cx + d * 5;
+            t.s = 1 - d * 0.035;
+            t.o = d > 5 ? 0 : 1;
+            t.rZ = d * 1.4;
+            t.zi = 300 - d;
+          }
+        }
+        T[e.id] = t;
+      });
+    }
+
+    st.style.height = `${view === 'grid' ? stageH : displayH}px`;
+
+    // Use 0 duration for instant responsiveness while wheeling or dragging, otherwise apply the animated duration.
+    const dur = (isDraggingRef.current || isWheelingRef.current) ? 0 : 0.72 * m;
+    const ease = view === 'strip' ? 'elastic.out(0.55, 0.72)' : 'expo.out';
+
+    entries.forEach((entry, idxInVis) => {
+      const el = cardRefs.current.get(entry.id);
+      if (!el) return;
+
+      const t = T[entry.id];
+      const isSelected = !!selectedIds[entry.id];
+
+      if (!t) return;
+
+      el.style.pointerEvents = t.o === 0 ? 'none' : 'auto';
+      el.style.width = `${t.w}px`;
+      el.style.height = `${t.h}px`;
+      el.style.zIndex = String(t.zi);
+
+      const ad = isCarousel ? Math.abs(idxInVis - focus) : 0;
+      const depth = getCardDepthStyling(ad, isSelected, isCarousel, isLight, isBlack);
+
+      const innerSurface = (el.firstElementChild?.firstElementChild || el.querySelector('[data-reveal] > div')) as HTMLElement | null;
+      if (innerSurface) {
+        if (innerSurface.style.border !== depth.border) innerSurface.style.border = depth.border;
+        if (innerSurface.style.boxShadow !== depth.boxShadow) innerSurface.style.boxShadow = depth.boxShadow;
+      }
+
+      gsap.to(el, {
+        x: t.x,
+        y: t.y,
+        z: t.z,
+        rotateY: t.rY,
+        rotateX: t.rX,
+        rotateZ: t.rZ,
+        scale: t.s * (isSelected ? 0.94 : 1),
+        opacity: t.o,
+        duration: dur,
+        ease: ease,
+        overwrite: true,
+        delay: isCarousel ? 0 : Math.min(idxInVis * 0.016 * m, 0.5)
+      });
+    });
+
+    // Reveal IntersectionObserver for Grid view
+    if (ioRef.current) ioRef.current.disconnect();
+
+    if (view === 'grid') {
+      ioRef.current = new IntersectionObserver(
+        (entriesObs) => {
+          entriesObs.forEach((entryObs) => {
+            const revealEl = entryObs.target.querySelector('[data-reveal]') as HTMLElement;
+            if (!revealEl || (entryObs.target as HTMLElement).style.pointerEvents === 'none') return;
+
+            if (entryObs.isIntersecting) {
+              gsap.to(revealEl, {
+                opacity: 1,
+                y: 0,
+                rotateX: 0,
+                duration: 0.55 * m,
+                ease: 'power3.out',
+                overwrite: true
+              });
+            } else {
+              gsap.to(revealEl, {
+                opacity: 0.08,
+                y: 26,
+                rotateX: -9,
+                duration: 0.4 * m,
+                ease: 'power2.in',
+                overwrite: true
+              });
+            }
+          });
+        },
+        { root: wr, rootMargin: '16% 0px 16% 0px', threshold: 0.01 }
+      );
+
+      cardRefs.current.forEach((c) => {
+        if (c) ioRef.current?.observe(c);
+      });
+    } else if (prevViewRef.current === 'grid') {
+      document.querySelectorAll('[data-reveal]').forEach((r) => {
+        gsap.set(r, { opacity: 1, y: 0, rotateX: 0 });
+      });
+    }
+    prevViewRef.current = view;
+  }, [entries, view, density, focusIndex, selectedIds, motionMultiplier, isPreviewOpen, isStudioMode, stageWidth]);
+
+  // Clean up detached card refs when entries change to prevent memory leaks and zombie tweens
+  useEffect(() => {
+    const activeIds = new Set(entries.map((e) => e.id));
+    for (const [id, el] of cardRefs.current.entries()) {
+      if (!activeIds.has(id)) {
+        gsap.killTweensOf(el);
+        cardRefs.current.delete(id);
+      }
+    }
+  }, [entries]);
+
+  // Magnetic hover effect when pool in rail is hovered
+  const prevHoverPoolRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!hoverPool && !prevHoverPoolRef.current) return;
+    prevHoverPoolRef.current = hoverPool;
+
+    entries.forEach((entry) => {
+      const el = cardRefs.current.get(entry.id);
+      if (!el || el.style.pointerEvents === 'none') return;
+      const isMatch = hoverPool && entry.cat === hoverPool;
+      gsap.to(el, {
+        scale: isMatch ? 1.06 : 1,
+        xPercent: isMatch ? -3.5 : 0,
+        duration: 0.6 * motionMultiplier,
+        ease: 'elastic.out(0.5, 0.55)',
+        overwrite: 'auto'
+      });
+    });
+  }, [hoverPool, entries, motionMultiplier]);
 
   return (
     <div
@@ -1365,118 +1238,22 @@ export const Stage: React.FC<StageProps> = ({
         overflow: 'hidden'
       }}
     >
-      {/* Background Watermark/Glyph at 10% opacity with handwriting overlay at 50% opacity, 25vh */}
-      {(watermarkState.current || watermarkState.exiting) && (
-        <div
-          aria-hidden="true"
-          className="watermark-backdrop"
-          style={{
-            perspectiveOrigin: isDocked56vw
-              ? `${leftoverCenter}px 50%`
-              : (isFilmstrip ? '67% 50%' : '50% 50%')
-          }}
-        >
-          {/* Exiting Letter & Script Group */}
-          {watermarkState.exiting && (
-            <div
-              key={`exit-${watermarkState.animKey}`}
-              ref={exitGroupRef}
-              style={{
-                position: 'absolute',
-                top: 0,
-                bottom: 0,
-                left: isDocked56vw ? `${leftoverCenter}px` : (isFilmstrip ? '67%' : '50%'),
-                width: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                pointerEvents: 'none',
-                transformStyle: 'preserve-3d',
-                willChange: 'transform, opacity',
-                transition: 'left 0.65s cubic-bezier(0.16, 1, 0.3, 1)'
-              }}
-            >
-              <span
-                className="watermark-glyph"
-                style={{
-                  fontSize: '128vh',
-                  lineHeight: 1,
-                  marginTop: '-13.5vh',
-                  position: 'absolute',
-                  left: 0,
-                  opacity: isBlack ? (isListView ? 0.05 : 0.035) : (isListView ? 0.08 : 0.05),
-                  transform: 'translateX(-50%) translateZ(0)'
-                }}
-              >
-                {watermarkState.exiting}
-              </span>
-              <span
-                className="watermark-script"
-                style={{
-                  fontSize: '25vh',
-                  position: 'absolute',
-                  bottom: '2vh',
-                  left: 0,
-                  opacity: isBlack ? (isListView ? 0.18 : 0.15) : (isListView ? 0.26 : 0.25),
-                  transform: 'translateX(-50%) translateZ(20px)'
-                }}
-              >
-                {watermarkState.exiting}
-              </span>
-            </div>
-          )}
-
-          {/* Current / Entering Letter & Script Group */}
-          {watermarkState.current && (
-            <div
-              key={`current-${watermarkState.animKey}`}
-              ref={currentGroupRef}
-              style={{
-                position: 'absolute',
-                top: 0,
-                bottom: 0,
-                left: isDocked56vw ? `${leftoverCenter}px` : (isFilmstrip ? '67%' : '50%'),
-                width: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                pointerEvents: 'none',
-                transformStyle: 'preserve-3d',
-                willChange: 'transform, opacity',
-                transition: 'left 0.65s cubic-bezier(0.16, 1, 0.3, 1)'
-              }}
-            >
-              <span
-                className="watermark-glyph"
-                style={{
-                  fontSize: '128vh',
-                  lineHeight: 1,
-                  marginTop: '-13.5vh',
-                  position: 'absolute',
-                  left: 0,
-                  opacity: isBlack ? (isListView ? 0.05 : 0.035) : (isListView ? 0.08 : 0.05),
-                  transform: 'translateX(-50%) translateZ(0)'
-                }}
-              >
-                {watermarkState.current}
-              </span>
-              <span
-                className="watermark-script"
-                style={{
-                  fontSize: '25vh',
-                  position: 'absolute',
-                  bottom: '2vh',
-                  left: 0,
-                  opacity: isBlack ? (isListView ? 0.18 : 0.15) : (isListView ? 0.26 : 0.25),
-                  transform: 'translateX(-50%) translateZ(20px)'
-                }}
-              >
-                {watermarkState.current}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Background Watermark/Glyph isolated from Stage renders */}
+      <StageWatermark
+        entries={entries}
+        focusIndex={focusIndex}
+        view={view}
+        density={density}
+        sortOption={sortOption}
+        isCarousel={isCarousel}
+        wrapRef={wrapRef}
+        stageRef={stageRef}
+        motionMultiplier={motionMultiplier}
+        isBlack={isBlack}
+        isLight={isLight}
+        isDocked56vw={isDocked56vw}
+        leftoverCenter={leftoverCenter}
+      />
 
       <div
         ref={wrapRef}
@@ -1514,7 +1291,6 @@ export const Stage: React.FC<StageProps> = ({
             onListColumnsChange={onListColumnsChange}
             onListOrderChange={onListOrderChange}
             isPreviewOpen={isPreviewOpen}
-            activeEntryId={activeEntryId}
           />
         ) : allEntries.length === 0 ? (
         <div
@@ -1735,8 +1511,7 @@ export const Stage: React.FC<StageProps> = ({
             const isCopied = copiedKey === e.id;
             const focus = Math.max(0, Math.min(focusIndex, entries.length - 1));
             const ad = isCarousel ? Math.abs(idxInEntries - focus) : 0;
-            const isActivePreview = Boolean(activeEntryId && e.id === activeEntryId && isPreviewOpen);
-            const depth = getCardDepthStyling(ad, isSelected, isCarousel, isLight, isBlack, isActivePreview);
+            const depth = getCardDepthStyling(ad, isSelected, isCarousel, isLight, isBlack);
             const sortInfo = getSortDisplayInfo(e, sortOption);
             const sortMeta = SORT_CONFIGS[sortOption] || SORT_CONFIGS.name;
 
@@ -1779,16 +1554,7 @@ export const Stage: React.FC<StageProps> = ({
                         'box-shadow .32s cubic-bezier(.16,1,.3,1), border-color .24s, transform .28s cubic-bezier(.16,1,.3,1)'
                     }}
                     onMouseEnter={(el) => {
-                      if (isActivePreview) {
-                        el.currentTarget.style.boxShadow = isBlack
-                          ? '0 0 0 2px rgba(255,255,255,1), 0 0 32px rgba(255,255,255,0.6), 0 16px 40px rgba(0,0,0,0.95)'
-                          : isLight
-                          ? '0 0 0 2px rgba(37,99,235,0.6), 0 0 28px rgba(37,99,235,0.45), 0 16px 36px rgba(37,99,235,0.3)'
-                          : '0 0 0 2px rgba(56,189,248,0.7), 0 0 32px rgba(56,189,248,0.5), 0 16px 40px rgba(0,0,0,0.8)';
-                        el.currentTarget.style.borderColor = isBlack ? '#ffffff' : (isLight ? '#2563eb' : '#38bdf8');
-                        el.currentTarget.style.transform = 'translateY(-3px)';
-                        return;
-                      }
+                      if (isWheelingRef.current) return;
                       el.currentTarget.style.boxShadow = isSelected
                         ? (isBlack ? '0 16px 36px rgba(0,0,0,.95), 0 0 24px rgba(255,255,255,.4)' : isLight ? '0 16px 36px rgba(37,99,235,.4), 0 0 20px rgba(37,99,235,.2)' : '0 16px 36px rgba(89,128,166,.5), 0 0 20px rgba(89,128,166,.3)')
                         : (isBlack ? '0 20px 48px rgba(0,0,0,.9), 0 0 0 1px rgba(255,255,255,.6)' : isLight ? '0 16px 36px rgba(15,23,42,.15), 0 0 0 1px rgba(37,99,235,.5)' : '0 20px 48px rgba(0,0,0,.65), 0 0 0 1px rgba(181,217,253,.6)');
@@ -1796,39 +1562,12 @@ export const Stage: React.FC<StageProps> = ({
                       el.currentTarget.style.transform = 'translateY(-3px)';
                     }}
                     onMouseLeave={(el) => {
+                      if (isWheelingRef.current) return;
                       el.currentTarget.style.boxShadow = depth.boxShadow;
                       el.currentTarget.style.borderColor = depth.borderColor;
                       el.currentTarget.style.transform = 'translateY(0)';
                     }}
                   >
-                    {/* Active Preview Badge */}
-                    {isActivePreview && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          top: '10px',
-                          left: '10px',
-                          zIndex: 6,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '5px',
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          background: isBlack ? '#ffffff' : (isLight ? '#2563eb' : '#38bdf8'),
-                          color: isBlack ? '#000000' : '#ffffff',
-                          fontFamily: "'Barlow Condensed', sans-serif",
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          letterSpacing: '.06em',
-                          textTransform: 'uppercase',
-                          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.45)',
-                          pointerEvents: 'none'
-                        }}
-                      >
-                        <span style={{ fontSize: '10px' }}>👁</span>
-                        <span>Previewing</span>
-                      </div>
-                    )}
                     {/* Thumbnail Slot */}
                     <div
                       style={{
@@ -2183,4 +1922,4 @@ export const Stage: React.FC<StageProps> = ({
       </div>
     </div>
   );
-};
+});

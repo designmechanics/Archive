@@ -44,7 +44,7 @@ interface RailProps {
   onToggleFileTypeSubmenu?: (open: boolean) => void;
 }
 
-export const Rail: React.FC<RailProps> = ({
+export const Rail: React.FC<RailProps> = React.memo(({
   theme,
   totalCount,
   poolCounts,
@@ -1303,5 +1303,5 @@ export const Rail: React.FC<RailProps> = ({
       />
     </aside>
   );
-};
+});
 
