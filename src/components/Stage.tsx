@@ -120,6 +120,87 @@ const getCardDepthStyling = (
   return { border, borderColor, boxShadow };
 };
 
+interface CardTarget {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  rY: number;
+  rX: number;
+  rZ: number;
+  z: number;
+  s: number;
+  o: number;
+  zi: number;
+}
+
+interface CarouselGeometry {
+  cx: number;
+  cy: number;
+  cw2: number;
+  ch2: number;
+}
+
+// Cards further than this from the focused card are invisible in every carousel view (max visible distance is 6),
+// so gesture-driven moves only need to touch cards inside this window instead of every card on the page.
+const CAROUSEL_WINDOW = 7;
+
+// Pure carousel layout: where card `i` sits when card `focus` is centred. Shared by the React layout effect
+// and the imperative wheel/drag path so both always agree on positions.
+const computeCarouselTarget = (view: ViewMode, i: number, focus: number, g: CarouselGeometry): CardTarget => {
+  const { cx, cy, cw2, ch2 } = g;
+  const d = i - focus;
+  const ad = Math.abs(d);
+  const t: CardTarget = { x: cx, y: cy, w: cw2, h: ch2, rY: 0, rX: 0, rZ: 0, z: 0, s: 1, o: 1, zi: 200 - ad * 2 };
+
+  if (view === 'coverflow') {
+    t.x = cx + d * (cw2 * 0.52);
+    t.z = -ad * 190;
+    t.rY = -Math.max(-46, Math.min(46, d * 30));
+    t.s = 1 - Math.min(ad * 0.06, 0.4);
+    t.o = ad > 5 ? 0 : 1;
+    t.y = cy + ad * 10;
+  } else if (view === 'strip') {
+    t.x = cx + d * (cw2 + 26);
+    t.s = d === 0 ? 1.06 : 0.93;
+    t.o = ad > 4 ? 0 : 1;
+    t.y = cy + (d === 0 ? -10 : 8);
+  } else if (view === 'radial') {
+    const R = 1150;
+    const a = d * 0.115;
+    t.x = cx + R * Math.sin(a);
+    t.y = cy + R * (1 - Math.cos(a)) * 0.9 - 40;
+    t.rZ = d * 6.6;
+    t.z = -ad * 60;
+    t.s = 1 - Math.min(ad * 0.045, 0.35);
+    t.o = ad > 6 ? 0 : 1;
+  } else if (view === 'filmstrip') {
+    t.y = cy + d * (ch2 * 0.34);
+    t.x = cx + ad * 14;
+    t.rX = -Math.max(-40, Math.min(40, d * 13));
+    t.z = -ad * 120;
+    t.s = 1 - Math.min(ad * 0.05, 0.35);
+    t.o = ad > 4 ? 0 : 1;
+  } else if (view === 'peel') {
+    if (d < 0) {
+      const k = Math.min(3, -d);
+      t.y = cy - 460;
+      t.x = cx - 160 * k;
+      t.rZ = -16 * k;
+      t.o = 0;
+      t.s = 0.9;
+    } else {
+      t.y = cy + d * 13;
+      t.x = cx + d * 5;
+      t.s = 1 - d * 0.035;
+      t.o = d > 5 ? 0 : 1;
+      t.rZ = d * 1.4;
+      t.zi = 300 - d;
+    }
+  }
+  return t;
+};
+
 interface StageWatermarkProps {
   entries: AssetEntry[];
   focusIndex: number;
@@ -805,6 +886,99 @@ export const Stage: React.FC<StageProps> = React.memo(({
 
   const isCarousel = ['coverflow', 'strip', 'radial', 'filmstrip', 'peel'].includes(view);
 
+  // ---- Imperative carousel driver -------------------------------------------------------------
+  // Wheel/drag gestures move the cards directly with GSAP. React's focusIndex (which lives in App and
+  // re-renders the whole tree) is only committed once the gesture settles, so a scroll burst costs
+  // a handful of tweens per step instead of a full App + Stage re-render and a tween for every card.
+  const liveFocusRef = useRef(focusIndex);
+  const prevFocusPropRef = useRef(focusIndex);
+  const commitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const gestureCommitRef = useRef(false);
+  const carouselGeomRef = useRef<CarouselGeometry | null>(null);
+  const selectedIdsRef = useRef(selectedIds);
+  selectedIdsRef.current = selectedIds;
+  const themeFlagsRef = useRef({ isLight, isBlack });
+  themeFlagsRef.current = { isLight, isBlack };
+
+  const moveCarouselTo = (target: number) => {
+    const list = entriesRef.current;
+    const maxIdx = list.length - 1;
+    const geom = carouselGeomRef.current;
+    if (maxIdx < 0 || !geom) return;
+    const prev = Math.max(0, Math.min(maxIdx, liveFocusRef.current));
+    const next = Math.max(0, Math.min(maxIdx, target));
+    if (next === prev) return;
+    liveFocusRef.current = next;
+
+    const v = viewRef.current;
+    const m = motionMultiplierRef.current;
+    const sel = selectedIdsRef.current;
+    const { isLight: lt, isBlack: bk } = themeFlagsRef.current;
+    const lo = Math.max(0, Math.min(prev, next) - CAROUSEL_WINDOW);
+    const hi = Math.min(maxIdx, Math.max(prev, next) + CAROUSEL_WINDOW);
+
+    for (let i = lo; i <= hi; i++) {
+      const entry = list[i];
+      const el = cardRefs.current.get(entry.id);
+      if (!el) continue;
+      const isSel = !!sel[entry.id];
+      const selScale = isSel ? 0.94 : 1;
+
+      // Cards parked outside the old window hold stale positions; place them where they belong for the
+      // old focus first so they glide in from the correct side instead of sweeping across the stage.
+      if (Math.abs(i - prev) > CAROUSEL_WINDOW) {
+        const p = computeCarouselTarget(v, i, prev, geom);
+        gsap.set(el, { x: p.x, y: p.y, z: p.z, rotateY: p.rY, rotateX: p.rX, rotateZ: p.rZ, scale: p.s * selScale, opacity: p.o });
+      }
+
+      const t = computeCarouselTarget(v, i, next, geom);
+      el.style.zIndex = String(t.zi);
+      el.style.pointerEvents = t.o === 0 ? 'none' : 'auto';
+      el.style.willChange = t.o === 0 ? 'auto' : 'transform, opacity';
+
+      const depth = getCardDepthStyling(Math.abs(i - next), isSel, true, lt, bk);
+      const inner = el.firstElementChild?.firstElementChild as HTMLElement | null;
+      if (inner) {
+        if (inner.style.border !== depth.border) inner.style.border = depth.border;
+        if (inner.style.boxShadow !== depth.boxShadow) inner.style.boxShadow = depth.boxShadow;
+      }
+
+      gsap.to(el, {
+        x: t.x,
+        y: t.y,
+        z: t.z,
+        rotateY: t.rY,
+        rotateX: t.rX,
+        rotateZ: t.rZ,
+        scale: t.s * selScale,
+        opacity: t.o,
+        duration: 0.34 * m,
+        ease: 'power3.out',
+        overwrite: true
+      });
+    }
+  };
+
+  // Commit the live focus to React once the gesture goes quiet (updates watermark, toolbar, preview etc.).
+  // Waits until the settle tween has finished so the single React render never lands mid-motion.
+  const scheduleFocusCommit = () => {
+    if (commitTimerRef.current) clearTimeout(commitTimerRef.current);
+    const delay = Math.max(220, 340 * motionMultiplierRef.current + 60);
+    commitTimerRef.current = setTimeout(() => {
+      commitTimerRef.current = null;
+      const f = liveFocusRef.current;
+      if (f !== focusIndexRef.current) {
+        gestureCommitRef.current = true;
+        onFocusChangeRef.current(f);
+      }
+    }, delay);
+  };
+
+  useEffect(() => () => {
+    if (commitTimerRef.current) clearTimeout(commitTimerRef.current);
+    if (wheelTimeoutRef.current) clearTimeout(wheelTimeoutRef.current);
+  }, []);
+
   // Copy helper
   const handleCopy = (txt: string, key: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -828,6 +1002,15 @@ export const Stage: React.FC<StageProps> = React.memo(({
     }
     const idx = entries.findIndex((x) => x.id === e.id);
     if (idx >= 0) {
+      // A click supersedes any pending gesture commit
+      if (commitTimerRef.current) {
+        clearTimeout(commitTimerRef.current);
+        commitTimerRef.current = null;
+      }
+      if (isCarousel) {
+        moveCarouselTo(idx);
+        if (idx !== focusIndex) gestureCommitRef.current = true;
+      }
       onFocusChange(idx);
     }
     if (isZipArchive(e) && !e.isZipInnerFile && onOpenZipContents) {
@@ -850,7 +1033,7 @@ export const Stage: React.FC<StageProps> = React.memo(({
       hasMovedRef.current = false;
       dragStartXRef.current = e.clientX;
       dragStartYRef.current = e.clientY;
-      dragStartFocusRef.current = focusIndexRef.current;
+      dragStartFocusRef.current = liveFocusRef.current;
       capturedPointerIdRef.current = null;
     };
 
@@ -893,8 +1076,11 @@ export const Stage: React.FC<StageProps> = React.memo(({
       const maxIdx = entriesRef.current.length - 1;
       if (maxIdx <= 0) return;
       const newFocus = Math.max(0, Math.min(maxIdx, Math.round(dragStartFocusRef.current + delta)));
-      if (newFocus !== focusIndexRef.current) {
-        onFocusChangeRef.current(newFocus);
+      if (newFocus !== liveFocusRef.current) {
+        moveCarouselTo(newFocus);
+        scheduleFocusCommit();
+      } else if (commitTimerRef.current) {
+        scheduleFocusCommit(); // still dragging: don't let React re-render mid-gesture
       }
     };
 
@@ -963,25 +1149,60 @@ export const Stage: React.FC<StageProps> = React.memo(({
         isWheelingRef.current = false;
       }, 150);
 
-      wheelAccRef.current = (wheelAccRef.current || 0) + e.deltaY + e.deltaX;
-      
-      if (Math.abs(wheelAccRef.current) > 90) {
-        const step = wheelAccRef.current > 0 ? 1 : -1;
-        wheelAccRef.current = 0;
-        
-        const maxIdx = entriesRef.current.length - 1;
-        if (maxIdx > 0) {
-          const nextIdx = Math.max(0, Math.min(maxIdx, focusIndexRef.current + step));
-          if (nextIdx !== focusIndexRef.current) {
-            onFocusChangeRef.current(nextIdx);
-          }
-        }
+      // Normalise to pixels: Firefox reports lines (deltaMode 1), some devices report pages (deltaMode 2)
+      let dx = e.deltaX;
+      let dy = e.deltaY;
+      if (e.deltaMode === 1) {
+        dx *= 33;
+        dy *= 33;
+      } else if (e.deltaMode === 2) {
+        dx *= 100;
+        dy *= 100;
       }
+      const delta = Math.abs(dx) > Math.abs(dy) ? dx : dy;
+      if (!delta) return;
+
+      // Start a fresh gesture after a pause or on direction reversal so old remainder never fights new input
+      const now = performance.now();
+      const fresh =
+        now - lastWheelTimeRef.current > 220 || Math.sign(delta) !== Math.sign(wheelAccRef.current || delta);
+      if (fresh) wheelAccRef.current = 0;
+      lastWheelTimeRef.current = now;
+
+      // Mouse-wheel notches (~100px) step one card each; small trackpad deltas accumulate at a finer pitch.
+      // The remainder is kept (not thrown away) and several cards can advance from one big event.
+      const isNotch = Math.abs(delta) >= 50;
+      const unit = isNotch ? 100 : 40;
+      wheelAccRef.current = (wheelAccRef.current || 0) + delta;
+      let steps = Math.trunc(wheelAccRef.current / unit);
+      if (steps === 0 && fresh && isNotch) steps = Math.sign(delta); // first notch always responds instantly
+      wheelAccRef.current -= steps * unit;
+      if (Math.sign(wheelAccRef.current) === -Math.sign(delta)) wheelAccRef.current = 0;
+      steps = Math.max(-6, Math.min(6, steps));
+      if (!steps) {
+        // Gesture still in progress (sub-step trackpad delta): keep postponing the React commit
+        if (commitTimerRef.current) scheduleFocusCommit();
+        return;
+      }
+
+      moveCarouselTo(liveFocusRef.current + steps);
+      scheduleFocusCommit();
+    };
+
+    // Arrow keys are handled in App against React's focusIndex: flush any pending gesture commit first
+    // (capture phase runs before App's listener; both updates batch, so the key steps from the live card).
+    const onKeyDownCapture = () => {
+      if (!commitTimerRef.current) return;
+      clearTimeout(commitTimerRef.current);
+      commitTimerRef.current = null;
+      if (liveFocusRef.current !== focusIndexRef.current) onFocusChangeRef.current(liveFocusRef.current);
     };
 
     wr.addEventListener('wheel', onWheel, { passive: false });
+    window.addEventListener('keydown', onKeyDownCapture, true);
     return () => {
       wr.removeEventListener('wheel', onWheel);
+      window.removeEventListener('keydown', onKeyDownCapture, true);
     };
   }, [isCarousel]);
 
@@ -994,24 +1215,26 @@ export const Stage: React.FC<StageProps> = React.memo(({
     const W = stageWidth;
     const displayH = containerHeightRef.current || wr.clientHeight || 800;
     const m = motionMultiplier;
-    const focus = Math.max(0, Math.min(focusIndex, entries.length - 1));
+    const clampFocus = (f: number) => Math.max(0, Math.min(f, entries.length - 1));
 
-    const T: Record<
-      string,
-      {
-        x: number;
-        y: number;
-        w: number;
-        h: number;
-        rY: number;
-        rX: number;
-        rZ: number;
-        z: number;
-        s: number;
-        o: number;
-        zi: number;
+    // Resolve which focus to lay out. A focusIndex change that did NOT come from our own gesture commit
+    // (keyboard, filters, page change...) wins and cancels any pending commit. Otherwise keep the live
+    // on-screen focus so an unrelated re-render mid-gesture never snaps the carousel back.
+    const focusPropChanged = focusIndex !== prevFocusPropRef.current;
+    prevFocusPropRef.current = focusIndex;
+    const fromGesture = gestureCommitRef.current;
+    gestureCommitRef.current = false;
+    if (focusPropChanged && !fromGesture) {
+      if (commitTimerRef.current) {
+        clearTimeout(commitTimerRef.current);
+        commitTimerRef.current = null;
       }
-    > = {};
+      liveFocusRef.current = focusIndex;
+    }
+    const focus = isCarousel ? clampFocus(liveFocusRef.current) : clampFocus(focusIndex);
+    liveFocusRef.current = focus;
+
+    const T: Record<string, CardTarget> = {};
 
     let stageH = displayH;
 
@@ -1050,68 +1273,24 @@ export const Stage: React.FC<StageProps> = React.memo(({
       const ch2 = Math.round(cw2 * 1.3);
       const cx = (isDocked56vw ? leftoverCenter : activeW / 2) - cw2 / 2;
       const cy = Math.max(6, (displayH - ch2) / 2);
+      const geom: CarouselGeometry = { cx, cy, cw2, ch2 };
+      carouselGeomRef.current = geom;
 
       entries.forEach((e, i) => {
-        const d = i - focus;
-        const ad = Math.abs(d);
-        const t = { x: cx, y: cy, w: cw2, h: ch2, rY: 0, rX: 0, rZ: 0, z: 0, s: 1, o: 1, zi: 200 - ad * 2 };
-
-        if (view === 'coverflow') {
-          t.x = cx + d * (cw2 * 0.52);
-          t.z = -ad * 190;
-          t.rY = -Math.max(-46, Math.min(46, d * 30));
-          t.s = 1 - Math.min(ad * 0.06, 0.4);
-          t.o = ad > 5 ? 0 : 1;
-          t.y = cy + ad * 10;
-        } else if (view === 'strip') {
-          t.x = cx + d * (cw2 + 26);
-          t.s = d === 0 ? 1.06 : 0.93;
-          t.o = ad > 4 ? 0 : 1;
-          t.y = cy + (d === 0 ? -10 : 8);
-        } else if (view === 'radial') {
-          const R = 1150;
-          const a = d * 0.115;
-          t.x = cx + R * Math.sin(a);
-          t.y = cy + R * (1 - Math.cos(a)) * 0.9 - 40;
-          t.rZ = d * 6.6;
-          t.z = -ad * 60;
-          t.s = 1 - Math.min(ad * 0.045, 0.35);
-          t.o = ad > 6 ? 0 : 1;
-        } else if (view === 'filmstrip') {
-          t.y = cy + d * (ch2 * 0.34);
-          t.x = cx + ad * 14;
-          t.rX = -Math.max(-40, Math.min(40, d * 13));
-          t.z = -ad * 120;
-          t.s = 1 - Math.min(ad * 0.05, 0.35);
-          t.o = ad > 4 ? 0 : 1;
-        } else if (view === 'peel') {
-          if (d < 0) {
-            const k = Math.min(3, -d);
-            t.y = cy - 460;
-            t.x = cx - 160 * k;
-            t.rZ = -16 * k;
-            t.o = 0;
-            t.s = 0.9;
-          } else {
-            t.y = cy + d * 13;
-            t.x = cx + d * 5;
-            t.s = 1 - d * 0.035;
-            t.o = d > 5 ? 0 : 1;
-            t.rZ = d * 1.4;
-            t.zi = 300 - d;
-          }
-        }
-        T[e.id] = t;
+        T[e.id] = computeCarouselTarget(view, i, focus, geom);
       });
     }
 
     st.style.height = `${view === 'grid' ? stageH : displayH}px`;
 
-    // Use 0 duration for instant responsiveness while wheeling or dragging, otherwise apply the animated duration.
-    const dur = (isDraggingRef.current || isWheelingRef.current) ? 0 : 0.72 * m;
+    // React is only catching up with a wheel/drag/click the imperative driver already animated:
+    // the cards are already heading to these exact targets, so don't restart a tween on every card.
+    const skipCardTweens = fromGesture && isCarousel && prevViewRef.current === view;
+
+    const dur = 0.72 * m;
     const ease = view === 'strip' ? 'elastic.out(0.55, 0.72)' : 'expo.out';
 
-    entries.forEach((entry, idxInVis) => {
+    if (!skipCardTweens) entries.forEach((entry, idxInVis) => {
       const el = cardRefs.current.get(entry.id);
       if (!el) return;
 
@@ -1124,6 +1303,8 @@ export const Stage: React.FC<StageProps> = React.memo(({
       el.style.width = `${t.w}px`;
       el.style.height = `${t.h}px`;
       el.style.zIndex = String(t.zi);
+      // Hidden carousel cards don't need their own compositor layer
+      el.style.willChange = isCarousel && t.o === 0 ? 'auto' : 'transform, opacity';
 
       const ad = isCarousel ? Math.abs(idxInVis - focus) : 0;
       const depth = getCardDepthStyling(ad, isSelected, isCarousel, isLight, isBlack);
