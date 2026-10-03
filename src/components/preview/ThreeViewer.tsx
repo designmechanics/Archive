@@ -282,6 +282,13 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
         mount.removeChild(renderer.domElement);
       }
       renderer.dispose();
+      // This scene is gone: drop every reference into it so a remount rebuilds into the new scene
+      mixerRef.current?.stopAllAction();
+      mixerRef.current = null;
+      actionRef.current = null;
+      loadedObjectRef.current = null;
+      currentVrmRef.current = null;
+      currentMannequinKeyRef.current = null;
     };
   }, []);
 
@@ -323,10 +330,14 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
       ? `custom:${vrmSettings.customMannequinUrl}`
       : 'default';
 
+    // Only reuse the avatar if it is attached to the scene we are rendering right now. After a remount
+    // (React StrictMode, Fast Refresh, preview re-open) the refs can still point at a rig that lives in a
+    // previous, disposed scene: binding to it plays the timeline with nothing visible on stage.
     const canReuseAvatar = Boolean(
       isVRMA &&
       currentVrmRef.current &&
       loadedObjectRef.current &&
+      loadedObjectRef.current.parent === scene &&
       currentMannequinKeyRef.current === targetMannequinKey
     );
 
@@ -334,14 +345,17 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
     if (canReuseAvatar) {
       if (mixerRef.current) {
         mixerRef.current.stopAllAction();
+        // Drop the previous clip so the mixer doesn't accumulate one cached action per file viewed
+        if (actionRef.current) mixerRef.current.uncacheClip(actionRef.current.getClip());
+        actionRef.current = null;
       }
       if (currentVrmRef.current?.humanoid) {
         currentVrmRef.current.humanoid.resetNormalizedPose();
       }
     } else {
-      // Clean up previous loaded object
+      // Clean up previous loaded object (detach from whichever scene holds it, even a stale one)
       if (loadedObjectRef.current) {
-        scene.remove(loadedObjectRef.current);
+        loadedObjectRef.current.removeFromParent();
         loadedObjectRef.current = null;
       }
       if (currentVrmRef.current) {
