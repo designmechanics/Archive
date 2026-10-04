@@ -11,12 +11,20 @@ build/
 archive.db
 archive.db-wal
 archive.db-shm
-backups/
 *.db
 *.db-wal
 *.db-shm
 *.sqlite
 *.sqlite3
+
+# Backups directory & contents
+backups/
+backups/*
+**/backups/**
+
+# Internal notes, planning, and markdown working folders
+md/
+**/md/**
 
 # Thumbnail storage directory
 .thumbnails/*
