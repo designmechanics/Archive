@@ -19,6 +19,7 @@
     "snapshots": "node scripts/capture_all.js"
   },
   "dependencies": {
+    "@jspawn/ghostscript-wasm": "^0.0.2",
     "@pixiv/three-vrm": "^3.5.5",
     "@pixiv/three-vrm-animation": "^3.5.5",
     "@ruffle-rs/ruffle": "^0.7.1",

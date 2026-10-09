@@ -114,7 +114,7 @@ export const PostscriptViewer: React.FC<PostscriptViewerProps> = ({ src, name, s
             />
           ) : (
             <div style={viewerMessage}>
-              This file has no preview picture inside it, and Ghostscript is not installed to draw it.
+              This file has no preview picture inside it, and Ghostscript could not draw it (it may not be an EPS, or it is damaged).
               <br />
               Header details and the PostScript source are on the other tabs.
             </div>

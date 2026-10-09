@@ -499,7 +499,7 @@ export async function handleApiRequest(req, res, next) {
       }
       if (!findGhostscript()) {
         res.statusCode = 501;
-        return res.end('Ghostscript is not installed');
+        return res.end('Ghostscript engine is missing (run npm install)');
       }
       try {
         const png = await renderEpsToPng(resolved);

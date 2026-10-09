@@ -189,7 +189,7 @@ These viewers load only when you open a file of that kind, so they cost nothing 
 #### Optional helpers
 
 - **7-Zip**: archives other than zip (see above).
-- **Ghostscript**: used only to draw `.eps` files that have no preview picture inside them. Found automatically, or set `GHOSTSCRIPT_PATH`. Never bundled.
+- **Ghostscript**: used only to draw `.eps` files that have no preview picture inside them. It runs as WebAssembly (`@jspawn/ghostscript-wasm`, AGPL-3.0), installed by `npm install`, so nothing extra has to be installed on the machine. It loads in the server on first use and is not part of the browser bundle.
 
 ---
 

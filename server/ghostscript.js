@@ -1,41 +1,42 @@
 import fs from 'fs';
-import path from 'path';
-import { spawn } from 'child_process';
+import { createRequire } from 'module';
 
 /**
  * Ghostscript module. It is used for exactly one job: drawing EPS files that carry no preview
  * picture of their own. Nothing else in the app calls it.
  *
- * Ghostscript is an external program and is never bundled (its licence is AGPL). It is found on
- * its own: the GHOSTSCRIPT_PATH environment variable, the usual install folders, then PATH. When it
- * is not installed every function here reports that cleanly and the EPS viewer falls back to the
- * file's header details and source.
+ * Ghostscript runs as WebAssembly (npm package @jspawn/ghostscript-wasm, AGPL-3.0). Nothing has to
+ * be installed on the machine. The ~16 MB engine is loaded on the first EPS that needs it, inside
+ * this server process only: it never reaches the browser bundle. Each render gets a fresh engine
+ * instance so a broken file cannot poison the next one.
  */
 
-let gsPath;
+const require = createRequire(import.meta.url);
+let wasmCache;
 
-/** Path to the Ghostscript console executable, or null when it is not installed. */
+// The package's own loader fetches gs.wasm over the network; in Node we hand it the bytes instead.
+function createEngine() {
+  const factory = require('@jspawn/ghostscript-wasm');
+  if (!wasmCache) wasmCache = fs.readFileSync(require.resolve('@jspawn/ghostscript-wasm/gs.wasm'));
+  return factory({
+    noInitialRun: true,
+    print: () => {},
+    printErr: () => {},
+    instantiateWasm(imports, done) {
+      WebAssembly.instantiate(wasmCache, imports).then((r) => done(r.instance));
+      return {};
+    }
+  });
+}
+
+/** True when the bundled engine is present (it is an ordinary npm dependency). */
 export function findGhostscript() {
-  if (gsPath !== undefined) return gsPath;
-  const candidates = [process.env.GHOSTSCRIPT_PATH].filter(Boolean);
-  for (const base of ['C:\\Program Files\\gs', 'C:\\Program Files (x86)\\gs']) {
-    try {
-      for (const dir of fs.readdirSync(base).sort().reverse()) {
-        candidates.push(path.join(base, dir, 'bin', 'gswin64c.exe'));
-        candidates.push(path.join(base, dir, 'bin', 'gswin32c.exe'));
-      }
-    } catch {
-      // folder not present
-    }
+  try {
+    require.resolve('@jspawn/ghostscript-wasm/package.json');
+    return 'ghostscript-wasm';
+  } catch {
+    return null;
   }
-  for (const c of candidates) {
-    if (fs.existsSync(c)) {
-      gsPath = c;
-      return gsPath;
-    }
-  }
-  gsPath = null;
-  return null;
 }
 
 export function isEpsPath(filePath) {
@@ -44,15 +45,18 @@ export function isEpsPath(filePath) {
 
 /**
  * Renders page 1 of an EPS file to PNG, cropped to its bounding box.
- * Resolves to a Buffer. Rejects when the file is not an .eps, Ghostscript is missing, or it fails.
+ * Resolves to a Buffer. Rejects when the file is not an .eps, the engine is missing, or it fails.
  */
-export function renderEpsToPng(filePath, { dpi = 144, timeoutMs = 30000 } = {}) {
-  if (!isEpsPath(filePath)) return Promise.reject(new Error('Ghostscript is only used for EPS files'));
-  const exe = findGhostscript();
-  if (!exe) return Promise.reject(new Error('Ghostscript is not installed'));
+export async function renderEpsToPng(filePath, { dpi = 144, maxBytes = 200 * 1024 * 1024 } = {}) {
+  if (!isEpsPath(filePath)) throw new Error('Ghostscript is only used for EPS files');
+  if (!findGhostscript()) throw new Error('Ghostscript engine is not installed (run npm install)');
+  const stat = fs.statSync(filePath);
+  if (stat.size > maxBytes) throw new Error('EPS file is too large to render');
 
-  return new Promise((resolve, reject) => {
-    const args = [
+  const gs = await createEngine();
+  gs.FS.writeFile('/in.eps', fs.readFileSync(filePath));
+  try {
+    gs.callMain([
       '-dSAFER', // no file writes or shell access from inside the PostScript
       '-dBATCH',
       '-dNOPAUSE',
@@ -64,27 +68,18 @@ export function renderEpsToPng(filePath, { dpi = 144, timeoutMs = 30000 } = {}) 
       `-r${dpi}`,
       '-dFirstPage=1',
       '-dLastPage=1',
-      '-sOutputFile=-',
-      filePath
-    ];
-    const child = spawn(exe, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
-    const out = [];
-    let size = 0;
-    const timer = setTimeout(() => child.kill(), timeoutMs);
-    child.stdout.on('data', (d) => {
-      size += d.length;
-      if (size > 64 * 1024 * 1024) child.kill();
-      else out.push(d);
-    });
-    child.on('error', (e) => {
-      clearTimeout(timer);
-      reject(e);
-    });
-    child.on('close', () => {
-      clearTimeout(timer);
-      const buf = Buffer.concat(out);
-      if (buf.length > 8) resolve(buf);
-      else reject(new Error('Ghostscript produced no image'));
-    });
-  });
+      '-sOutputFile=/out.png',
+      '/in.eps'
+    ]);
+  } catch {
+    // Emscripten throws on exit; the output file tells us whether it worked
+  }
+  let out;
+  try {
+    out = gs.FS.readFile('/out.png');
+  } catch {
+    out = null;
+  }
+  if (!out || out.length < 8) throw new Error('Ghostscript produced no image');
+  return Buffer.from(out);
 }
