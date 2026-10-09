@@ -41,9 +41,11 @@ export const PostscriptViewer: React.FC<PostscriptViewerProps> = ({ src, name, s
         setInfo(parseDsc(buf));
         setSource(sourceText(buf));
 
-        let result = await renderEmbeddedPreview(buf, 1600);
-        // No picture inside: try Ghostscript if the server has it
-        if (!result && serverParams) result = await renderWithGhostscript(serverParams, 1600);
+        // EPS files on disk: draw the real artwork with Ghostscript; the small picture stored
+        // inside the file is only the fallback
+        let result: PsPreview | null = null;
+        if (serverParams) result = await renderWithGhostscript(serverParams, 1600);
+        if (!result) result = await renderEmbeddedPreview(buf, 1600);
         if (cancelled) return;
         setPreview(result);
         setState('ready');
