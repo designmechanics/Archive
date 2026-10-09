@@ -10,7 +10,38 @@ export type PreviewFormat =
   | 'code'
   | 'json'
   | 'css'
-  | 'html';
+  | 'html'
+  | 'font'
+  | 'psd'
+  | 'postscript'
+  | 'raster'
+  | 'swf'
+  | 'office'
+  | 'type1'
+  | 'legacydoc'
+  | 'binary'
+  | 'database'
+  | 'blend';
+
+/** Formats whose viewers fetch raw bytes themselves (served from a URL, not read as text). */
+export const BINARY_FORMATS: PreviewFormat[] = [
+  'image',
+  'video',
+  'audio',
+  '3d',
+  'pdf',
+  'font',
+  'psd',
+  'postscript',
+  'raster',
+  'swf',
+  'office',
+  'type1',
+  'legacydoc',
+  'binary',
+  'database',
+  'blend'
+];
 
 export interface PreviewFile {
   name: string;
@@ -26,8 +57,38 @@ export function detectFormat(ext: string, name?: string): PreviewFormat {
   const e = (ext || '').toLowerCase().replace('.', '');
   const n = (name || '').toLowerCase();
 
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'bmp', 'tiff', 'tif'].includes(e)) {
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'bmp', 'ico'].includes(e)) {
     return 'image';
+  }
+  if (['ttf', 'otf', 'woff', 'woff2', 'ttc', 'eot', 'dfont'].includes(e)) {
+    return 'font';
+  }
+  if (['pfb', 'pfm', 'afm'].includes(e)) {
+    return 'type1';
+  }
+  if (['doc', 'ppt', 'pps'].includes(e)) {
+    return 'legacydoc';
+  }
+  if (['exe', 'dll', 'qxp', 'sys', 'ocx'].includes(e)) {
+    return 'binary';
+  }
+  if (['db', 'sqlite', 'sqlite3'].includes(e)) {
+    return 'database';
+  }
+  if (['psd', 'psb'].includes(e)) {
+    return 'psd';
+  }
+  if (['eps', 'ai', 'indd'].includes(e)) {
+    return 'postscript';
+  }
+  if (['tif', 'tiff', 'cr2', 'nef', 'dng', 'arw'].includes(e)) {
+    return 'raster';
+  }
+  if (e === 'swf') {
+    return 'swf';
+  }
+  if (['docx', 'xlsx', 'xls', 'csv'].includes(e)) {
+    return 'office';
   }
   if (['mp4', 'webm', 'mov', 'mkv', 'm4v', 'avi'].includes(e)) {
     return 'video';
@@ -35,10 +96,13 @@ export function detectFormat(ext: string, name?: string): PreviewFormat {
   if (['mp3', 'wav', 'flac', 'aac', 'ogg', 'aiff', 'm4a'].includes(e)) {
     return 'audio';
   }
-  if (['glb', 'gltf', 'obj', 'blend', 'fbx', 'stl', 'dae', 'vrm', 'vrma'].includes(e)) {
+  if (e === 'blend') {
+    return 'blend';
+  }
+  if (['glb', 'gltf', 'obj', 'fbx', 'stl', 'dae', 'ply', '3mf', 'vrm', 'vrma'].includes(e)) {
     return '3d';
   }
-  if (['svg', 'ai', 'eps'].includes(e)) {
+  if (['svg'].includes(e)) {
     return 'vector';
   }
   if (['pdf'].includes(e)) {
@@ -47,7 +111,7 @@ export function detectFormat(ext: string, name?: string): PreviewFormat {
   if (['md', 'markdown', 'mdown', 'mkdn', 'mdx'].includes(e) || n.endsWith('.md')) {
     return 'markdown';
   }
-  if (['txt', 'rtf', 'log', 'csv', 'tsv'].includes(e)) {
+  if (['txt', 'rtf', 'log', 'tsv'].includes(e)) {
     return 'doc';
   }
   if (['json', 'geojson', 'topojson'].includes(e)) {

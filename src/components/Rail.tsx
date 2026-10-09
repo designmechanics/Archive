@@ -1,6 +1,8 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
 import { WatchedFolder, Pool, AssetEntry, ThemeMode } from '../types';
 import { isZipArchive } from '../services/zipService';
+import { previewQueue, PreviewQueueStatus } from '../services/previewQueue';
+import { indexingEngine, IndexingStatus } from '../services/indexingEngine';
 import {
   FileTypeFilterConfig,
   DEFAULT_FILE_TYPE_CONFIG,
@@ -27,6 +29,8 @@ interface RailProps {
   indexPct: number;
   indexFile: string;
   indexStatus?: 'idle' | 'scanning' | 'indexing' | 'complete' | 'error';
+  /** Set while the library is still streaming in from the database */
+  libraryLoad?: { loaded: number; total: number | null } | null;
   dbSize?: string;
   dbPath?: string;
   onOptimizeDb?: () => void;
@@ -43,6 +47,112 @@ interface RailProps {
   isFileTypeSubmenuOpen?: boolean;
   onToggleFileTypeSubmenu?: (open: boolean) => void;
 }
+
+/** Small progress meter used for the background (stage two) jobs under the indexer card. */
+const StageMeter: React.FC<{
+  label: string;
+  done: number;
+  total: number;
+  note?: string;
+  isLight: boolean;
+  isBlack: boolean;
+  action?: { text: string; onClick: () => void };
+}> = ({ label, done, total, note, isLight, isBlack, action }) => {
+  const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
+  const dim = isLight ? 'rgba(15,23,42,.55)' : 'rgba(233,237,242,.55)';
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '2px' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          fontFamily: 'ui-monospace, Menlo, monospace',
+          fontSize: '9.5px',
+          letterSpacing: '.08em',
+          color: dim,
+          textTransform: 'uppercase'
+        }}
+      >
+        <span>
+          {label} {done.toLocaleString()} / {total.toLocaleString()}
+        </span>
+        {action && (
+          <button
+            onClick={action.onClick}
+            style={{
+              all: 'unset',
+              cursor: 'pointer',
+              fontSize: '9px',
+              letterSpacing: '.1em',
+              textDecoration: 'underline',
+              color: dim
+            }}
+          >
+            {action.text}
+          </button>
+        )}
+      </div>
+      <div
+        style={{
+          height: '3px',
+          borderRadius: '99px',
+          background: isBlack ? 'rgba(255,255,255,.12)' : isLight ? 'rgba(15,23,42,.08)' : 'rgba(148,188,227,.2)',
+          overflow: 'hidden'
+        }}
+      >
+        <div
+          style={{
+            height: '100%',
+            width: `${pct}%`,
+            borderRadius: '99px',
+            background: isBlack
+              ? 'linear-gradient(90deg, #555555, #ffffff)'
+              : isLight
+              ? 'linear-gradient(90deg, #3b82f6, #60a5fa)'
+              : 'linear-gradient(90deg, #5980a6, #b5d9fd)',
+            transition: 'width 0.4s ease'
+          }}
+        />
+      </div>
+      {note && <div style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '9px', color: dim }}>{note}</div>}
+    </div>
+  );
+};
+
+/**
+ * Archives and Previews meters. They subscribe to the background jobs themselves, so progress
+ * ticks re-render only this small block and never the whole app (which holds 240k entries).
+ */
+const BackgroundMeters: React.FC<{ isLight: boolean; isBlack: boolean }> = ({ isLight, isBlack }) => {
+  const [preview, setPreview] = useState<PreviewQueueStatus>(previewQueue.getStatus());
+  const [zips, setZips] = useState<IndexingStatus['zips']>(indexingEngine.getStatus().zips);
+
+  useEffect(() => previewQueue.subscribe(setPreview), []);
+  useEffect(() => indexingEngine.subscribe((s) => setZips(s.zips)), []);
+
+  return (
+    <>
+      {zips && zips.total > 0 && (zips.running || zips.done < zips.total) && (
+        <StageMeter label="Archives" done={zips.done} total={zips.total} isLight={isLight} isBlack={isBlack} />
+      )}
+      {preview.total > 0 && (preview.running || preview.done < preview.total) && (
+        <StageMeter
+          label="Previews"
+          done={preview.done}
+          total={preview.total}
+          note={preview.failed > 0 ? `${preview.failed.toLocaleString()} skipped` : undefined}
+          isLight={isLight}
+          isBlack={isBlack}
+          action={{
+            text: preview.paused ? 'Resume' : 'Pause',
+            onClick: () => (preview.paused ? previewQueue.resume() : previewQueue.pause())
+          }}
+        />
+      )}
+    </>
+  );
+};
 
 export const Rail: React.FC<RailProps> = React.memo(({
   theme,
@@ -63,6 +173,7 @@ export const Rail: React.FC<RailProps> = React.memo(({
   indexPct,
   indexFile,
   indexStatus = 'idle',
+  libraryLoad,
   dbSize,
   dbPath,
   onOptimizeDb,
@@ -315,6 +426,18 @@ export const Rail: React.FC<RailProps> = React.memo(({
         >
           {indexFile}
         </div>
+
+        {/* Stage two meters: library streaming in, zip contents (server), previews (browser) */}
+        {libraryLoad && (
+          <StageMeter
+            label="Loading library"
+            done={libraryLoad.loaded}
+            total={libraryLoad.total ?? libraryLoad.loaded}
+            isLight={isLight}
+            isBlack={isBlack}
+          />
+        )}
+        <BackgroundMeters isLight={isLight} isBlack={isBlack} />
       </div>
 
       {/* Scrollable Navigation / Pools */}
@@ -1205,7 +1328,7 @@ export const Rail: React.FC<RailProps> = React.memo(({
               overflow: 'hidden',
               textOverflow: 'ellipsis'
             }}
-            title={dbPath || 'D:\\Archive\\archive.db'}
+            title={dbPath || 'archive.db'}
           >
             {dbPath ? dbPath.replace(/^.*[\\/]/, '') : 'archive.db'} · FTS5 Search
           </div>

@@ -71,12 +71,15 @@ export function getDB(): Promise<IDBPDatabase<ArchiveDB>> {
 }
 
 /**
- * Loads real assets directly from SQLite database (D:\Archive\archive.db).
+ * Loads the library from the SQLite database (archive.db in the project folder).
  * Falls back to IndexedDB if backend API is not running.
  */
-export async function loadEntries(): Promise<AssetEntry[]> {
+export async function loadEntries(
+  onChunk?: (loadedSoFar: AssetEntry[], total: number | null) => void
+): Promise<AssetEntry[]> {
   try {
-    const sqliteAssets = await api.getAssets();
+    // Pages through the whole library; onChunk lets the UI show the first page straight away
+    const sqliteAssets = await api.getAllAssets(undefined, onChunk);
     // Filter out any mock prototype leftovers
     const realAssets = sqliteAssets.filter((e) => !/^a\d+$/.test(e.id) || e.isUserUploaded);
     isBackendAvailable = true;

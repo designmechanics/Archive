@@ -1036,7 +1036,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     marginTop: '2px'
                   }}
                 >
-                  File Path: {dbStats?.dbPath || 'D:\\Archive\\archive.db'}
+                  File Path: {dbStats?.dbPath || 'archive.db'}
                 </div>
               </div>
 
@@ -2165,7 +2165,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <input
                     value={newFolderPath}
                     onChange={(e) => setNewFolderPath(e.target.value)}
-                    placeholder="e.g. D:\Archive\ClientAssets"
+                    placeholder="e.g. C:\CreativeAssets"
                     style={{
                       flex: 1,
                       padding: '10px 14px',

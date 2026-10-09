@@ -26,7 +26,7 @@ graph TD
         ApiRouter[server/api.js]
         DiskScanner[server/scanner.js]
         SqliteDB[server/db.js]
-        ArchiveFile[("D:/Archive/archive.db (WAL Mode)")]
+        ArchiveFile[("archive.db (WAL Mode)")]
         FTSIndex[("FTS5 Full-Text Index")]
     end
 
@@ -96,9 +96,9 @@ d:/Archive/
 
 ## 2. Core Subsystems
 
-### A. SQLite WAL Database Engine (`server/db.js` & `D:/Archive/archive.db`)
+### A. SQLite WAL Database Engine (`server/db.js` & `archive.db`)
 The database is built on **SQLite via `better-sqlite3`** operating in **WAL (Write-Ahead Logging)** mode:
-- **Location**: `D:\Archive\archive.db` (single portable file on disk).
+- **Location**: `archive.db` in the project folder (single portable file on disk, never committed).
 - **Scale**: Capable of storing up to 281 TB in a single file with zero maintenance, zero background service daemons.
 - **WAL Concurrency**: Readers and writers run simultaneously without lock contention.
 - **FTS5 Full-Text Search**: SQLite virtual table indexing `title`, `cat`, `type`, `author`, `deps`, `search`, and `file_path`. Automatic triggers keep the search index synchronized on every INSERT, UPDATE, and DELETE.
@@ -107,13 +107,13 @@ The database is built on **SQLite via `better-sqlite3`** operating in **WAL (Wri
 
 ### B. High-Performance Filesystem Scanner (`server/scanner.js`)
 - Runs directly inside Node.js with native filesystem access (`fs.promises`).
-- Recursively crawls any drive or directory on Windows (e.g. `D:\Archive` or external client drives).
+- Recursively crawls any drive or directory on Windows (local disks or external drives).
 - Fast ZIP Central Directory inspection: reads inner archive directories without decompressing huge files into RAM.
 - Streams discoveries in bulk transactions directly into `archive.db`.
 - Emits live progress (percentage, current file, elapsed time) via `/api/scan/status`.
 
 ### C. Unified Storage Service (`src/services/db.ts` & `src/services/api.ts`)
-- Automatically routes all reads, writes, searches, and pool categorizations to `D:\Archive\archive.db`.
+- Automatically routes all reads, writes, searches, and pool categorizations to `archive.db`.
 - Purges any obsolete mock prototype assets so the catalog contains strictly real user data.
 - Gracefully falls back to browser IndexedDB if the backend API is ever detached.
 

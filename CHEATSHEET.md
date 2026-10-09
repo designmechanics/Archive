@@ -20,14 +20,14 @@ node server/standalone.js
 
 ---
 
-## 2. SQLite Database Reference (`D:\Archive\archive.db`)
+## 2. SQLite Database Reference (`archive.db`)
 
 The archive database is a free, standalone, zero-maintenance local SQLite database designed to hold **20+ years of creative assets** (up to 281 TB in a single file).
 
 ### Files on Disk
-- `D:\Archive\archive.db`: Master SQLite database file.
-- `D:\Archive\archive.db-wal`: Write-Ahead Log enabling non-blocking concurrent reads and writes.
-- `D:\Archive\archive.db-shm`: Shared-memory index for WAL readers.
+- `archive.db`: Master SQLite database file (in the project folder, git-ignored).
+- `archive.db-wal`: Write-Ahead Log enabling non-blocking concurrent reads and writes.
+- `archive.db-shm`: Shared-memory index for WAL readers.
 
 ### SQLite Pragma Settings
 ```sql
@@ -58,7 +58,7 @@ All searches use SQLite's built-in FTS5 engine with Unicode61 and Porter stemmer
 | `/api/folders` | `GET` | List watched folders from SQLite |
 | `/api/folders` | `POST` | Add watched folder path |
 | `/api/folders/:id` | `DELETE` | Remove watched folder |
-| `/api/scan` | `POST` | Trigger background disk scanner: `{ "folderPath": "D:\\Archive" }` |
+| `/api/scan` | `POST` | Trigger background disk scanner: `{ "folderPath": "C:\\CreativeAssets" }` |
 | `/api/scan/status` | `GET` | Live crawler progress (percentage, current file, elapsed time) |
 | `/api/file` | `GET` | Stream file directly from disk with HTTP 206 Range headers |
 | `/api/db/optimize` | `POST` | Run `PRAGMA optimize; VACUUM;` |
@@ -109,6 +109,6 @@ curl -X POST http://127.0.0.1:6080/api/db/optimize
 
 
 # 2. Simply copy archive.db to any backup drive or cloud storage
-copy D:\Archive\archive.db E:\Backups\archive_2026.db
+copy archive.db E:\Backups\archive_2026.db
 ```
 Zero export/import dump scripts or database migration tools needed.

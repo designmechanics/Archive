@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 
 const OUT_DIR = path.resolve('docs', 'assets');
@@ -8,12 +9,12 @@ if (!fs.existsSync(OUT_DIR)) {
 }
 
 // Launch headless Chrome with clean user profile so no extensions interfere
-const CHROME_PATH = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+const CHROME_PATH = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const chrome = spawn(CHROME_PATH, [
   '--headless=new',
   '--remote-debugging-port=9222',
   '--window-size=1920,1080',
-  '--user-data-dir=C:\\Users\\Mart\\AppData\\Local\\Temp\\chrome_snap_profile',
+  '--user-data-dir=' + path.join(os.tmpdir(), 'archive_snap_profile'),
   '--no-first-run',
   '--no-default-browser-check',
   'http://127.0.0.1:6080/'

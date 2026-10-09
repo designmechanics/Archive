@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Density, ViewMode, MaxPerPage, MAX_PER_PAGE_OPTIONS, SortOption, SortDirection, ListColumns, ListOrder, ThemeMode } from '../types';
+import { Density, ViewMode, MaxPerPage, MAX_PER_PAGE_OPTIONS, SortOption, SortDirection, ListColumns, ListOrder, ThemeMode, ZipMode } from '../types';
 import { SORT_CONFIGS, SORT_OPTIONS } from '../services/sortService';
 import { FileTypeFilterConfig } from '../services/fileTypeFilterService';
 
@@ -31,6 +31,8 @@ interface ToolbarProps {
   fileTypeConfig?: FileTypeFilterConfig;
   onToggleFileTypeActive?: (active: boolean) => void;
   onOpenFileTypeFilter?: () => void;
+  zipMode?: ZipMode;
+  onZipModeChange?: (mode: ZipMode) => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -60,7 +62,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onListOrderChange,
   fileTypeConfig,
   onToggleFileTypeActive,
-  onOpenFileTypeFilter
+  onOpenFileTypeFilter,
+  zipMode = 'show',
+  onZipModeChange
 }) => {
   const isBlack = theme === 'black';
   const enabledTypesCount = fileTypeConfig
@@ -768,6 +772,63 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           </div>
         )}
       </div>
+
+      {/* Zip toggle: show zips with everything, hide them, or show only zips */}
+      {onZipModeChange && (
+        <div
+          data-zipmode-toolbar="1"
+          title="Zip files in the library: show with everything, hide them, or show only zips"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '2px',
+            padding: '3px',
+            borderRadius: '13px',
+            border: '1px solid rgba(var(--inkc, 29,31,32), .14)',
+            background: 'var(--surface, #ffffff)',
+            boxShadow: '0 1px 2px rgba(43,43,45,.14)'
+          }}
+        >
+          <span
+            style={{
+              fontFamily: 'ui-monospace, Menlo, monospace',
+              fontSize: '9.5px',
+              letterSpacing: '.1em',
+              color: 'rgba(var(--inkc, 29,31,32), .55)',
+              padding: '0 6px 0 8px',
+              textTransform: 'uppercase'
+            }}
+          >
+            Zips
+          </span>
+          {(['show', 'hide', 'only'] as const).map((mode) => {
+            const on = zipMode === mode;
+            return (
+              <button
+                key={mode}
+                onClick={() => onZipModeChange(mode)}
+                aria-pressed={on}
+                style={{
+                  padding: '5px 9px',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  border: 'none',
+                  background: on ? (isBlack ? '#ffffff' : 'var(--ink, #1d1f20)') : 'transparent',
+                  color: on ? (isBlack ? '#000000' : 'var(--surface, #ffffff)') : 'var(--ink, #1d1f20)',
+                  fontFamily: "'Barlow Condensed', sans-serif",
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  letterSpacing: '.05em',
+                  textTransform: 'uppercase',
+                  transition: 'background 0.18s, color 0.18s'
+                }}
+              >
+                {mode}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* File Type Filter Button & Trigger */}
       {fileTypeConfig && onOpenFileTypeFilter && (

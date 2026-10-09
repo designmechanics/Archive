@@ -53,6 +53,8 @@ export const SUPPORTED_FILE_TYPES: FileTypeDefinition[] = [
   { ext: 'blend', label: 'Blender 3D Project', category: '3D & VRM', color: '#ea580c' },
   { ext: 'fbx', label: 'Autodesk FBX', category: '3D & VRM', color: '#d946ef' },
   { ext: 'dae', label: 'Collada DAE', category: '3D & VRM', color: '#9333ea' },
+  { ext: 'ply', label: 'PLY Polygon Mesh', category: '3D & VRM', color: '#7c3aed' },
+  { ext: '3mf', label: '3MF 3D Manufacturing', category: '3D & VRM', color: '#8b5cf6' },
 
   // Images
   { ext: 'png', label: 'PNG Image', category: 'Images', color: '#38bdf8' },
@@ -67,6 +69,10 @@ export const SUPPORTED_FILE_TYPES: FileTypeDefinition[] = [
   { ext: 'ico', label: 'Icon', category: 'Images', color: '#f59e0b' },
   { ext: 'psd', label: 'Photoshop PSD', category: 'Images', color: '#3b82f6' },
   { ext: 'psb', label: 'Photoshop PSB', category: 'Images', color: '#1d4ed8' },
+  { ext: 'cr2', label: 'Canon RAW (CR2)', category: 'Images', color: '#0369a1' },
+  { ext: 'nef', label: 'Nikon RAW (NEF)', category: 'Images', color: '#0369a1' },
+  { ext: 'dng', label: 'Digital Negative (DNG)', category: 'Images', color: '#0369a1' },
+  { ext: 'arw', label: 'Sony RAW (ARW)', category: 'Images', color: '#0369a1' },
 
   // Vectors
   { ext: 'svg', label: 'SVG Vector', category: 'Vectors', color: '#f472b6' },
@@ -82,6 +88,7 @@ export const SUPPORTED_FILE_TYPES: FileTypeDefinition[] = [
   { ext: 'avi', label: 'AVI Video', category: 'Video', color: '#d97706' },
   { ext: 'prproj', label: 'Premiere Pro Project', category: 'Video', color: '#9333ea' },
   { ext: 'aep', label: 'After Effects Project', category: 'Video', color: '#7e22ce' },
+  { ext: 'swf', label: 'Flash (SWF)', category: 'Video', color: '#dc2626' },
 
   // Audio
   { ext: 'mp3', label: 'MP3 Audio', category: 'Audio', color: '#4ade80' },
@@ -96,6 +103,12 @@ export const SUPPORTED_FILE_TYPES: FileTypeDefinition[] = [
   { ext: 'otf', label: 'OpenType Font', category: 'Fonts', color: '#8b5cf6' },
   { ext: 'woff', label: 'Web Font (WOFF)', category: 'Fonts', color: '#7c3aed' },
   { ext: 'woff2', label: 'Web Font 2 (WOFF2)', category: 'Fonts', color: '#6d28d9' },
+  { ext: 'ttc', label: 'TrueType Collection', category: 'Fonts', color: '#a78bfa' },
+  { ext: 'eot', label: 'Embedded OpenType (EOT)', category: 'Fonts', color: '#7c3aed' },
+  { ext: 'dfont', label: 'Mac Data Fork Font', category: 'Fonts', color: '#8b5cf6' },
+  { ext: 'pfb', label: 'Type 1 Font (PFB)', category: 'Fonts', color: '#6d28d9' },
+  { ext: 'pfm', label: 'Type 1 Metrics (PFM)', category: 'Fonts', color: '#6d28d9' },
+  { ext: 'afm', label: 'Adobe Font Metrics (AFM)', category: 'Fonts', color: '#6d28d9' },
 
   // Documents
   { ext: 'pdf', label: 'PDF Document', category: 'Documents', color: '#ef4444' },
@@ -105,6 +118,13 @@ export const SUPPORTED_FILE_TYPES: FileTypeDefinition[] = [
   { ext: 'tsv', label: 'TSV Spreadsheet', category: 'Documents', color: '#a16207' },
   { ext: 'log', label: 'Log File', category: 'Documents', color: '#854d0e' },
   { ext: 'rtf', label: 'Rich Text Format', category: 'Documents', color: '#d97706' },
+  { ext: 'docx', label: 'Word Document', category: 'Documents', color: '#2563eb' },
+  { ext: 'xlsx', label: 'Excel Spreadsheet', category: 'Documents', color: '#16a34a' },
+  { ext: 'indd', label: 'InDesign Document', category: 'Documents', color: '#db2777' },
+  { ext: 'xls', label: 'Excel 97-2003 Spreadsheet', category: 'Documents', color: '#16a34a' },
+  { ext: 'doc', label: 'Word 97-2003 Document', category: 'Documents', color: '#2563eb' },
+  { ext: 'ppt', label: 'PowerPoint 97-2003 Presentation', category: 'Documents', color: '#ea580c' },
+  { ext: 'qxp', label: 'QuarkXPress Document', category: 'Documents', color: '#be185d' },
 
   // Code & Data
   { ext: 'html', label: 'HTML Webpage', category: 'Code & Data', color: '#f97316' },
@@ -122,13 +142,22 @@ export const SUPPORTED_FILE_TYPES: FileTypeDefinition[] = [
   { ext: 'py', label: 'Python Script', category: 'Code & Data', color: '#3b82f6' },
   { ext: 'sql', label: 'SQL Database Script', category: 'Code & Data', color: '#8b5cf6' },
   { ext: 'sh', label: 'Shell Script', category: 'Code & Data', color: '#10b981' },
+  { ext: 'exe', label: 'Windows Program', category: 'Code & Data', color: '#64748b' },
+  { ext: 'dll', label: 'Windows Library', category: 'Code & Data', color: '#64748b' },
+  { ext: 'db', label: 'Database / Thumbs.db', category: 'Code & Data', color: '#0ea5e9' },
 
   // Archives
   { ext: 'zip', label: 'ZIP Package Archive', category: 'Archives', color: '#fbbf24' },
   { ext: 'rar', label: 'RAR Archive', category: 'Archives', color: '#f59e0b' },
   { ext: '7z', label: '7-Zip Archive', category: 'Archives', color: '#d97706' },
   { ext: 'tar', label: 'TAR Archive', category: 'Archives', color: '#b45309' },
-  { ext: 'gz', label: 'GZip Archive', category: 'Archives', color: '#92400e' }
+  { ext: 'gz', label: 'GZip Archive', category: 'Archives', color: '#92400e' },
+  { ext: 'tgz', label: 'Gzipped TAR Archive', category: 'Archives', color: '#92400e' },
+  { ext: 'bz2', label: 'BZip2 Archive', category: 'Archives', color: '#92400e' },
+  { ext: 'xz', label: 'XZ Archive', category: 'Archives', color: '#92400e' },
+  { ext: 'iso', label: 'ISO Disc Image', category: 'Archives', color: '#a16207' },
+  { ext: 'cab', label: 'Cabinet Archive', category: 'Archives', color: '#a16207' },
+  { ext: 'dmg', label: 'Apple Disk Image', category: 'Archives', color: '#a16207' }
 ];
 
 export const ALL_SUPPORTED_EXTENSIONS: string[] = SUPPORTED_FILE_TYPES.map((t) => t.ext);

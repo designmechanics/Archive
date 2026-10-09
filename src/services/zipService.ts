@@ -722,7 +722,13 @@ export async function extractZipEntries(parentZip: AssetEntry): Promise<AssetEnt
     const assetData = await api.getAssetById(parentZip.id);
     if (assetData && assetData.files && assetData.files.length > 0) {
       const zipPath = parentZip.filePath || '';
-      const results: AssetEntry[] = assetData.files.map((f: any) => {
+      let diskFiles: any[] = assetData.files;
+      // The index keeps only the first 500 files per archive; ask the server for the complete list
+      if ((parentZip.fileCount || 0) > diskFiles.length) {
+        const full = await api.getArchiveList(parentZip.id);
+        if (full && full.files.length > diskFiles.length) diskFiles = full.files;
+      }
+      const results: AssetEntry[] = diskFiles.map((f: any) => {
         const ext = extOf(f.path);
         const type = typeFromExt(ext);
         const fileName = f.path.split('/').pop() || f.path;

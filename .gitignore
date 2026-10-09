@@ -63,3 +63,11 @@ scratch/
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Vendor runtime assets copied from node_modules by scripts/copy-vendor.mjs
+public/ruffle/
+public/draco/
+public/basis/
+
+# Local working notes
+AGENTS.md

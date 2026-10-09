@@ -26,6 +26,10 @@ export const KINDS: Record<AssetType, [string, string]> = {
   ai: ["AI", "illustrator"],
   prproj: ["PRPROJ", "premiere"],
   icon: ["SVG SET", "icon set"],
+  "3d": ["3D", "model"],
+  raw: ["RAW", "camera raw"],
+  swf: ["SWF", "flash"],
+  doc: ["DOC", "document"],
   file: ["FILE", "file"]
 };
 

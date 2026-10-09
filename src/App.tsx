@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import gsap from 'gsap';
-import { AssetEntry, Density, ThemeMode, ViewMode, WatchedFolder, Pool, MaxPerPage, ActiveZipArchive, SortOption, SortDirection, ListColumns, ListOrder, CustomThemeColors, CustomBackgroundConfig, BackgroundFit } from './types';
+import { AssetEntry, Density, ThemeMode, ViewMode, WatchedFolder, Pool, MaxPerPage, ActiveZipArchive, ZipMode, SortOption, SortDirection, ListColumns, ListOrder, CustomThemeColors, CustomBackgroundConfig, BackgroundFit } from './types';
 import { sortEntries, SORT_CONFIGS } from './services/sortService';
 import { CATS, KINDS, THEMES, DEFAULT_CUSTOM_THEME } from './data/seedData';
 import {
@@ -25,7 +25,7 @@ import {
 import { isEntryInFolder } from './utils/folderUtils';
 import { api, DatabaseStats } from './services/api';
 
-import { indexingEngine } from './services/indexingEngine';
+import { indexingEngine, IndexingStatus } from './services/indexingEngine';
 import {
   createEntryFromPack,
   createPackFromBlob,
@@ -41,7 +41,7 @@ import {
   filterEntriesByFileType,
   DEFAULT_FILE_TYPE_CONFIG
 } from './services/fileTypeFilterService';
-import { ensureThumbnailForEntry } from './services/thumbnailService';
+import { previewQueue, PreviewQueueStatus } from './services/previewQueue';
 import { Rail } from './components/Rail';
 import { Header } from './components/Header';
 import { Toolbar } from './components/Toolbar';
@@ -226,6 +226,33 @@ export const App: React.FC = () => {
 
   // File Type Filter State
   const [fileTypeConfig, setFileTypeConfig] = useState<FileTypeFilterConfig>(getFileTypeFilterConfig);
+
+  // Zip files in the main library: show with everything, hide them, or show only zips
+  const [zipMode, setZipMode] = useState<ZipMode>(() => {
+    try {
+      const saved = localStorage.getItem('archive.zipMode');
+      return saved === 'hide' || saved === 'only' ? saved : 'show';
+    } catch {
+      return 'show';
+    }
+  });
+  const handleZipModeChange = (mode: ZipMode) => {
+    setZipMode(mode);
+    setCurrentPage(1);
+    setFocusIndex(0);
+    try {
+      localStorage.setItem('archive.zipMode', mode);
+    } catch {}
+  };
+
+  // Stage two meters shown in the sidebar: previews (browser) and zip contents (server)
+  const [libraryLoad, setLibraryLoad] = useState<{ loaded: number; total: number | null } | null>(null);
+
+  // Thumbnails finished by the preview queue. Kept outside `entries` so a finished batch does not
+  // re-filter and re-sort the whole library; they are merged into the visible page only.
+  const thumbOverridesRef = useRef<Map<string, string>>(new Map());
+  const thumbCloneCacheRef = useRef<Map<string, { src: AssetEntry; url: string; clone: AssetEntry }>>(new Map());
+  const [thumbTick, setThumbTick] = useState(0);
   const [isFileTypeSubmenuOpen, setIsFileTypeSubmenuOpen] = useState(false);
 
   useEffect(() => {
@@ -391,27 +418,23 @@ export const App: React.FC = () => {
   // Initialize DB and load saved data
   useEffect(() => {
     const init = async () => {
-      const loadedEntries = await loadEntries();
+      // The library loads in pages; the first page is shown straight away while the rest streams in
+      // Only the first page is committed early: every commit re-filters and re-sorts the whole
+      // library, which gets expensive as it grows. The rest is committed once, at the end.
+      let firstPageShown = false;
+      const loadedEntries = await loadEntries((soFar, total) => {
+        if (!firstPageShown) {
+          firstPageShown = true;
+          setEntries(soFar.slice());
+        }
+        setLibraryLoad({ loaded: soFar.length, total });
+      });
       setEntries(loadedEntries);
+      setLibraryLoad(null);
 
-      // Auto-heal thumbnails for assets without snapshots (PDFs, videos, images)
-      const missing = loadedEntries.filter((e) => !e.thumb);
-      if (missing.length > 0) {
-        setTimeout(async () => {
-          for (const item of missing) {
-            try {
-              const thumbUrl = await ensureThumbnailForEntry(item);
-              if (thumbUrl) {
-                setEntries((prev) =>
-                  prev.map((x) => (x.id === item.id ? { ...x, thumb: thumbUrl } : x))
-                );
-              }
-            } catch (err) {
-              console.warn('Auto-thumbnail error for asset:', item.id, err);
-            }
-          }
-        }, 300);
-      }
+      // Stage two: previews for anything without a thumbnail, and zip contents on the server
+      previewQueue.enqueue(loadedEntries);
+      indexingEngine.watchZipStage();
 
       const stats = await getDatabaseStatus();
       setDbStats(stats);
@@ -558,6 +581,23 @@ export const App: React.FC = () => {
     });
   }, []);
 
+  // Stage two: finished thumbnails (merged into the visible page only). The Previews meter in the
+  // sidebar subscribes to the queue itself, so progress ticks do not re-render the whole app.
+  useEffect(() => {
+    previewQueue.setApplier((thumbs) => {
+      thumbs.forEach((url, id) => thumbOverridesRef.current.set(id, url));
+      setThumbTick((t) => t + 1);
+    });
+  }, []);
+
+  // Stage two: when the server has read more zips, swap the refreshed zip rows into the library
+  useEffect(() => {
+    return indexingEngine.onZipsUpdated((zipRows) => {
+      const byId = new Map(zipRows.map((z) => [z.id, z]));
+      setEntries((prev) => prev.map((e) => (e.type === 'zip' && byId.has(e.id) ? { ...byId.get(e.id)!, thumb: e.thumb || byId.get(e.id)!.thumb } : e)));
+    });
+  }, []);
+
   // Keyboard navigation & Shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -674,6 +714,9 @@ export const App: React.FC = () => {
     const ingestingFolders = deferFolderIngestion ? folders.filter((f) => f.isIngesting) : [];
 
     let vis = entries.filter((e) => {
+      // Zip toggle: hide zips, or show only zips
+      if (zipMode === 'hide' && e.type === 'zip') return false;
+      if (zipMode === 'only' && e.type !== 'zip') return false;
       // Exclude assets belonging to disabled watched folders
       if (disabledFolders.some((df) => isEntryInFolder(e, df))) {
         return false;
@@ -720,7 +763,7 @@ export const App: React.FC = () => {
     }
 
     return vis;
-  }, [entries, query, selectedPool, selectedFolder, folders, seed, deferFolderIngestion, activeZipArchive, sortOption, sortDirection, fileTypeConfig]);
+  }, [entries, query, selectedPool, selectedFolder, folders, seed, deferFolderIngestion, activeZipArchive, sortOption, sortDirection, fileTypeConfig, zipMode]);
 
   // Pagination & Max Per Page logic
   const totalPages = useMemo(() => {
@@ -735,10 +778,28 @@ export const App: React.FC = () => {
   }, [currentPage, totalPages]);
 
   const pagedEntries = useMemo(() => {
-    if (maxPerPage === 'ALL') return filteredEntries;
-    const start = (currentPage - 1) * maxPerPage;
-    return filteredEntries.slice(start, start + maxPerPage);
-  }, [filteredEntries, maxPerPage, currentPage]);
+    const page =
+      maxPerPage === 'ALL'
+        ? filteredEntries
+        : filteredEntries.slice((currentPage - 1) * maxPerPage, currentPage * maxPerPage);
+
+    // Merge thumbnails the preview queue has finished since the library was loaded.
+    // Clones are cached so a card only re-renders when its own thumbnail actually changes.
+    const overrides = thumbOverridesRef.current;
+    if (overrides.size === 0) return page;
+    const cache = thumbCloneCacheRef.current;
+    if (cache.size > 3000) cache.clear();
+    return page.map((e) => {
+      const url = overrides.get(e.id);
+      if (!url || e.thumb === url) return e;
+      const hit = cache.get(e.id);
+      if (hit && hit.src === e && hit.url === url) return hit.clone;
+      const clone = { ...e, thumb: url };
+      cache.set(e.id, { src: e, url, clone });
+      return clone;
+    });
+    // thumbTick changes whenever the preview queue delivers a batch
+  }, [filteredEntries, maxPerPage, currentPage, thumbTick]);
 
   const handleMaxPerPageChange = (val: MaxPerPage) => {
     setMaxPerPage(val);
@@ -1137,18 +1198,9 @@ export const App: React.FC = () => {
 
         showFolderNotification(folderBase, count, matchedFolder || null);
 
-        // Auto-generate thumbnails for fresh disk assets missing thumbnails
-        const missing = freshAssets.filter((e) => !e.thumb);
-        for (const item of missing) {
-          try {
-            const thumbUrl = await ensureThumbnailForEntry(item);
-            if (thumbUrl) {
-              setEntries((prev) =>
-                prev.map((x) => (x.id === item.id ? { ...x, thumb: thumbUrl } : x))
-              );
-            }
-          } catch {}
-        }
+        // Stage two: queue previews for the fresh assets (the zip stage is already running
+        // on the server and is followed by the indexing engine)
+        previewQueue.enqueue(freshAssets);
       },
       (error) => {
         console.warn('Disk scan failed or aborted:', error);
@@ -1348,6 +1400,7 @@ export const App: React.FC = () => {
         indexPct={idxPct}
         indexFile={idxFile}
         indexStatus={idxStatus}
+        libraryLoad={libraryLoad}
         dbSize={dbStats?.dbSizeFormatted}
         dbPath={dbStats?.dbPath}
         onOptimizeDb={handleOptimizeDb}
@@ -1453,6 +1506,8 @@ export const App: React.FC = () => {
           fileTypeConfig={fileTypeConfig}
           onToggleFileTypeActive={handleToggleFileTypeActive}
           onOpenFileTypeFilter={() => setIsFileTypeSubmenuOpen((prev) => !prev)}
+          zipMode={zipMode}
+          onZipModeChange={handleZipModeChange}
         />
 
         {/* Archive Contents Active Header / Exit Bar */}

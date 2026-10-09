@@ -106,66 +106,51 @@ export function sortEntries(
   sortDirection: SortDirection
 ): AssetEntry[] {
   const isAsc = sortDirection === 'asc';
-  const copy = [...entries];
+  const n = entries.length;
 
-  copy.sort((a, b) => {
+  // A shared Collator is many times faster than String.localeCompare with options, which matters
+  // when sorting a quarter of a million titles. Keys that need parsing are computed once, up front.
+  let numKeys: number[] | null = null;
+  let sizeKeys: number[] | null = null;
+  let typeKeys: string[] | null = null;
+  if (sortOption === 'number') numKeys = entries.map((e) => extractNumber(e.title));
+  if (sortOption === 'size') sizeKeys = entries.map((e) => e.sizeBytes ?? parseSizeBytes(e.size));
+  if (sortOption === 'type') typeKeys = entries.map((e) => (e.exts?.[0] || e.type || '').toLowerCase());
+
+  const order = new Array<number>(n);
+  for (let i = 0; i < n; i++) order[i] = i;
+
+  order.sort((i, j) => {
+    const a = entries[i];
+    const b = entries[j];
     let cmp = 0;
     switch (sortOption) {
-      case 'name': {
-        cmp = a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' });
+      case 'name':
+        cmp = nameCollator.compare(a.title, b.title);
         break;
-      }
 
-      case 'number': {
-        const numA = extractNumber(a.title);
-        const numB = extractNumber(b.title);
-        if (numA !== numB) {
-          cmp = numA - numB;
-        } else {
-          cmp = a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' });
-        }
+      case 'number':
+        cmp = numKeys![i] !== numKeys![j] ? numKeys![i] - numKeys![j] : nameCollator.compare(a.title, b.title);
         break;
-      }
 
-      case 'date_mod': {
-        const dateA = a.dateModified || a.date || '';
-        const dateB = b.dateModified || b.date || '';
-        cmp = dateA.localeCompare(dateB);
+      case 'date_mod':
+        cmp = cmpStr(a.dateModified || a.date || '', b.dateModified || b.date || '');
         break;
-      }
 
-      case 'date_created': {
-        const dateA = a.dateCreated || a.date || '';
-        const dateB = b.dateCreated || b.date || '';
-        cmp = dateA.localeCompare(dateB);
+      case 'date_created':
+      case 'age':
+        // age: High age = earlier date / older file
+        cmp = cmpStr(a.dateCreated || a.date || '', b.dateCreated || b.date || '');
         break;
-      }
 
-      case 'age': {
-        // High age = earlier date / older file
-        const dateA = a.dateCreated || a.date || '';
-        const dateB = b.dateCreated || b.date || '';
-        // If sorting DESC by age (default): oldest first (earlier date first)
-        cmp = dateA.localeCompare(dateB);
+      case 'size':
+        cmp = sizeKeys![i] - sizeKeys![j];
         break;
-      }
 
-      case 'size': {
-        const sizeA = a.sizeBytes ?? parseSizeBytes(a.size);
-        const sizeB = b.sizeBytes ?? parseSizeBytes(b.size);
-        cmp = sizeA - sizeB;
+      case 'type':
+        cmp = cmpStr(typeKeys![i], typeKeys![j]);
+        if (cmp === 0) cmp = titleCollator.compare(a.title, b.title);
         break;
-      }
-
-      case 'type': {
-        const typeA = (a.exts?.[0] || a.type || '').toLowerCase();
-        const typeB = (b.exts?.[0] || b.type || '').toLowerCase();
-        cmp = typeA.localeCompare(typeB);
-        if (cmp === 0) {
-          cmp = a.title.localeCompare(b.title, undefined, { numeric: true });
-        }
-        break;
-      }
 
       default:
         cmp = 0;
@@ -174,8 +159,14 @@ export function sortEntries(
     return isAsc ? cmp : -cmp;
   });
 
-  return copy;
+  const sorted = new Array<AssetEntry>(n);
+  for (let i = 0; i < n; i++) sorted[i] = entries[order[i]];
+  return sorted;
 }
+
+const nameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+const titleCollator = new Intl.Collator(undefined, { numeric: true });
+const cmpStr = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
 /**
  * Extracts the initial letter/number glyph from a filename for the Name/Number watermark.

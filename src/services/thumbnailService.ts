@@ -264,16 +264,40 @@ export async function persistThumbnailToDisk(id: string, dataUrl: string): Promi
   }
 }
 
+const SERVER_THUMB_RE = /\.(jpe?g|png|gif|webp|avif|tiff?)$/i;
+
 /**
  * Checks if an asset has a missing thumbnail and generates + persists one if possible.
  * Works with IndexedDB pack blobs and server disk files (/api/file).
  */
-export async function ensureThumbnailForEntry(entry: AssetEntry): Promise<string | null> {
+export async function ensureThumbnailForEntry(
+  entry: AssetEntry,
+  options: { skipServer?: boolean } = {}
+): Promise<string | null> {
   if (entry.thumb && (entry.thumb.startsWith('/api/thumbnail/') || entry.thumb.startsWith('data:image/'))) {
     return entry.thumb;
   }
 
   try {
+    // Fast path: the server thumbnails raster images itself, so the browser never downloads the
+    // full-size file. Anything it cannot read falls through to the browser methods below.
+    if (!options.skipServer && !entry.isZipInnerFile && entry.filePath && SERVER_THUMB_RE.test(entry.filePath)) {
+      const serverUrl = await api.makeThumbnail(entry.id);
+      if (serverUrl) return serverUrl;
+    }
+
+    // Formats with their own cheap preview readers: fonts, PSD, EPS/AI/INDD, camera RAW, TIFF.
+    // Loaded on demand so their libraries stay out of the main bundle.
+    const special = await import('./specialThumbnails');
+    if (special.hasSpecialThumbnail(entry)) {
+      const url = await special.specialThumbnail(entry);
+      if (url) {
+        const persistedUrl = await persistThumbnailToDisk(entry.id, url);
+        return persistedUrl || url;
+      }
+      return null;
+    }
+
     // 0. Inner ZIP file on disk via server streaming
     if (entry.isZipInnerFile && entry.filePath && entry.zipInnerPath) {
       const isVideo = /\.(mp4|webm|mov|mkv|m4v)$/i.test(entry.title || '') || entry.type === 'video' || (entry.exts && ['mp4', 'webm', 'mov'].some((x) => entry.exts.includes(x)));

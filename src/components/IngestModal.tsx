@@ -60,7 +60,7 @@ export const IngestModal: React.FC<IngestModalProps> = ({
     closeBg: isLight ? 'rgba(15, 23, 42, 0.06)' : isMid ? 'rgba(11, 23, 36, 0.12)' : 'var(--well, #1d2d3d)',
     closeText: isLight ? '#0f172a' : isMid ? '#0b1724' : 'var(--ink, #e9edf2)'
   };
-  const [folderInput, setFolderInput] = useState('D:\\Archive');
+  const [folderInput, setFolderInput] = useState('');
   const [scanning, setScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dirInputRef = useRef<HTMLInputElement>(null);
@@ -248,7 +248,7 @@ export const IngestModal: React.FC<IngestModalProps> = ({
               lineHeight: 1.4
             }}
           >
-            Crawls local directories on Windows with zero memory limits. Parses zip central directories, indexes fonts, PSDs, videos & code into SQLite FTS5 index.
+            Crawls a local folder and its sub-folders. Lists the contents of zip, rar, 7z and other archives, and indexes fonts, PSDs, vectors, 3D, documents, video & code into a searchable library.
           </div>
 
           <div style={{ display: 'flex', gap: '8px' }}>
@@ -258,7 +258,7 @@ export const IngestModal: React.FC<IngestModalProps> = ({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleDiskScanSubmit();
               }}
-              placeholder="e.g. D:\Archive or C:\CreativeAssets"
+              placeholder="Folder to scan, e.g. C:\CreativeAssets"
               style={{
                 flex: 1,
                 padding: '10px 12px',
@@ -291,47 +291,6 @@ export const IngestModal: React.FC<IngestModalProps> = ({
             </button>
           </div>
 
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            <span
-              style={{
-                fontFamily: 'ui-monospace, Menlo, monospace',
-                fontSize: '9.5px',
-                color: c.textMuted
-              }}
-            >
-              Quick Presets:
-            </span>
-            <button
-              onClick={() => setFolderInput('D:\\Archive')}
-              style={{
-                padding: '3px 7px',
-                borderRadius: '5px',
-                background: c.btnSecBg,
-                border: c.btnSecBorder,
-                color: c.btnSecText,
-                fontFamily: 'ui-monospace, Menlo, monospace',
-                fontSize: '9px',
-                cursor: 'pointer'
-              }}
-            >
-              D:\Archive
-            </button>
-            <button
-              onClick={() => setFolderInput('D:\\Archive\\design_handoff_archive_library')}
-              style={{
-                padding: '3px 7px',
-                borderRadius: '5px',
-                background: c.btnSecBg,
-                border: c.btnSecBorder,
-                color: c.btnSecText,
-                fontFamily: 'ui-monospace, Menlo, monospace',
-                fontSize: '9px',
-                cursor: 'pointer'
-              }}
-            >
-              design_handoff
-            </button>
-          </div>
         </div>
 
         {/* Action 2: Browser Directory Picker */}

@@ -23,7 +23,7 @@ export function getDatabase() {
     // verbose: process.env.NODE_ENV === 'development' ? console.log : undefined
   });
 
-  // Performance Pragmas for high-throughput 20-year massive archives
+  // Performance pragmas for large libraries
   dbInstance.pragma('journal_mode = WAL');
   dbInstance.pragma('synchronous = NORMAL');
   dbInstance.pragma('foreign_keys = ON');
@@ -62,7 +62,6 @@ function initSchema(db) {
 
     CREATE INDEX IF NOT EXISTS idx_assets_cat ON assets(cat);
     CREATE INDEX IF NOT EXISTS idx_assets_type ON assets(type);
-    CREATE INDEX IF NOT EXISTS idx_assets_date ON assets(date);
     CREATE INDEX IF NOT EXISTS idx_assets_file_path ON assets(file_path);
 
     -- Inner files table for deep archive inspection
@@ -148,30 +147,29 @@ function initSchema(db) {
   try {
     db.exec(`ALTER TABLE assets ADD COLUMN folder_id TEXT`);
   } catch {}
-
-  // Auto-associate existing assets with their watched folders and compute real counts
+  // inspected: 0 = zip contents not read yet (stage-two queue), 1 = done or not applicable.
+  // Existing rows default to 1: the old scanner read zips inline.
   try {
-    const fLogo = db.prepare("SELECT id FROM watched_folders WHERE path = 'DM - logo videos'").get();
-    if (fLogo) {
-      db.prepare(`UPDATE assets SET folder_id = ?, file_path = coalesce(file_path, 'DM - logo videos/' || title) WHERE id LIKE 'pkg_1790788472%'`).run(fLogo.id);
-      const c = db.prepare("SELECT COUNT(*) as c FROM assets WHERE folder_id = ?").get(fLogo.id).c;
-      db.prepare("UPDATE watched_folders SET count = ? WHERE id = ?").run(c, fLogo.id);
+    db.exec(`ALTER TABLE assets ADD COLUMN inspected INTEGER DEFAULT 1`);
+  } catch {}
+  // One-time: archives other than zip were stored as a single item before 7-Zip support existed.
+  // Queue them so the background stage lists their real contents.
+  try {
+    const relisted = db.prepare("SELECT value FROM settings WHERE key = 'archives_relisted_v1'").get();
+    if (!relisted) {
+      db.prepare("UPDATE assets SET inspected = 0 WHERE type = 'zip' AND lower(file_path) NOT LIKE '%.zip'").run();
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('archives_relisted_v1', '1')").run();
     }
-    const fPersona = db.prepare("SELECT id FROM watched_folders WHERE path = 'DM - Persona videos'").get();
-    if (fPersona) {
-      db.prepare(`UPDATE assets SET folder_id = ?, file_path = coalesce(file_path, 'DM - Persona videos/' || title) WHERE id LIKE 'pkg_179078869%'`).run(fPersona.id);
-      const c = db.prepare("SELECT COUNT(*) as c FROM assets WHERE folder_id = ?").get(fPersona.id).c;
-      db.prepare("UPDATE watched_folders SET count = ? WHERE id = ?").run(c, fPersona.id);
-    }
-    const fDesign = db.prepare("SELECT id FROM watched_folders WHERE path LIKE '%design_handoff%'").get();
-    if (fDesign) {
-      db.prepare(`UPDATE assets SET folder_id = ? WHERE file_path LIKE '%design_handoff%'`).run(fDesign.id);
-      const c = db.prepare("SELECT COUNT(*) as c FROM assets WHERE folder_id = ?").get(fDesign.id).c;
-      db.prepare("UPDATE watched_folders SET count = ? WHERE id = ?").run(c, fDesign.id);
-    }
-  } catch (e) {
-    console.warn('[SQLite] Folder auto-association warning:', e.message);
-  }
+  } catch {}
+  // thumb_failed: 1 = a preview was attempted and could not be made; don't retry every launch.
+  try {
+    db.exec(`ALTER TABLE assets ADD COLUMN thumb_failed INTEGER DEFAULT 0`);
+  } catch {}
+  // (date, id) gives the paged listing a stable order; it also covers date-only lookups.
+  try {
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_assets_date_id ON assets(date, id)`);
+    db.exec(`DROP INDEX IF EXISTS idx_assets_date`);
+  } catch {}
 
   // Initialize SQLite FTS5 Full-Text Search virtual table
   try {
@@ -198,7 +196,10 @@ function initSchema(db) {
         DELETE FROM assets_fts WHERE id = old.id;
       END;
 
-      CREATE TRIGGER IF NOT EXISTS assets_au AFTER UPDATE ON assets BEGIN
+      -- Only re-index search text when a searchable column changes. Updating thumb, inspected or
+      -- thumb_failed (thousands of times during ingestion) must not touch the full-text index.
+      DROP TRIGGER IF EXISTS assets_au;
+      CREATE TRIGGER assets_au AFTER UPDATE OF title, cat, type, author, deps, search, file_path ON assets BEGIN
         DELETE FROM assets_fts WHERE id = old.id;
         INSERT INTO assets_fts(id, title, cat, type, author, deps, search, file_path)
         VALUES (new.id, new.title, new.cat, new.type, new.author, new.deps, new.search, new.file_path);
@@ -236,7 +237,8 @@ function formatAssetRow(row) {
     folderId: row.folder_id || null,
     search: row.search || '',
     demo: row.demo || '',
-    isUserUploaded: Boolean(row.is_user_uploaded)
+    isUserUploaded: Boolean(row.is_user_uploaded),
+    thumbFailed: Boolean(row.thumb_failed)
   };
 }
 
@@ -283,7 +285,7 @@ export function queryAssets({ q = '', cat = '', type = '', limit = 10000, offset
   const safeSort = allowedSorts.includes(sort) ? sort : 'date';
   const safeOrder = order.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 
-  sql += ` ORDER BY ${safeSort} ${safeOrder} LIMIT ? OFFSET ?`;
+  sql += ` ORDER BY ${safeSort} ${safeOrder}, id ${safeOrder} LIMIT ? OFFSET ?`;
   params.push(limit, offset);
 
   try {
@@ -328,11 +330,31 @@ function queryAssetsFallback({ q = '', cat = '', type = '', limit = 10000, offse
   const safeSort = allowedSorts.includes(sort) ? sort : 'date';
   const safeOrder = order.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 
-  sql += ` ORDER BY ${safeSort} ${safeOrder} LIMIT ? OFFSET ?`;
+  sql += ` ORDER BY ${safeSort} ${safeOrder}, id ${safeOrder} LIMIT ? OFFSET ?`;
   params.push(limit, offset);
 
   const rows = db.prepare(sql).all(...params);
   return rows.map(formatAssetRow);
+}
+
+/**
+ * Total assets matching the cheap filters (no free-text). Lets the client page through the
+ * whole library and show "N of total" while it loads.
+ */
+export function countAssets({ cat = '', type = '' } = {}) {
+  const db = getDatabase();
+  const where = [];
+  const params = [];
+  if (cat && cat.trim()) {
+    where.push('cat = ?');
+    params.push(cat.trim());
+  }
+  if (type && type.trim()) {
+    where.push('type = ?');
+    params.push(type.trim());
+  }
+  const sql = 'SELECT COUNT(*) AS c FROM assets' + (where.length ? ' WHERE ' + where.join(' AND ') : '');
+  return db.prepare(sql).get(...params).c;
 }
 
 export function getAssetById(id) {
@@ -353,10 +375,10 @@ export function upsertAsset(asset, innerFiles = []) {
   const stmt = db.prepare(`
     INSERT INTO assets (
       id, title, cat, type, author, date, deps, size, file_count, exts,
-      thumb, pack_id, file_path, folder_id, search, demo, is_user_uploaded, created_at, updated_at
+      thumb, pack_id, file_path, folder_id, search, demo, is_user_uploaded, inspected, created_at, updated_at
     ) VALUES (
       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-      ?, ?, ?, ?, ?, ?, ?, ?, ?
+      ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
     )
     ON CONFLICT(id) DO UPDATE SET
       title = excluded.title,
@@ -375,6 +397,7 @@ export function upsertAsset(asset, innerFiles = []) {
       search = excluded.search,
       demo = excluded.demo,
       is_user_uploaded = excluded.is_user_uploaded,
+      inspected = excluded.inspected,
       updated_at = excluded.updated_at
   `);
 
@@ -407,6 +430,7 @@ export function upsertAsset(asset, innerFiles = []) {
       asset.search || '',
       asset.demo || '',
       asset.isUserUploaded === false ? 0 : 1,
+      asset.inspected === 0 ? 0 : 1,
       now,
       now
     );
@@ -431,10 +455,10 @@ export function upsertAssetsBulk(assets) {
   const stmt = db.prepare(`
     INSERT INTO assets (
       id, title, cat, type, author, date, deps, size, file_count, exts,
-      thumb, pack_id, file_path, folder_id, search, demo, is_user_uploaded, created_at, updated_at
+      thumb, pack_id, file_path, folder_id, search, demo, is_user_uploaded, inspected, created_at, updated_at
     ) VALUES (
       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-      ?, ?, ?, ?, ?, ?, ?, ?, ?
+      ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
     )
     ON CONFLICT(id) DO UPDATE SET
       title = excluded.title,
@@ -453,17 +477,21 @@ export function upsertAssetsBulk(assets) {
       search = excluded.search,
       demo = excluded.demo,
       is_user_uploaded = excluded.is_user_uploaded,
+      inspected = excluded.inspected,
       updated_at = excluded.updated_at
   `);
 
   const THUMBNAILS_DIR = path.resolve(__dirname, '..', '.thumbnails');
+  let thumbsOnDisk = new Set();
+  try {
+    thumbsOnDisk = new Set(fs.readdirSync(THUMBNAILS_DIR));
+  } catch {}
   const tx = db.transaction((list) => {
     for (const asset of list) {
       let finalThumb = asset.thumb || null;
       if (!finalThumb) {
         const safeId = String(asset.id).replace(/[^a-zA-Z0-9_-]/g, '_');
-        const thumbFile = path.join(THUMBNAILS_DIR, `${safeId}.jpg`);
-        if (fs.existsSync(thumbFile)) {
+        if (thumbsOnDisk.has(`${safeId}.jpg`)) {
           finalThumb = `/api/thumbnail/${safeId}.jpg`;
         }
       }
@@ -485,6 +513,7 @@ export function upsertAssetsBulk(assets) {
         asset.search || '',
         asset.demo || '',
         asset.isUserUploaded === false ? 0 : 1,
+        asset.inspected === 0 ? 0 : 1,
         now,
         now
       );
@@ -493,6 +522,68 @@ export function upsertAssetsBulk(assets) {
 
   tx(assets);
   return assets.length;
+}
+
+/** Map of every stored asset id to its file path. The scanner uses it to skip files it has already indexed. */
+export function getAllAssetPaths() {
+  const db = getDatabase();
+  const map = new Map();
+  for (const row of db.prepare('SELECT id, file_path FROM assets').iterate()) {
+    map.set(row.id, row.file_path);
+  }
+  return map;
+}
+
+/** Zips whose contents have not been read yet (stage two of ingestion). */
+export function getPendingZips() {
+  const db = getDatabase();
+  return db
+    .prepare("SELECT id, title, cat, type, file_path AS filePath FROM assets WHERE type = 'zip' AND inspected = 0")
+    .all();
+}
+
+export function countPendingZips() {
+  const db = getDatabase();
+  return db.prepare("SELECT COUNT(*) AS c FROM assets WHERE type = 'zip' AND inspected = 0").get().c;
+}
+
+/**
+ * Writes the results of reading zip central directories in one transaction.
+ * results: [{ id, title, cat, type, filePath, fileCount, exts, files }]
+ */
+export function applyZipInspections(results) {
+  const db = getDatabase();
+  const upd = db.prepare(
+    'UPDATE assets SET file_count = ?, exts = ?, deps = ?, search = ?, inspected = 1, updated_at = ? WHERE id = ?'
+  );
+  const delFiles = db.prepare('DELETE FROM asset_files WHERE asset_id = ?');
+  const insFile = db.prepare('INSERT INTO asset_files (asset_id, path, size, ext) VALUES (?, ?, ?, ?)');
+  const now = Date.now();
+  const tx = db.transaction((list) => {
+    for (const r of list) {
+      const exts = r.exts && r.exts.length ? r.exts : ['zip'];
+      const fileName = r.filePath ? path.basename(r.filePath) : r.title;
+      const search = `${r.title} ${fileName} ${r.filePath || ''} ${r.cat} ${r.type} ${exts.join(' ')}`;
+      const deps = r.encrypted ? `${r.fileCount} items · password protected` : `${r.fileCount} items`;
+      upd.run(r.fileCount, JSON.stringify(exts), deps, search, now, r.id);
+      if (r.files && r.files.length > 0) {
+        delFiles.run(r.id);
+        for (const f of r.files) insFile.run(r.id, f.path, f.size || 0, f.ext || '');
+      }
+    }
+  });
+  tx(results);
+}
+
+/** Remember previews that could not be generated so they are not retried on every launch. */
+export function markThumbsFailed(ids) {
+  const db = getDatabase();
+  const stmt = db.prepare('UPDATE assets SET thumb_failed = 1 WHERE id = ?');
+  const tx = db.transaction((list) => {
+    for (const id of list) stmt.run(id);
+  });
+  tx(ids);
+  return ids.length;
 }
 
 export function updateAssetCategory(id, newCat) {

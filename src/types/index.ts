@@ -9,6 +9,10 @@ export type AssetType =
   | 'ai'
   | 'prproj'
   | 'icon'
+  | '3d'
+  | 'raw'
+  | 'swf'
+  | 'doc'
   | 'file';
 
 export interface AssetEntry {
@@ -23,6 +27,8 @@ export interface AssetEntry {
   fileCount: number;
   exts: string[];
   thumb: string | null;
+  /** A preview was attempted and could not be made; do not retry automatically */
+  thumbFailed?: boolean;
   packId: string | null;
   search: string;
   demo: string;
@@ -90,7 +96,10 @@ export type SortOption =
 
 export type SortDirection = 'asc' | 'desc';
 
-export type MaxPerPage = 'ALL' | 256 | 128 | 64 | 48 | 32 | 24 | 16;
+/** How zip files appear in the main library view */
+export type ZipMode = 'show' | 'hide' | 'only';
+
+export type MaxPerPage ='ALL' | 256 | 128 | 64 | 48 | 32 | 24 | 16;
 export const MAX_PER_PAGE_OPTIONS: MaxPerPage[] = ['ALL', 256, 128, 64, 48, 32, 24, 16];
 
 export interface ZipFileInfo {

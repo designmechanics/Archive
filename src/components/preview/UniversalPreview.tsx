@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import gsap from 'gsap';
 import { AssetEntry, ZipPack, ThemeMode } from '../../types';
 import { getPackBlob } from '../../services/db';
-import { detectFormat, PreviewFormat } from './types';
+import { detectFormat, PreviewFormat, BINARY_FORMATS } from './types';
 import { ImageViewer } from './ImageViewer';
 import { VideoViewer } from './VideoViewer';
 import { AudioViewer } from './AudioViewer';
-import { ThreeViewer } from './ThreeViewer';
 import { VectorViewer } from './VectorViewer';
 import { MarkdownViewer } from './MarkdownViewer';
 import { DocViewer } from './DocViewer';
@@ -15,6 +14,20 @@ import { JsonViewer } from './JsonViewer';
 import { CssViewer } from './CssViewer';
 import { HtmlViewer } from './HtmlViewer';
 import { PdfViewer } from './PdfViewer';
+
+// Heavier viewers (and their libraries) load only when a file of that kind is opened
+const ThreeViewer = React.lazy(() => import('./ThreeViewer').then((m) => ({ default: m.ThreeViewer })));
+const FontViewer = React.lazy(() => import('./FontViewer'));
+const Type1Viewer = React.lazy(() => import('./Type1Viewer'));
+const LegacyOfficeViewer = React.lazy(() => import('./LegacyOfficeViewer'));
+const BinaryViewer = React.lazy(() => import('./BinaryViewer'));
+const BlendViewer = React.lazy(() => import('./BlendViewer'));
+const DatabaseViewer = React.lazy(() => import('./DatabaseViewer'));
+const PsdViewer = React.lazy(() => import('./PsdViewer'));
+const PostscriptViewer = React.lazy(() => import('./PostscriptViewer'));
+const RasterViewer = React.lazy(() => import('./RasterViewer'));
+const SwfViewer = React.lazy(() => import('./SwfViewer'));
+const OfficeViewer = React.lazy(() => import('./OfficeViewer'));
 
 interface UniversalPreviewProps {
   theme?: ThemeMode;
@@ -60,17 +73,27 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
     }
     switch (entry.type) {
       case 'photo':
-      case 'psd':
         return 'image';
+      case 'psd':
+        return 'psd';
+      case 'ai':
+        return 'postscript';
       case 'svg':
       case 'icon':
-      case 'ai':
         return 'vector';
       case 'video':
       case 'prproj':
         return 'video';
       case 'font':
-        return 'doc';
+        return 'font';
+      case '3d':
+        return '3d';
+      case 'raw':
+        return 'raster';
+      case 'swf':
+        return 'swf';
+      case 'doc':
+        return 'office';
       case 'code':
         return 'html';
       default:
@@ -81,9 +104,24 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
   const detectedFormat = useMemo<PreviewFormat>(computeInitialFormat, [entry, pack, packSel]);
   const [activeFormat, setActiveFormat] = useState<PreviewFormat>(computeInitialFormat);
   const [contentString, setContentString] = useState<string>('');
-  const initialMediaUrl = entry.id && ['image', 'video', 'audio', '3d', 'pdf'].includes(detectedFormat)
-    ? `/api/file?id=${encodeURIComponent(entry.id)}`
-    : null;
+
+  // Where the server serves this file from. A file inside a disk-indexed archive is addressed by
+  // the archive's path plus the inner path (the inner id is not a database id).
+  const fileUrl = useMemo(() => {
+    if (entry.isZipInnerFile && entry.filePath && entry.zipInnerPath) {
+      return `/api/file?path=${encodeURIComponent(entry.filePath)}&entry=${encodeURIComponent(entry.zipInnerPath)}`;
+    }
+    return entry.id ? `/api/file?id=${encodeURIComponent(entry.id)}` : '';
+  }, [entry]);
+
+  // Query string for the optional Ghostscript renderer (whole files on disk only)
+  const serverParams = useMemo(() => {
+    if (entry.isZipInnerFile || packSel) return undefined;
+    if (entry.filePath) return `path=${encodeURIComponent(entry.filePath)}`;
+    return entry.id ? `id=${encodeURIComponent(entry.id)}` : undefined;
+  }, [entry, packSel]);
+
+  const initialMediaUrl = fileUrl && BINARY_FORMATS.includes(detectedFormat) ? fileUrl : null;
   const [mediaBlobUrl, setMediaBlobUrl] = useState<string | null>(initialMediaUrl);
   const [isLoading, setIsLoading] = useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -167,7 +205,7 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
 
         // If we have a blob and format is media/pdf
         if (blobToUse && !isCancelled) {
-          if (['image', 'video', 'audio', '3d', 'pdf'].includes(activeFormat)) {
+          if (BINARY_FORMATS.includes(activeFormat)) {
             const newUrl = URL.createObjectURL(blobToUse);
             if (activeBlobUrlRef.current && activeBlobUrlRef.current.startsWith('blob:') && activeBlobUrlRef.current !== newUrl) {
               URL.revokeObjectURL(activeBlobUrlRef.current);
@@ -187,15 +225,14 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
         }
 
         // Direct fallback: if no in-memory blob, but file is available on server /api/file
-        if (!blobToUse && entry.id && !isCancelled) {
-          if (['image', 'video', 'audio', '3d', 'pdf'].includes(activeFormat)) {
-            const streamUrl = `/api/file?id=${encodeURIComponent(entry.id)}`;
-            setMediaBlobUrl(streamUrl);
+        if (!blobToUse && fileUrl && !isCancelled) {
+          if (BINARY_FORMATS.includes(activeFormat)) {
+            setMediaBlobUrl(fileUrl);
             setIsLoading(false);
             return;
           } else if (['code', 'markdown', 'doc', 'json', 'css', 'html', 'vector'].includes(activeFormat)) {
             try {
-              const res = await fetch(`/api/file?id=${encodeURIComponent(entry.id)}`);
+              const res = await fetch(fileUrl);
               if (res.ok) {
                 const txt = await res.text();
                 if (!isCancelled) {
@@ -266,6 +303,15 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
   }, [detectedFormat]);
 
   const activeTitle = packSel ? packSel.split('/').pop() || packSel : entry.title;
+  // Extension of the file being shown (inner file of an archive, else the asset itself)
+  const activeExt = (
+    (packSel ? packSel.split('.').pop() : entry.isZipInnerFile && entry.zipInnerPath ? entry.zipInnerPath.split('.').pop() : entry.title.split('.').pop()) ||
+    entry.exts?.[0] ||
+    ''
+  ).toLowerCase();
+  const lazyFallback = (
+    <div style={{ margin: 'auto', fontFamily: 'ui-monospace, monospace', fontSize: 11, opacity: 0.7 }}>Loading viewer…</div>
+  );
 
   return (
     <div
@@ -470,14 +516,102 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
           />
         );
 
+      case 'font':
+        return (
+          <Suspense fallback={lazyFallback}>
+            <FontViewer src={mediaBlobUrl || fileUrl} name={activeTitle} ext={activeExt} />
+          </Suspense>
+        );
+
+      case 'type1':
+        return (
+          <Suspense fallback={lazyFallback}>
+            <Type1Viewer src={mediaBlobUrl || fileUrl} name={activeTitle} />
+          </Suspense>
+        );
+
+      case 'legacydoc':
+        return (
+          <Suspense fallback={lazyFallback}>
+            <LegacyOfficeViewer src={mediaBlobUrl || fileUrl} name={activeTitle} ext={activeExt} />
+          </Suspense>
+        );
+
+      case 'blend':
+        return (
+          <Suspense fallback={lazyFallback}>
+            <BlendViewer src={mediaBlobUrl || fileUrl} name={activeTitle} />
+          </Suspense>
+        );
+
+      case 'binary':
+        return (
+          <Suspense fallback={lazyFallback}>
+            <BinaryViewer src={mediaBlobUrl || fileUrl} name={activeTitle} />
+          </Suspense>
+        );
+
+      case 'database':
+        return (
+          <Suspense fallback={lazyFallback}>
+            <DatabaseViewer src={mediaBlobUrl || fileUrl} name={activeTitle} serverParams={serverParams} />
+          </Suspense>
+        );
+
+      case 'psd':
+        return (
+          <Suspense fallback={lazyFallback}>
+            <PsdViewer src={mediaBlobUrl || fileUrl} name={activeTitle} />
+          </Suspense>
+        );
+
+      case 'postscript':
+        return (
+          <Suspense fallback={lazyFallback}>
+            <PostscriptViewer
+              src={mediaBlobUrl || fileUrl}
+              name={activeTitle}
+              // Ghostscript is only ever used for EPS files
+              serverParams={activeExt === 'eps' ? serverParams : undefined}
+            />
+          </Suspense>
+        );
+
+      case 'raster':
+        return (
+          <Suspense fallback={lazyFallback}>
+            <RasterViewer
+              src={mediaBlobUrl || fileUrl}
+              name={activeTitle}
+              mode={activeExt === 'tif' || activeExt === 'tiff' ? 'tiff' : 'raw'}
+            />
+          </Suspense>
+        );
+
+      case 'swf':
+        return (
+          <Suspense fallback={lazyFallback}>
+            <SwfViewer src={mediaBlobUrl || fileUrl} name={activeTitle} />
+          </Suspense>
+        );
+
+      case 'office':
+        return (
+          <Suspense fallback={lazyFallback}>
+            <OfficeViewer src={mediaBlobUrl || fileUrl} name={activeTitle} ext={activeExt} />
+          </Suspense>
+        );
+
       case '3d':
         return (
-          <ThreeViewer
-            src={mediaBlobUrl || (entry.id ? `/api/file?id=${encodeURIComponent(entry.id)}` : '')}
-            name={activeTitle}
-            ext={((packSel ? packSel.split('.').pop() : (entry.title ? entry.title.split('.').pop() : (entry.exts && entry.exts[0]))) || '').toLowerCase()}
-            theme={theme}
-          />
+          <Suspense fallback={lazyFallback}>
+            <ThreeViewer
+              src={mediaBlobUrl || fileUrl}
+              name={activeTitle}
+              ext={activeExt}
+              theme={theme}
+            />
+          </Suspense>
         );
 
       case 'vector':

@@ -1542,7 +1542,7 @@ export const Stage: React.FC<StageProps> = React.memo(({
                     boxShadow: isBlack ? '0 0 6px rgba(255,255,255,.7)' : '0 0 6px rgba(56,239,125,.7)'
                   }}
                 />
-                SQLite WAL Active · D:\Archive\archive.db
+                SQLite WAL Active · archive.db
               </div>
               <div
                 style={{
@@ -1565,7 +1565,7 @@ export const Stage: React.FC<StageProps> = React.memo(({
                   lineHeight: 1.5
                 }}
               >
-                Zero mock assets. Ready for your 20 years of creative assets. Ingest zips, drop loose files, or run the high-speed disk crawler into SQLite.
+                Nothing indexed yet. Ingest a zip, drop loose files, or scan a folder to build your library.
               </div>
 
             </div>

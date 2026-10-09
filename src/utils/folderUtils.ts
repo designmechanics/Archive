@@ -28,7 +28,7 @@ export function isEntryInFolder(entry: AssetEntry, folder: WatchedFolder): boole
     }
   }
 
-  // 2. Check author string (e.g. "local · DM - logo videos" or "local · design_handoff_archive_library")
+  // 2. Check author string (scanned assets are labelled "local · <folder name>")
   if (entry.author) {
     const authorLower = entry.author.toLowerCase();
     if (

@@ -162,6 +162,35 @@ graph LR
 
 </details>
 
+#### More formats, loaded on demand
+
+These viewers load only when you open a file of that kind, so they cost nothing at start-up:
+
+| Files | Viewer |
+|---|---|
+| `ttf` `otf` `woff` `woff2` `ttc` `dfont` | Font specimen, glyph grid, OpenType features, variable-font axes, metadata |
+| `pfb` `pfm` `afm` (Type 1) | Outline specimen drawn from the font program, plus metrics and kerning tables |
+| `psd` `psb` | Flattened image, layer list with visibility toggles, PNG export |
+| `eps` `ai` `indd` | Embedded preview, PDF-based Illustrator files, header details, PostScript source |
+| `tif` `tiff`, `cr2` `nef` `dng` `arw` | TIFF decoder; camera RAW shows its embedded JPEG plus EXIF |
+| `swf` | Flash player ([Ruffle](https://github.com/ruffle-rs/ruffle)) |
+| `docx` `xlsx` `xls` `csv`, `doc` `ppt` | Word, spreadsheets and old Office files (text, slides, properties) |
+| `glb` `gltf` `obj` `stl` `fbx` `dae` `ply` `3mf` `vrm` | 3D viewer; Draco, Meshopt and KTX2 compressed glTF supported |
+| `blend` | The preview picture stored in the Blender file |
+| `exe` `dll` `qxp` and other binaries | Icon, version info, imports, text strings, hex dump, embedded pictures |
+| `db` | Thumbs.db picture galleries, SQLite table browser |
+
+#### Archives
+
+`zip` files are read directly (central directory only, so even multi-gigabyte archives open instantly).
+`rar`, `7z`, `tar`, `tar.gz`, `iso`, `cab`, `dmg`, `epub` and many more open through [7-Zip](https://www.7-zip.org/) when it is installed
+(it is found automatically, or set `SEVENZIP_PATH`). Individual files inside any archive can be previewed with the viewers above.
+
+#### Optional helpers
+
+- **7-Zip**: archives other than zip (see above).
+- **Ghostscript**: used only to draw `.eps` files that have no preview picture inside them. Found automatically, or set `GHOSTSCRIPT_PATH`. Never bundled.
+
 ---
 
 ### 🗂️ 4. Customizable Category Pools (Example Starter Template) & 3D "Throw" Curation

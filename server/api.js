@@ -1,10 +1,15 @@
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import JSZip from 'jszip';
+import { serveArchiveEntry, listArchive, findSevenZip } from './archiveReader.js';
+import { findGhostscript, renderEpsToPng, isEpsPath } from './ghostscript.js';
+import { canMakeThumbnail, makeImageThumbnail } from './thumbMaker.js';
+import { isSqliteFile, inspectSqlite } from './sqliteInspect.js';
 
 import {
   queryAssets,
+  countAssets,
+  markThumbsFailed,
   getAssetById,
   upsertAsset,
   upsertAssetsBulk,
@@ -31,7 +36,7 @@ import {
   DB_PATH
 } from './db.js';
 
-import { scanDirectoryOnDisk, scannerState } from './scanner.js';
+import { scanDirectoryOnDisk, scannerState, startZipStage } from './scanner.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -71,55 +76,79 @@ const MIME_TYPES = {
   '.vrm': 'model/gltf-binary',
   '.vrma': 'model/gltf-binary',
   '.obj': 'text/plain',
-  '.stl': 'model/stl'
+  '.stl': 'model/stl',
+  '.fbx': 'application/octet-stream',
+  '.dae': 'model/vnd.collada+xml',
+  '.ply': 'application/octet-stream',
+  '.3mf': 'model/3mf',
+  '.psd': 'image/vnd.adobe.photoshop',
+  '.psb': 'application/octet-stream',
+  '.eps': 'application/postscript',
+  '.ai': 'application/illustrator',
+  '.ttc': 'font/collection',
+  '.eot': 'application/vnd.ms-fontobject',
+  '.tif': 'image/tiff',
+  '.tiff': 'image/tiff',
+  '.bmp': 'image/bmp',
+  '.ico': 'image/x-icon',
+  '.swf': 'application/x-shockwave-flash',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.csv': 'text/csv',
+  '.xml': 'application/xml',
+  '.md': 'text/markdown',
+  '.mkv': 'video/x-matroska',
+  '.m4v': 'video/mp4',
+  '.ogg': 'audio/ogg',
+  '.flac': 'audio/flac',
+  '.aac': 'audio/aac',
+  '.iso': 'application/x-iso9660-image',
+  '.rar': 'application/vnd.rar',
+  '.7z': 'application/x-7z-compressed',
+  '.tar': 'application/x-tar',
+  '.gz': 'application/gzip'
 };
 
 /**
- * Handle streaming an individual file from inside a ZIP archive on disk
+ * Handle streaming an individual file from inside an archive on disk (zip, rar, 7z, tar, tar.gz, iso...)
  */
-async function handleZipEntryStream(req, res, zipPath, innerPath) {
-  if (!fs.existsSync(zipPath)) {
+function handleArchiveEntryStream(req, res, archivePath, innerPath) {
+  const resolved = resolveDiskPath(archivePath);
+  if (!resolved) {
     res.statusCode = 404;
     return res.end('Archive not found');
   }
-  try {
-    const data = await fs.promises.readFile(zipPath);
-    const zip = await JSZip.loadAsync(data);
-    const file = zip.file(innerPath);
-    if (!file) {
-      res.statusCode = 404;
-      return res.end('File not found in archive');
-    }
-    const ext = path.extname(innerPath).toLowerCase();
-    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-    const buffer = await file.async('nodebuffer');
-
-    const range = req.headers.range;
-    if (range) {
-      const parts = range.replace(/bytes=/, '').split('-');
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : buffer.length - 1;
-      const chunksize = end - start + 1;
-
-      res.writeHead(206, {
-        'Content-Range': `bytes ${start}-${end}/${buffer.length}`,
-        'Accept-Ranges': 'bytes',
-        'Content-Length': chunksize,
-        'Content-Type': contentType
-      });
-      return res.end(buffer.subarray(start, end + 1));
-    }
-
-    res.writeHead(200, {
-      'Content-Length': buffer.length,
-      'Content-Type': contentType,
-      'Accept-Ranges': 'bytes'
-    });
-    return res.end(buffer);
-  } catch (err) {
-    res.statusCode = 500;
-    return res.end('Error reading archive entry: ' + err.message);
+  if (!innerPath || innerPath.includes('\0')) {
+    res.statusCode = 400;
+    return res.end('Bad entry path');
   }
+  return serveArchiveEntry(req, res, resolved, innerPath, (p) => {
+    return MIME_TYPES[path.extname(p).toLowerCase()] || 'application/octet-stream';
+  });
+}
+
+/**
+ * Makes and saves a thumbnail for one asset id. Resolves to { thumbUrl } or { status, error }.
+ * 415 = not a type the server can do, 422 = the image could not be read.
+ */
+async function makeServerThumbnail(id) {
+  const db = getDatabase();
+  const row = id ? db.prepare('SELECT file_path FROM assets WHERE id = ?').get(id) : null;
+  if (!row || !row.file_path) return { status: 404, error: 'unknown asset' };
+  if (!canMakeThumbnail(row.file_path)) return { status: 415, error: 'unsupported type' };
+  const source = resolveDiskPath(row.file_path);
+  if (!source) return { status: 404, error: 'file missing' };
+
+  const safeId = id.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filename = `${safeId}.jpg`;
+  try {
+    await makeImageThumbnail(source, path.join(THUMBNAILS_DIR, filename));
+  } catch (err) {
+    return { status: 422, error: err.message };
+  }
+  const thumbUrl = `/api/thumbnail/${filename}`;
+  db.prepare('UPDATE assets SET thumb = ? WHERE id = ?').run(thumbUrl, id);
+  return { thumbUrl };
 }
 
 function sendJson(res, data, statusCode = 200) {
@@ -158,10 +187,6 @@ function resolveDiskPath(filePath) {
   if (fs.existsSync(p)) return p;
   p = path.resolve(ROOT_DIR, 'public', filePath.replace(/^public[\\/]/, ''));
   if (fs.existsSync(p)) return p;
-  p = path.resolve('D:\\Artistream', filePath);
-  if (fs.existsSync(p)) return p;
-  p = path.resolve('D:\\Artistream\\public', filePath.replace(/^public[\\/]/, ''));
-  if (fs.existsSync(p)) return p;
   return null;
 }
 
@@ -185,9 +210,10 @@ function handleFileStream(req, res, filePath) {
   if (range) {
     const parts = range.replace(/bytes=/, '').split('-');
     const start = parseInt(parts[0], 10);
-    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+    // An end past the last byte is clamped, as the HTTP spec says (small files asked for a big window)
+    const end = parts[1] ? Math.min(parseInt(parts[1], 10), fileSize - 1) : fileSize - 1;
 
-    if (start >= fileSize || end >= fileSize) {
+    if (isNaN(start) || start >= fileSize || end < start) {
       res.statusCode = 416;
       res.setHeader('Content-Range', `bytes */${fileSize}`);
       return res.end();
@@ -258,12 +284,13 @@ export async function handleApiRequest(req, res, next) {
         q: q ? String(q) : '',
         cat: cat ? String(cat) : '',
         type: type ? String(type) : '',
-        limit: limit ? parseInt(String(limit), 10) : 50000,
+        limit: Math.min(limit ? parseInt(String(limit), 10) : 20000, 50000),
         offset: offset ? parseInt(String(offset), 10) : 0,
         sort: sort ? String(sort) : 'date',
         order: order ? String(order) : 'desc'
       });
-      return sendJson(res, { success: true, count: assets.length, assets });
+      const total = q ? null : countAssets({ cat: cat ? String(cat) : '', type: type ? String(type) : '' });
+      return sendJson(res, { success: true, count: assets.length, total, assets });
     }
 
     // 3. Clear All Assets
@@ -391,6 +418,10 @@ export async function handleApiRequest(req, res, next) {
         const body = await parseBody(req);
         const targetPath = body.folderPath || path.resolve('.');
 
+        if (scannerState.status === 'scanning' || scannerState.status === 'indexing') {
+          return sendJson(res, { success: false, alreadyRunning: true, status: scannerState });
+        }
+
         // Run scan asynchronously in background
         scanDirectoryOnDisk(targetPath).catch((err) => {
           console.error('[Scanner] Background scan error:', err);
@@ -404,6 +435,85 @@ export async function handleApiRequest(req, res, next) {
           status: scannerState
         });
       }
+    }
+
+    // Full file list of one archive (the index keeps only the first 500 per archive)
+    if (pathname === '/api/archive/list' && req.method === 'GET') {
+      let target = query.path ? String(query.path) : null;
+      if (!target && query.id) {
+        const asset = getAssetById(String(query.id));
+        if (asset && asset.filePath) target = asset.filePath;
+      }
+      const resolved = resolveDiskPath(target);
+      if (!resolved) return sendJson(res, { success: false, error: 'Archive not found' }, 404);
+      try {
+        const listing = await listArchive(resolved, { maxInner: 200000 });
+        return sendJson(res, {
+          success: true,
+          fileCount: listing.fileCount,
+          encrypted: Boolean(listing.encrypted),
+          truncated: listing.fileCount > listing.files.length,
+          files: listing.files
+        });
+      } catch (err) {
+        return sendJson(res, { success: false, error: err.message, sevenZip: Boolean(findSevenZip()) }, 500);
+      }
+    }
+
+    if (pathname === '/api/archive/info' && req.method === 'GET') {
+      return sendJson(res, { success: true, sevenZip: findSevenZip(), ghostscript: findGhostscript() });
+    }
+
+    // Read-only look inside an SQLite file (tables, columns, first rows)
+    if (pathname === '/api/sqlite/inspect' && req.method === 'GET') {
+      let target = query.path ? String(query.path) : null;
+      if (!target && query.id) {
+        const asset = getAssetById(String(query.id));
+        if (asset && asset.filePath) target = asset.filePath;
+      }
+      const resolved = resolveDiskPath(target);
+      if (!resolved) return sendJson(res, { success: false, error: 'File not found' }, 404);
+      if (!isSqliteFile(resolved)) return sendJson(res, { success: false, error: 'Not an SQLite database' }, 415);
+      try {
+        return sendJson(res, { success: true, ...inspectSqlite(resolved) });
+      } catch (err) {
+        return sendJson(res, { success: false, error: err.message }, 500);
+      }
+    }
+
+    // Ghostscript rendering: EPS files only, used when the file has no preview picture of its own
+    if (pathname === '/api/render/eps' && req.method === 'GET') {
+      let target = query.path ? String(query.path) : null;
+      if (!target && query.id) {
+        const asset = getAssetById(String(query.id));
+        if (asset && asset.filePath) target = asset.filePath;
+      }
+      const resolved = resolveDiskPath(target);
+      if (!resolved) {
+        res.statusCode = 404;
+        return res.end('File not found');
+      }
+      if (!isEpsPath(resolved)) {
+        res.statusCode = 415;
+        return res.end('Only EPS files are rendered with Ghostscript');
+      }
+      if (!findGhostscript()) {
+        res.statusCode = 501;
+        return res.end('Ghostscript is not installed');
+      }
+      try {
+        const png = await renderEpsToPng(resolved);
+        res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': png.length, 'Cache-Control': 'max-age=3600' });
+        return res.end(png);
+      } catch (err) {
+        res.statusCode = 500;
+        return res.end('Render failed: ' + err.message);
+      }
+    }
+
+    // Stage two: read the contents of any zips still waiting (idempotent, returns live state)
+    if (pathname === '/api/zips/process' && req.method === 'POST') {
+      return sendJson(res, { success: true, zips: startZipStage() });
     }
 
     if (pathname === '/api/scan/status' && req.method === 'GET') {
@@ -422,8 +532,24 @@ export async function handleApiRequest(req, res, next) {
       if (!targetFilePath) {
         return sendJson(res, { error: 'Path or id parameter required' }, 400);
       }
+      // A sibling of the model file (textures / .bin referenced by a .gltf), kept inside its folder
+      if (query.rel) {
+        const base = resolveDiskPath(targetFilePath);
+        if (!base) {
+          res.statusCode = 404;
+          return res.end('File not found');
+        }
+        const dir = path.dirname(base);
+        const sibling = path.resolve(dir, String(query.rel).replace(/\\/g, '/'));
+        const inside = path.relative(dir, sibling);
+        if (inside.startsWith('..') || path.isAbsolute(inside)) {
+          res.statusCode = 403;
+          return res.end('Outside the model folder');
+        }
+        return handleFileStream(req, res, sibling);
+      }
       if (query.entry) {
-        return handleZipEntryStream(req, res, targetFilePath, String(query.entry));
+        return handleArchiveEntryStream(req, res, targetFilePath, String(query.entry));
       }
       return handleFileStream(req, res, targetFilePath);
     }
@@ -446,6 +572,39 @@ export async function handleApiRequest(req, res, next) {
       db.prepare('UPDATE assets SET thumb = ? WHERE id = ?').run(thumbUrl, body.id);
 
       return sendJson(res, { success: true, thumbUrl });
+    }
+
+    // Make a thumbnail on the server (raster images only). 415 = not a type the server can do,
+    // 422 = the image could not be read; the client falls back to browser rendering in both cases.
+    if (pathname === '/api/thumb/make' && req.method === 'POST') {
+      const body = await parseBody(req);
+      const r = await makeServerThumbnail(body.id ? String(body.id) : '');
+      if (r.thumbUrl) return sendJson(res, { success: true, thumbUrl: r.thumbUrl });
+      return sendJson(res, { success: false, error: r.error, unsupported: r.status === 415 }, r.status);
+    }
+
+    // Same, for many images in one request (the preview queue uses this)
+    if (pathname === '/api/thumb/make-batch' && req.method === 'POST') {
+      const body = await parseBody(req);
+      const ids = Array.isArray(body.ids) ? body.ids.slice(0, 64).map(String) : [];
+      const results = {};
+      let next = 0;
+      const worker = async () => {
+        while (next < ids.length) {
+          const id = ids[next++];
+          const r = await makeServerThumbnail(id);
+          results[id] = r.thumbUrl || null;
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(8, ids.length) }, worker));
+      return sendJson(res, { success: true, results });
+    }
+
+    // Remember previews that could not be generated, so they are not retried every launch
+    if (pathname === '/api/thumbnail/failed' && req.method === 'POST') {
+      const body = await parseBody(req);
+      const ids = Array.isArray(body.ids) ? body.ids.map(String) : [];
+      return sendJson(res, { success: true, count: markThumbsFailed(ids) });
     }
 
     const thumbMatch = pathname.match(/^\/api\/thumbnail\/([^/]+)$/);

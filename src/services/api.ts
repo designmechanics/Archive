@@ -35,7 +35,19 @@ export interface ScannerStatus {
   message: string;
   startTime: number;
   elapsed: string;
+  /** Stage two: zip contents read in the background after indexing completes */
+  zips?: ZipStageStatus;
 }
+
+export interface ZipStageStatus {
+  running: boolean;
+  total: number;
+  done: number;
+  current: string;
+}
+
+/** Rows fetched per request when loading the whole library */
+const ASSET_PAGE_SIZE = 20000;
 
 const API_BASE = '/api';
 
@@ -79,6 +91,118 @@ export const api = {
     if (!res.ok) throw new Error(`Failed to fetch assets: ${res.statusText}`);
     const data = await res.json();
     return data.assets || [];
+  },
+
+  /**
+   * Fetch the whole library in pages so no single response is huge and nothing is cut off by a
+   * server-side cap. `onChunk` receives the rows loaded so far after each page, so the UI can
+   * show the first page immediately while the rest streams in.
+   */
+  async getAllAssets(
+    params?: { cat?: string; type?: string; sort?: string; order?: 'asc' | 'desc' },
+    onChunk?: (loadedSoFar: AssetEntry[], total: number | null) => void
+  ): Promise<AssetEntry[]> {
+    const all: AssetEntry[] = [];
+    let offset = 0;
+    while (true) {
+      const qs = new URLSearchParams();
+      if (params?.cat) qs.set('cat', params.cat);
+      if (params?.type) qs.set('type', params.type);
+      if (params?.sort) qs.set('sort', params.sort);
+      if (params?.order) qs.set('order', params.order);
+      qs.set('limit', String(ASSET_PAGE_SIZE));
+      qs.set('offset', String(offset));
+
+      const res = await fetch(`${API_BASE}/assets?${qs.toString()}`);
+      if (!res.ok) throw new Error(`Failed to fetch assets: ${res.statusText}`);
+      const data = await res.json();
+      const page: AssetEntry[] = data.assets || [];
+      for (const a of page) all.push(a);
+      offset += page.length;
+      if (onChunk) onChunk(all, typeof data.total === 'number' ? data.total : null);
+      if (page.length < ASSET_PAGE_SIZE) break;
+    }
+    return all;
+  },
+
+  /**
+   * Complete file list of one indexed archive (the index keeps only the first 500 per archive)
+   */
+  async getArchiveList(
+    id: string
+  ): Promise<{ files: { path: string; size: number; ext: string }[]; fileCount: number; encrypted: boolean } | null> {
+    try {
+      const res = await fetch(`${API_BASE}/archive/list?id=${encodeURIComponent(id)}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.success ? data : null;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * Ask the server to read the contents of any zips still waiting (stage two). Idempotent.
+   */
+  async processZips(): Promise<ZipStageStatus | null> {
+    try {
+      const res = await fetch(`${API_BASE}/zips/process`, { method: 'POST' });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.zips || null;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * Ask the server to make a thumbnail (raster images). Returns the thumbnail URL, or null when the
+   * server cannot (unsupported type, unreadable image) so the caller can fall back to the browser.
+   */
+  async makeThumbnail(id: string): Promise<string | null> {
+    try {
+      const res = await fetch(`${API_BASE}/thumb/make`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.success ? (data.thumbUrl as string) : null;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * Batch version of makeThumbnail: one request for many images. Returns id -> URL (null when the
+   * server could not make that one).
+   */
+  async makeThumbnails(ids: string[]): Promise<Record<string, string | null>> {
+    const res = await fetch(`${API_BASE}/thumb/make-batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids })
+    });
+    if (!res.ok) throw new Error(`Thumbnail batch failed: ${res.status}`);
+    const data = await res.json();
+    return data.results || {};
+  },
+
+  /**
+   * Remember previews that could not be generated so they are not retried on every launch
+   */
+  async markThumbsFailed(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    try {
+      await fetch(`${API_BASE}/thumbnail/failed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids })
+      });
+    } catch {
+      // not critical
+    }
   },
 
   /**

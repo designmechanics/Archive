@@ -5,6 +5,12 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
+import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
+import { ThreeMFLoader } from 'three/examples/jsm/loaders/3MFLoader.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { VRM, VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 import { VRMAnimationLoaderPlugin, createVRMAnimationClip } from '@pixiv/three-vrm-animation';
 import {
@@ -137,7 +143,10 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
   const isOBJ = fileExt === 'obj';
   const isSTL = fileExt === 'stl';
   const isFBX = fileExt === 'fbx';
-  const hasRealFile = Boolean(src && (isVRM || isVRMA || isGLTF || isOBJ || isSTL || isFBX));
+  const isDAE = fileExt === 'dae';
+  const isPLY = fileExt === 'ply';
+  const is3MF = fileExt === '3mf';
+  const hasRealFile = Boolean(src && (isVRM || isVRMA || isGLTF || isOBJ || isSTL || isFBX || isDAE || isPLY || is3MF));
 
   // Determine if currently viewed VRM is the set custom mannequin
   const isCurrentCustomMannequin = Boolean(
@@ -430,7 +439,26 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
     // Branch B: Real File Ingestion
     const loadRealModel = async () => {
       try {
-        const gltfLoader = new GLTFLoader();
+        // External resources of a .gltf (textures, .bin) are fetched next to the model through the
+        // server: "arc-rel://x.png" becomes /api/file?...&rel=x.png
+        const REL_PREFIX = 'arc-rel://';
+        const manager = new THREE.LoadingManager();
+        manager.setURLModifier((url) => {
+          if (url.startsWith(REL_PREFIX) && src.startsWith('/api/file?')) {
+            return `${src}&rel=${encodeURIComponent(decodeURIComponent(url.slice(REL_PREFIX.length)))}`;
+          }
+          return url;
+        });
+
+        const gltfLoader = new GLTFLoader(manager);
+        // Compressed models: Draco geometry, Meshopt geometry, KTX2 / Basis textures
+        const dracoLoader = new DRACOLoader().setDecoderPath('/draco/');
+        gltfLoader.setDRACOLoader(dracoLoader);
+        gltfLoader.setMeshoptDecoder(MeshoptDecoder);
+        if (rendererRef.current) {
+          const ktx2Loader = new KTX2Loader().setTranscoderPath('/basis/').detectSupport(rendererRef.current);
+          gltfLoader.setKTX2Loader(ktx2Loader);
+        }
         // Register VRM and VRM Animation Plugins
         gltfLoader.register((parser) => new VRMLoaderPlugin(parser));
         gltfLoader.register((parser) => new VRMAnimationLoaderPlugin(parser));
@@ -445,7 +473,7 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
             }
             const buf = await res.arrayBuffer();
             return new Promise<any>((resolve, reject) => {
-              gltfLoader.parse(buf, '', resolve, reject);
+              gltfLoader.parse(buf, url.startsWith('/api/file?') ? REL_PREFIX : '', resolve, reject);
             });
           }
           return gltfLoader.loadAsync(url);
@@ -706,6 +734,53 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
           calculateMeshStats(fbx);
           fitCameraToObject(fbx);
         }
+        // 7. Collada (.dae), PLY (.ply), 3MF (.3mf)
+        else if (isDAE || isPLY || is3MF) {
+          currentMannequinKeyRef.current = null;
+          let obj: THREE.Object3D;
+          if (isDAE) {
+            const collada = await new ColladaLoader().loadAsync(src);
+            if (!collada) throw new Error('This Collada file could not be read.');
+            obj = collada.scene;
+          } else if (isPLY) {
+            const geom = await new PLYLoader().loadAsync(src);
+            geom.computeVertexNormals();
+            const hasColors = Boolean(geom.getAttribute('color'));
+            const material = new THREE.MeshStandardMaterial({
+              color: hasColors ? 0xffffff : isLight ? 0x2563eb : 0x94bce3,
+              vertexColors: hasColors,
+              metalness: 0.2,
+              roughness: 0.45,
+              wireframe
+            });
+            obj = geom.index || geom.getAttribute('position').count % 3 === 0
+              ? new THREE.Mesh(geom, material)
+              : new THREE.Points(geom, new THREE.PointsMaterial({ size: 0.01, vertexColors: hasColors }));
+          } else {
+            obj = await new ThreeMFLoader().loadAsync(src);
+          }
+          if (isCancelled) return;
+
+          obj.traverse((child) => {
+            if ((child as THREE.Mesh).isMesh) {
+              const m = child as THREE.Mesh;
+              if (m.geometry && !m.geometry.getAttribute('normal')) m.geometry.computeVertexNormals();
+              if (!m.material || (Array.isArray(m.material) && m.material.length === 0)) {
+                m.material = new THREE.MeshStandardMaterial({
+                  color: isLight ? 0x2563eb : 0x94bce3,
+                  metalness: 0.25,
+                  roughness: 0.35,
+                  wireframe
+                });
+              }
+            }
+          });
+
+          scene.add(obj);
+          loadedObjectRef.current = obj;
+          calculateMeshStats(obj);
+          fitCameraToObject(obj);
+        }
 
         if (!isCancelled) {
           setIsLoading(false);
@@ -724,7 +799,7 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [src, fileExt, proceduralShape, hasRealFile, isVRM, isVRMA, isGLTF, isOBJ, isSTL, isFBX, fitCameraToObject, vrmSettings.customMannequinUrl, vrmSettings.mannequinType]);
+  }, [src, fileExt, proceduralShape, hasRealFile, isVRM, isVRMA, isGLTF, isOBJ, isSTL, isFBX, isDAE, isPLY, is3MF, fitCameraToObject, vrmSettings.customMannequinUrl, vrmSettings.mannequinType]);
 
   // Wireframe toggle handler across meshes
   useEffect(() => {

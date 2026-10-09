@@ -7,6 +7,8 @@ export default defineConfig({
   server: {
     port: Number(process.env.PORT) || 6080,
     open: false,
+    // Test scratch files (browser profiles, builds) are locked by other programs and crash the watcher
+    watch: { ignored: ['**/scratch/**', '**/backups/**', '**/.thumbnails/**', '**/archive.db*'] }
   }
 });
 

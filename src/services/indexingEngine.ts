@@ -10,6 +10,8 @@ export interface IndexingStatus {
   processedCount: number;
   totalCount: number;
   message: string;
+  /** Stage two: zip contents being read by the server in the background */
+  zips?: { running: boolean; total: number; done: number; current: string };
 }
 
 type StatusListener = (status: IndexingStatus) => void;
@@ -45,6 +47,50 @@ class IndexingEngine {
     this.notify();
   }
 
+  private zipWatcher: ReturnType<typeof setInterval> | null = null;
+  private zipListeners: Set<(zipEntries: AssetEntry[]) => void> = new Set();
+
+  /** Called with the refreshed zip rows each time the server finishes a round of zip reading. */
+  public onZipsUpdated(fn: (zipEntries: AssetEntry[]) => void): () => void {
+    this.zipListeners.add(fn);
+    return () => this.zipListeners.delete(fn);
+  }
+
+  /**
+   * Starts (or resumes) the server's zip-reading stage and follows it until finished.
+   * Zip rows are re-fetched (only the zips, not the whole library) as the stage ends so the
+   * UI gets real file counts.
+   */
+  public async watchZipStage(): Promise<void> {
+    const first = await api.processZips();
+    if (!first || (!first.running && first.total === 0)) {
+      this.setStatus({ zips: first || undefined });
+      return;
+    }
+    this.setStatus({ zips: first });
+    if (this.zipWatcher) return;
+
+    let lastDone = 0;
+    this.zipWatcher = setInterval(async () => {
+      const st = await api.getScanStatus();
+      const zips = st?.zips;
+      if (!zips) return;
+      this.setStatus({ zips });
+
+      // Refresh the zip rows periodically so counts appear while the stage runs
+      if (zips.done - lastDone >= 400 || !zips.running) {
+        lastDone = zips.done;
+        const zipRows = await api.getAllAssets({ type: 'zip' });
+        this.zipListeners.forEach((fn) => fn(zipRows));
+      }
+
+      if (!zips.running) {
+        if (this.zipWatcher) clearInterval(this.zipWatcher);
+        this.zipWatcher = null;
+      }
+    }, 1000);
+  }
+
   /**
    * Scans a real directory on disk using the high-performance Node backend
    */
@@ -75,14 +121,16 @@ class IndexingEngine {
           currentFile: status.currentFile,
           processedCount: status.processedCount,
           totalCount: status.totalCount,
-          message: status.message
+          message: status.message,
+          zips: status.zips
         });
 
         if (status.status === 'complete' || status.status === 'error') {
           clearInterval(pollInterval);
           if (status.status === 'complete') {
-            const freshAssets = await api.getAssets();
+            const freshAssets = await api.getAllAssets();
             if (onComplete) onComplete(freshAssets);
+            this.watchZipStage();
           } else if (status.status === 'error') {
             if (onError) onError(status.message);
           }
