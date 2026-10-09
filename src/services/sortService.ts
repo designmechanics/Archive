@@ -108,11 +108,16 @@ export function sortEntries(
   const isAsc = sortDirection === 'asc';
   const n = entries.length;
 
-  // A shared Collator is many times faster than String.localeCompare with options, which matters
-  // when sorting a quarter of a million titles. Keys that need parsing are computed once, up front.
+  // Sort keys are computed once per entry, up front (and remembered between sorts): comparing two
+  // plain strings is far cheaper than a locale-aware compare, which matters when sorting a
+  // quarter of a million titles.
   let numKeys: number[] | null = null;
   let sizeKeys: number[] | null = null;
   let typeKeys: string[] | null = null;
+  let nameKeys: string[] | null = null;
+  if (sortOption === 'name' || sortOption === 'number' || sortOption === 'type') {
+    nameKeys = entries.map(naturalKeyOf);
+  }
   if (sortOption === 'number') numKeys = entries.map((e) => extractNumber(e.title));
   if (sortOption === 'size') sizeKeys = entries.map((e) => e.sizeBytes ?? parseSizeBytes(e.size));
   if (sortOption === 'type') typeKeys = entries.map((e) => (e.exts?.[0] || e.type || '').toLowerCase());
@@ -126,11 +131,11 @@ export function sortEntries(
     let cmp = 0;
     switch (sortOption) {
       case 'name':
-        cmp = nameCollator.compare(a.title, b.title);
+        cmp = cmpStr(nameKeys![i], nameKeys![j]);
         break;
 
       case 'number':
-        cmp = numKeys![i] !== numKeys![j] ? numKeys![i] - numKeys![j] : nameCollator.compare(a.title, b.title);
+        cmp = numKeys![i] !== numKeys![j] ? numKeys![i] - numKeys![j] : cmpStr(nameKeys![i], nameKeys![j]);
         break;
 
       case 'date_mod':
@@ -149,7 +154,7 @@ export function sortEntries(
 
       case 'type':
         cmp = cmpStr(typeKeys![i], typeKeys![j]);
-        if (cmp === 0) cmp = titleCollator.compare(a.title, b.title);
+        if (cmp === 0) cmp = cmpStr(nameKeys![i], nameKeys![j]);
         break;
 
       default:
@@ -164,9 +169,18 @@ export function sortEntries(
   return sorted;
 }
 
-const nameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
-const titleCollator = new Intl.Collator(undefined, { numeric: true });
 const cmpStr = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+
+/** Lower-case title with every run of digits zero-padded, so "img2" sorts before "img10". */
+const naturalKeyCache = new WeakMap<AssetEntry, string>();
+function naturalKeyOf(e: AssetEntry): string {
+  let k = naturalKeyCache.get(e);
+  if (k === undefined) {
+    k = (e.title || '').toLowerCase().replace(/\d+/g, (m) => (m.length >= 12 ? m : '000000000000'.slice(m.length) + m));
+    naturalKeyCache.set(e, k);
+  }
+  return k;
+}
 
 /**
  * Extracts the initial letter/number glyph from a filename for the Name/Number watermark.

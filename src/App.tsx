@@ -22,7 +22,7 @@ import {
   reorderPools,
   toggleWatchedFolder
 } from './services/db';
-import { isEntryInFolder } from './utils/folderUtils';
+import { makeFolderMatcher } from './utils/folderUtils';
 import { api, DatabaseStats } from './services/api';
 
 import { indexingEngine, IndexingStatus } from './services/indexingEngine';
@@ -710,23 +710,25 @@ export const App: React.FC = () => {
       return vis;
     }
 
-    const disabledFolders = folders.filter((f) => f.enabled === false);
-    const ingestingFolders = deferFolderIngestion ? folders.filter((f) => f.isIngesting) : [];
+    // Folder matchers are prepared once here, not once per entry
+    const disabledMatchers = folders.filter((f) => f.enabled === false).map(makeFolderMatcher);
+    const ingestingMatchers = deferFolderIngestion ? folders.filter((f) => f.isIngesting).map(makeFolderMatcher) : [];
+    const selectedMatcher = selectedFolder ? makeFolderMatcher(selectedFolder) : null;
 
     let vis = entries.filter((e) => {
       // Zip toggle: hide zips, or show only zips
       if (zipMode === 'hide' && e.type === 'zip') return false;
       if (zipMode === 'only' && e.type !== 'zip') return false;
       // Exclude assets belonging to disabled watched folders
-      if (disabledFolders.some((df) => isEntryInFolder(e, df))) {
+      if (disabledMatchers.length && disabledMatchers.some((m) => m(e))) {
         return false;
       }
       // Exclude assets belonging to currently ingesting folders when deferFolderIngestion is active
-      if (ingestingFolders.some((inf) => isEntryInFolder(e, inf))) {
+      if (ingestingMatchers.length && ingestingMatchers.some((m) => m(e))) {
         return false;
       }
       // Filter by selectedFolder if one is chosen
-      if (selectedFolder && !isEntryInFolder(e, selectedFolder)) {
+      if (selectedMatcher && !selectedMatcher(e)) {
         return false;
       }
       // Filter by selectedPool if one is chosen
@@ -812,7 +814,10 @@ export const App: React.FC = () => {
   const folderCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     folders.forEach((f) => {
-      counts[f.id] = entries.filter((e) => isEntryInFolder(e, f)).length;
+      const matches = makeFolderMatcher(f);
+      let n = 0;
+      for (const e of entries) if (matches(e)) n++;
+      counts[f.id] = n;
     });
     return counts;
   }, [entries, folders]);

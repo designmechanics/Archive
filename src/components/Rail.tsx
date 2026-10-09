@@ -224,9 +224,44 @@ export const Rail: React.FC<RailProps> = React.memo(({
     }
   }, [isSubmenuOpen]);
 
+  // Per-extension counts are only shown inside the file-type submenu, so only count when it is open
   const catalogCounts = useMemo(() => {
+    if (!isFileTypeSubmenuOpen) return { byExt: {} as Record<string, number>, otherCount: 0 };
     return getCatalogExtensionCounts(entries);
-  }, [entries]);
+  }, [entries, isFileTypeSubmenuOpen]);
+
+  // Up to 5 cards per pool for the fan preview (recently viewed first, then the first in the pool).
+  // One pass over the library, only redone when the library or the view history changes. It used
+  // to scan every entry once per pool on every render, which froze the page at 240k entries.
+  const fanItemsByPool = useMemo(() => {
+    const out: Record<string, AssetEntry[]> = {};
+    if (!entries || entries.length === 0) return out;
+    const rankOf = new Map<string, number>();
+    (viewedHistory || []).forEach((id, i) => {
+      if (!rankOf.has(id)) rankOf.set(id, i);
+    });
+    const viewed: Record<string, { rank: number; entry: AssetEntry }[]> = {};
+    const filler: Record<string, AssetEntry[]> = {};
+    for (const e of entries) {
+      const rank = rankOf.get(e.id);
+      if (rank !== undefined) (viewed[e.cat] ||= []).push({ rank, entry: e });
+      const f = (filler[e.cat] ||= []);
+      if (f.length < 10) f.push(e);
+    }
+    for (const cat of Object.keys(filler)) {
+      const items = (viewed[cat] || [])
+        .sort((a, b) => a.rank - b.rank)
+        .slice(0, 5)
+        .map((v) => v.entry);
+      const seen = new Set(items.map((x) => x.id));
+      for (const e of filler[cat]) {
+        if (items.length >= 5) break;
+        if (!seen.has(e.id)) items.push(e);
+      }
+      out[cat] = items;
+    }
+    return out;
+  }, [entries, viewedHistory]);
 
   const enabledTypesCount = useMemo(() => {
     if (!fileTypeConfig) return 0;
@@ -656,35 +691,8 @@ export const Rail: React.FC<RailProps> = React.memo(({
           const isFanOpen = fanPool === p;
           const count = poolCounts[p] || 0;
 
-          // Obtain last 5 items viewed in this pool (falling back to recent pool items if fewer than 5 viewed)
-          const poolItems: AssetEntry[] = (() => {
-            if (!entries || entries.length === 0) return [];
-            const viewedInPool: AssetEntry[] = [];
-            const seen = new Set<string>();
-
-            // 1. Pick items from viewedHistory belonging to this pool (most recently viewed first)
-            if (viewedHistory && viewedHistory.length > 0) {
-              for (const id of viewedHistory) {
-                const entry = entries.find((e) => e.id === id && e.cat === p);
-                if (entry && !seen.has(entry.id)) {
-                  seen.add(entry.id);
-                  viewedInPool.push(entry);
-                  if (viewedInPool.length >= 5) break;
-                }
-              }
-            }
-
-            // 2. If fewer than 5 viewed, fill with latest pool entries so fan always has up to 5 items if available
-            if (viewedInPool.length < 5) {
-              const poolAll = entries.filter((e) => e.cat === p && !seen.has(e.id));
-              for (const entry of poolAll) {
-                viewedInPool.push(entry);
-                if (viewedInPool.length >= 5) break;
-              }
-            }
-
-            return viewedInPool;
-          })();
+          // Last 5 items viewed in this pool (falling back to the first pool items)
+          const poolItems: AssetEntry[] = fanItemsByPool[p] || [];
 
           return (
             <div key={poolItem.id || p} data-pool={p} style={{ marginBottom: '3px' }}>

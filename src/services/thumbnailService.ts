@@ -264,7 +264,7 @@ export async function persistThumbnailToDisk(id: string, dataUrl: string): Promi
   }
 }
 
-const SERVER_THUMB_RE = /\.(jpe?g|png|gif|webp|avif|tiff?)$/i;
+const SERVER_THUMB_RE = /\.(jpe?g|png|gif|webp|avif|tiff?|ttf|otf|ttc|woff2?|psd|psb)$/i;
 
 /**
  * Checks if an asset has a missing thumbnail and generates + persists one if possible.
