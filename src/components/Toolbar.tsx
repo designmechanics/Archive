@@ -35,6 +35,140 @@ interface ToolbarProps {
   onZipModeChange?: (mode: ZipMode) => void;
 }
 
+/**
+ * Pager: « ‹ Page [n] of N › ». The page number is an input: type a page and press Enter to jump.
+ * Anything that is not a real page (empty, 0, more than N) is refused with a red flash and the
+ * current page comes back. Escape or clicking away also puts the current page back.
+ */
+const PageNav: React.FC<{ currentPage: number; totalPages: number; onPageChange: (p: number) => void }> = ({
+  currentPage,
+  totalPages,
+  onPageChange
+}) => {
+  const [draft, setDraft] = useState(String(currentPage));
+  const [invalid, setInvalid] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setDraft(String(currentPage));
+  }, [currentPage]);
+
+  const jump = () => {
+    const n = Number(draft);
+    if (/^\d+$/.test(draft) && n >= 1 && n <= totalPages) {
+      if (n !== currentPage) onPageChange(n);
+      inputRef.current?.blur();
+      return;
+    }
+    setInvalid(true);
+    setTimeout(() => setInvalid(false), 700);
+    setDraft(String(currentPage));
+    inputRef.current?.select();
+  };
+
+  const navBtn = (label: string, title: string, disabled: boolean, target: number) => (
+    <button
+      onClick={() => onPageChange(target)}
+      disabled={disabled}
+      title={title}
+      aria-label={title}
+      style={{
+        width: '26px',
+        height: '26px',
+        borderRadius: '8px',
+        border: 0,
+        background: disabled ? 'transparent' : 'var(--surface, #ffffff)',
+        color: disabled ? 'rgba(var(--inkc, 29,31,32), .25)' : 'var(--ink, #1d1f20)',
+        cursor: disabled ? 'default' : 'pointer',
+        fontFamily: 'ui-monospace, Menlo, monospace',
+        fontSize: '12px',
+        boxShadow: disabled ? 'none' : '0 1px 2px rgba(43,43,45,.14)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: 'background 0.15s'
+      }}
+    >
+      {label}
+    </button>
+  );
+
+  const atStart = currentPage <= 1;
+  const atEnd = currentPage >= totalPages;
+  const digits = String(totalPages).length;
+
+  return (
+    <div
+      data-page-nav="1"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '3px',
+        padding: '3px 5px',
+        borderRadius: '13px',
+        background: 'var(--well, #e3e4e6)',
+        border: '1px solid rgba(var(--inkc, 29,31,32), .09)',
+        boxShadow: 'inset 0 2px 5px rgba(29,45,61,.09)'
+      }}
+    >
+      {navBtn('«', 'First page', atStart, 1)}
+      {navBtn('‹', 'Previous page', atStart, currentPage - 1)}
+      <span
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '5px',
+          padding: '0 6px',
+          fontFamily: 'ui-monospace, Menlo, monospace',
+          fontSize: '10px',
+          letterSpacing: '.06em',
+          color: 'rgba(var(--inkc, 29,31,32), .7)',
+          whiteSpace: 'nowrap'
+        }}
+      >
+        Page
+        <input
+          ref={inputRef}
+          value={draft}
+          inputMode="numeric"
+          aria-label={`Page number, 1 to ${totalPages}. Type a page and press Enter.`}
+          title={`Type a page (1–${totalPages}) and press Enter`}
+          onFocus={(e) => e.currentTarget.select()}
+          onChange={(e) => setDraft(e.target.value.replace(/\D/g, '').slice(0, digits))}
+          onKeyDown={(e) => {
+            e.stopPropagation(); // keep typed digits away from the app's keyboard shortcuts
+            if (e.key === 'Enter') jump();
+            else if (e.key === 'Escape') {
+              setDraft(String(currentPage));
+              e.currentTarget.blur();
+            }
+          }}
+          onBlur={() => setDraft(String(currentPage))}
+          style={{
+            width: `${digits + 1.6}ch`,
+            height: '22px',
+            padding: '0 4px',
+            textAlign: 'center',
+            fontFamily: 'inherit',
+            fontSize: '11px',
+            fontWeight: 600,
+            color: 'var(--ink, #1d1f20)',
+            background: 'var(--surface, #ffffff)',
+            border: invalid ? '1px solid #dc2626' : '1px solid rgba(var(--inkc, 29,31,32), .15)',
+            borderRadius: '6px',
+            outline: 'none',
+            cursor: 'text',
+            transition: 'border-color 0.15s'
+          }}
+        />
+        of {totalPages}
+      </span>
+      {navBtn('›', 'Next page', atEnd, currentPage + 1)}
+      {navBtn('»', 'Last page', atEnd, totalPages)}
+    </div>
+  );
+};
+
 export const Toolbar: React.FC<ToolbarProps> = ({
   theme = 'dark',
   view,
@@ -934,78 +1068,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
       {/* Page Navigation Controls (when totalPages > 1) */}
       {totalPages > 1 && maxPerPage !== 'ALL' && (
-        <div
-          data-page-nav="1"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '3px',
-            padding: '3px 5px',
-            borderRadius: '13px',
-            background: 'var(--well, #e3e4e6)',
-            border: '1px solid rgba(var(--inkc, 29,31,32), .09)',
-            boxShadow: 'inset 0 2px 5px rgba(29,45,61,.09)'
-          }}
-        >
-          <button
-            onClick={() => onPageChange(currentPage - 1)}
-            disabled={currentPage <= 1}
-            title="Previous page"
-            style={{
-              width: '26px',
-              height: '26px',
-              borderRadius: '8px',
-              border: 0,
-              background: currentPage <= 1 ? 'transparent' : 'var(--surface, #ffffff)',
-              color: currentPage <= 1 ? 'rgba(var(--inkc, 29,31,32), .25)' : 'var(--ink, #1d1f20)',
-              cursor: currentPage <= 1 ? 'default' : 'pointer',
-              fontFamily: 'ui-monospace, Menlo, monospace',
-              fontSize: '12px',
-              boxShadow: currentPage <= 1 ? 'none' : '0 1px 2px rgba(43,43,45,.14)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'background 0.15s'
-            }}
-          >
-            ‹
-          </button>
-          <span
-            style={{
-              padding: '0 6px',
-              fontFamily: 'ui-monospace, Menlo, monospace',
-              fontSize: '10px',
-              letterSpacing: '.06em',
-              color: 'rgba(var(--inkc, 29,31,32), .7)',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            Page {currentPage} of {totalPages}
-          </span>
-          <button
-            onClick={() => onPageChange(currentPage + 1)}
-            disabled={currentPage >= totalPages}
-            title="Next page"
-            style={{
-              width: '26px',
-              height: '26px',
-              borderRadius: '8px',
-              border: 0,
-              background: currentPage >= totalPages ? 'transparent' : 'var(--surface, #ffffff)',
-              color: currentPage >= totalPages ? 'rgba(var(--inkc, 29,31,32), .25)' : 'var(--ink, #1d1f20)',
-              cursor: currentPage >= totalPages ? 'default' : 'pointer',
-              fontFamily: 'ui-monospace, Menlo, monospace',
-              fontSize: '12px',
-              boxShadow: currentPage >= totalPages ? 'none' : '0 1px 2px rgba(43,43,45,.14)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'background 0.15s'
-            }}
-          >
-            ›
-          </button>
-        </div>
+        <PageNav currentPage={currentPage} totalPages={totalPages} onPageChange={onPageChange} />
       )}
 
       {/* Carousel Prev/Next & Focus Counter */}
