@@ -128,11 +128,19 @@ export const api = {
   /**
    * Complete file list of one indexed archive (the index keeps only the first 500 per archive)
    */
+  /**
+   * Complete file list of an archive: by asset id, or by disk path plus `entry` for an archive
+   * inside it (a chain like `a.zip!/b.rar` for deeper levels).
+   */
   async getArchiveList(
-    id: string
+    target: string | { path: string; entry: string }
   ): Promise<{ files: { path: string; size: number; ext: string }[]; fileCount: number; encrypted: boolean } | null> {
     try {
-      const res = await fetch(`${API_BASE}/archive/list?id=${encodeURIComponent(id)}`);
+      const qs =
+        typeof target === 'string'
+          ? `id=${encodeURIComponent(target)}`
+          : `path=${encodeURIComponent(target.path)}&entry=${encodeURIComponent(target.entry)}`;
+      const res = await fetch(`${API_BASE}/archive/list?${qs}`);
       if (!res.ok) return null;
       const data = await res.json();
       return data.success ? data : null;

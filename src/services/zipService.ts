@@ -6,6 +6,9 @@ import { savePackBlob, getPackBlob } from './db';
 import { generatePdfThumbnail, generateVideoThumbnail, persistThumbnailToDisk } from './thumbnailService';
 import { api } from './api';
 
+// Archives other than zip that open in the browser (archivePack.ts, loaded only when needed)
+const BROWSER_ARCHIVE_RE = /\.(rar|7z|tar|tgz|tbz2?|txz|gz|bz2|xz|iso|cab)$/i;
+
 // Cache for active pack objects in memory
 const packRegistry: Record<string, ZipPack> = {};
 
@@ -21,12 +24,29 @@ export async function restorePackFromDB(id: string): Promise<ZipPack | null> {
   if (packRegistry[id]) return packRegistry[id];
   const stored = await getPackBlob(id);
   if (!stored) return null;
-  const isZip = /\.zip$/i.test(stored.name);
-  const pack = isZip
-    ? await createPackFromBlob(stored.name, stored.blob)
-    : createPackFromSingleFile(new File([stored.blob], stored.name));
+  const { pack } = await packFromFile(new File([stored.blob], stored.name));
   packRegistry[id] = pack;
   return pack;
+}
+
+/**
+ * A pack for a file loaded in the browser: zip (zip.js), other archives (libarchive.js, loaded on
+ * demand), anything else as a single file. `isArchive` is false when an archive could not be read,
+ * so it is still kept, as one item.
+ */
+export async function packFromFile(file: File): Promise<{ pack: ZipPack; isArchive: boolean }> {
+  if (/\.zip$/i.test(file.name) || /zip/.test(file.type || '')) {
+    return { pack: await createPackFromBlob(file.name, file), isArchive: true };
+  }
+  if (BROWSER_ARCHIVE_RE.test(file.name)) {
+    try {
+      const { createPackFromArchive } = await import('./archivePack');
+      return { pack: await createPackFromArchive(file.name, file), isArchive: true };
+    } catch (err) {
+      console.warn('Archive could not be opened, kept as one file:', file.name, err);
+    }
+  }
+  return { pack: createPackFromSingleFile(file), isArchive: false };
 }
 
 /**
@@ -544,7 +564,8 @@ export function pickDefaultFile(pack: ZipPack): string | null {
  */
 export function isZipArchive(entry?: AssetEntry | null): boolean {
   if (!entry) return false;
-  if (entry.isZipInnerFile) return false;
+  // a file inside an archive opens as an archive only when it is one (archives inside archives)
+  if (entry.isZipInnerFile) return Boolean(entry.nestedArchive);
 
   // 1. Explicit zip type
   if (entry.type === 'zip') return true;
@@ -627,17 +648,83 @@ export async function generateInnerZipVideoThumbnail(
  * Supports both browser-uploaded/in-memory ZipPacks and server-indexed disk ZIP archives.
  * Generates instant thumbnails for images, SVGs, and MP4/video files inside the archive.
  */
+// Inner files that open as archives themselves. On disk the server unpacks them (zip, rar, 7z, tar…);
+// in the browser only zip can be opened.
+const NESTED_DISK_ARCHIVE_RE = /\.(zip|rar|7z|tar|tgz|tbz2?|txz|gz|bz2|xz|iso|cab)$/i;
+
+/** One file inside an archive on disk; `innerPath` may be a chain (`a.zip!/b.png`). */
+function diskInnerEntry(parentZip: AssetEntry, zipPath: string, innerPath: string, f: { path: string; size: number }): AssetEntry {
+  const ext = extOf(f.path);
+  const nested = NESTED_DISK_ARCHIVE_RE.test(f.path);
+  const type = nested ? 'zip' : typeFromExt(ext);
+  const fileName = f.path.split('/').pop() || f.path;
+  const entryId = `${parentZip.id}::${f.path}`;
+
+  let thumbUrl: string | null = null;
+  if (zipVideoThumbCache.has(entryId)) {
+    thumbUrl = zipVideoThumbCache.get(entryId)!;
+  } else if (isIn('img', f.path) || ext === 'svg') {
+    thumbUrl = `/api/file?path=${encodeURIComponent(zipPath)}&entry=${encodeURIComponent(innerPath)}`;
+  }
+
+  return {
+    id: entryId,
+    title: fileName,
+    cat: parentZip.cat,
+    type,
+    author: `${parentZip.title} › ${f.path.includes('/') ? f.path.substring(0, f.path.lastIndexOf('/')) : 'root'}`,
+    date: parentZip.date,
+    deps: '1 item',
+    size: fmtSize(f.size),
+    fileCount: nested ? 0 : 1, // 0: unknown until opened (the badge says "Multiple")
+    exts: [ext],
+    thumb: thumbUrl,
+    packId: parentZip.packId || parentZip.id,
+    filePath: zipPath,
+    search: `${fileName} ${f.path} ${parentZip.title} ${type} ${ext}`,
+    demo: '',
+    isUserUploaded: true,
+    isZipInnerFile: true,
+    zipParentId: parentZip.id,
+    zipParentTitle: parentZip.title,
+    zipInnerPath: innerPath,
+    nestedArchive: nested ? 'disk' : undefined
+  };
+}
+
 export async function extractZipEntries(parentZip: AssetEntry): Promise<AssetEntry[]> {
   if (!parentZip) return [];
 
+  // 0. An archive inside an archive on disk: the server unpacks it and lists it
+  if (parentZip.nestedArchive === 'disk' && parentZip.filePath && parentZip.zipInnerPath) {
+    const zipPath = parentZip.filePath;
+    const chain = parentZip.zipInnerPath;
+    const list = await api.getArchiveList({ path: zipPath, entry: chain });
+    if (!list) return [];
+    return list.files.map((f) => diskInnerEntry(parentZip, zipPath, `${chain}!/${f.path}`, f));
+  }
+
   // 1. Try to get in-memory pack or restore from IndexedDB
   let pack: ZipPack | null = null;
-  if (parentZip.packId) {
+  if (parentZip.nestedArchive === 'pack') {
+    // a zip inside a zip loaded in the browser: open the inner one as its own pack
+    pack = getPack(parentZip.id);
+    const outer = parentZip.packId ? getPack(parentZip.packId) || (await restorePackFromDB(parentZip.packId)) : null;
+    if (!pack && outer?.blob && parentZip.zipInnerPath) {
+      const blob = await outer.blob(parentZip.zipInnerPath);
+      if (blob) {
+        pack = (await packFromFile(new File([blob], parentZip.title))).pack;
+        registerPack(parentZip.id, pack);
+      }
+    }
+  }
+  if (!pack && parentZip.packId && parentZip.nestedArchive !== 'pack') {
     pack = getPack(parentZip.packId) || (await restorePackFromDB(parentZip.packId));
   }
   if (!pack && parentZip.id) {
     pack = getPack(parentZip.id) || (await restorePackFromDB(parentZip.id));
   }
+  const packOwner = parentZip.nestedArchive === 'pack' ? parentZip.id : parentZip.packId || parentZip.id;
 
   // If in-memory pack available (browser upload or cached blob):
   if (pack && pack.list && pack.list.length > 0) {
@@ -645,7 +732,8 @@ export async function extractZipEntries(parentZip: AssetEntry): Promise<AssetEnt
     for (let i = 0; i < pack.list.length; i++) {
       const f = pack.list[i];
       const ext = extOf(f.path);
-      const type = typeFromExt(ext);
+      const innerZip = (ext === 'zip' || BROWSER_ARCHIVE_RE.test(f.path)) && Boolean(pack.blob);
+      const type = innerZip ? 'zip' : typeFromExt(ext);
       const fileName = f.path.split('/').pop() || f.path;
       const entryId = `${parentZip.id}::${f.path}`;
 
@@ -678,7 +766,7 @@ export async function extractZipEntries(parentZip: AssetEntry): Promise<AssetEnt
         fileCount: 1,
         exts: [ext],
         thumb,
-        packId: parentZip.packId || parentZip.id,
+        packId: packOwner,
         filePath: f.path,
         search: `${fileName} ${f.path} ${parentZip.title} ${type} ${ext}`,
         demo: '',
@@ -686,7 +774,8 @@ export async function extractZipEntries(parentZip: AssetEntry): Promise<AssetEnt
         isZipInnerFile: true,
         zipParentId: parentZip.id,
         zipParentTitle: parentZip.title,
-        zipInnerPath: f.path
+        zipInnerPath: f.path,
+        nestedArchive: innerZip ? 'pack' : undefined
       });
     }
 
@@ -728,42 +817,7 @@ export async function extractZipEntries(parentZip: AssetEntry): Promise<AssetEnt
         const full = await api.getArchiveList(parentZip.id);
         if (full && full.files.length > diskFiles.length) diskFiles = full.files;
       }
-      const results: AssetEntry[] = diskFiles.map((f: any) => {
-        const ext = extOf(f.path);
-        const type = typeFromExt(ext);
-        const fileName = f.path.split('/').pop() || f.path;
-        const entryId = `${parentZip.id}::${f.path}`;
-
-        let thumbUrl: string | null = null;
-        if (zipVideoThumbCache.has(entryId)) {
-          thumbUrl = zipVideoThumbCache.get(entryId)!;
-        } else if (isIn('img', f.path) || ext === 'svg') {
-          thumbUrl = `/api/file?path=${encodeURIComponent(zipPath)}&entry=${encodeURIComponent(f.path)}`;
-        }
-
-        return {
-          id: entryId,
-          title: fileName,
-          cat: parentZip.cat,
-          type,
-          author: `${parentZip.title} › ${f.path.includes('/') ? f.path.substring(0, f.path.lastIndexOf('/')) : 'root'}`,
-          date: parentZip.date,
-          deps: '1 item',
-          size: fmtSize(f.size),
-          fileCount: 1,
-          exts: [ext],
-          thumb: thumbUrl,
-          packId: parentZip.packId || parentZip.id,
-          filePath: zipPath,
-          search: `${fileName} ${f.path} ${parentZip.title} ${type} ${ext}`,
-          demo: '',
-          isUserUploaded: true,
-          isZipInnerFile: true,
-          zipParentId: parentZip.id,
-          zipParentTitle: parentZip.title,
-          zipInnerPath: f.path
-        };
-      });
+      const results: AssetEntry[] = diskFiles.map((f: any) => diskInnerEntry(parentZip, zipPath, f.path, f));
 
       // Pre-generate video thumbnails for up to 6 disk videos concurrently
       const unthumbnailedDiskVideos = results.filter(

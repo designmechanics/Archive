@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { spawn, spawnSync } from 'child_process';
 import { readZipDirectory, findZipEntry, createZipEntryStream } from './zipDir.js';
 
@@ -237,6 +238,96 @@ async function readEntryBuffer(filePath, innerPath) {
   }
   if (res.stdout.length === 0 && res.code !== 0) throw new Error('entry not found or unreadable');
   return res.stdout;
+}
+
+/**
+ * Archives inside archives. An entry path may be a chain, `inner.zip!/deeper.rar!/file.png`: every
+ * part but the last is an archive inside the previous one. Each inner archive is unpacked once to a
+ * cache file (keyed by the outer file's path, size and date plus the chain), then read with the
+ * normal code above. The cache is trimmed to NESTED_CACHE_BYTES, oldest first.
+ */
+export const NEST_SEP = '!/';
+const NESTED_CACHE_BYTES = 4 * 1024 * 1024 * 1024;
+const MAX_NESTED_ARCHIVE = 2 * 1024 * 1024 * 1024;
+
+/** Splits `a.zip!/b.rar!/c.png` into { chain: ['a.zip', 'b.rar'], last: 'c.png' }. */
+export function splitNestedEntry(entry) {
+  const parts = String(entry || '').split(NEST_SEP);
+  return { chain: parts.slice(0, -1), last: parts[parts.length - 1] };
+}
+
+async function extractEntryToFile(archivePath, innerPath, dest) {
+  const tmp = `${dest}.part`;
+  if (archiveExt(archivePath) === 'zip') {
+    const entry = await findZipEntry(archivePath, innerPath).catch(() => null);
+    if (entry && !(entry.flags & 1) && (entry.method === 0 || entry.method === 8)) {
+      if (entry.uncompressedSize > MAX_NESTED_ARCHIVE) throw new Error('inner archive too large');
+      await new Promise((resolve, reject) => {
+        const out = fs.createWriteStream(tmp);
+        const src =
+          entry.method === 0
+            ? fs.createReadStream(archivePath, { start: entry.dataStart, end: entry.dataStart + Math.max(0, entry.uncompressedSize - 1) })
+            : createZipEntryStream(archivePath, entry);
+        src.on('error', reject);
+        out.on('error', reject);
+        out.on('finish', resolve);
+        if (entry.uncompressedSize === 0) out.end();
+        else src.pipe(out);
+      });
+      await fs.promises.rename(tmp, dest);
+      return;
+    }
+  }
+  const buffer = await readEntryBuffer(archivePath, innerPath); // 7-Zip, up to 512 MB
+  await fs.promises.writeFile(tmp, buffer);
+  await fs.promises.rename(tmp, dest);
+}
+
+async function trimNestedCache(dir) {
+  const files = [];
+  for (const name of await fs.promises.readdir(dir).catch(() => [])) {
+    const st = await fs.promises.stat(path.join(dir, name)).catch(() => null);
+    if (st && st.isFile()) files.push({ name, size: st.size, used: st.atimeMs || st.mtimeMs });
+  }
+  let total = files.reduce((n, f) => n + f.size, 0);
+  files.sort((a, b) => a.used - b.used);
+  for (const f of files) {
+    if (total <= NESTED_CACHE_BYTES) break;
+    await fs.promises.rm(path.join(dir, f.name), { force: true });
+    total -= f.size;
+  }
+}
+
+const unpacking = new Map(); // cache file → promise, so two requests do not unpack the same archive twice
+
+/** Local file path of the innermost archive of `chain` inside `outerPath`, unpacking as needed. */
+export async function resolveNestedArchive(outerPath, chain, cacheDir) {
+  let current = outerPath;
+  for (let i = 0; i < chain.length; i++) {
+    const inner = chain[i];
+    if (!isBrowsableArchivePath(inner)) throw new Error(`not an archive: ${inner}`);
+    const st = await fs.promises.stat(current);
+    const key = crypto
+      .createHash('sha1')
+      .update(`${outerPath}|${st.size}|${st.mtimeMs}|${chain.slice(0, i + 1).join(NEST_SEP)}`)
+      .digest('hex');
+    // keep the full extension (x.tar.gz) so the readers recognise the format
+    const ext = (/\.(tar\.(gz|bz2|xz|zst))$/i.exec(inner) || [])[0] || path.extname(inner);
+    const dest = path.join(cacheDir, key + ext.toLowerCase());
+    if (!fs.existsSync(dest)) {
+      if (!unpacking.has(dest)) {
+        const job = (async () => {
+          await fs.promises.mkdir(cacheDir, { recursive: true });
+          await extractEntryToFile(current, inner, dest);
+          await trimNestedCache(cacheDir);
+        })().finally(() => unpacking.delete(dest));
+        unpacking.set(dest, job);
+      }
+      await unpacking.get(dest);
+    }
+    current = dest;
+  }
+  return current;
 }
 
 /**

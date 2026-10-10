@@ -1,5 +1,5 @@
 import { AssetEntry, WatchedFolder } from '../types';
-import { createEntryFromPack, createPackFromBlob, createPackFromSingleFile } from './zipService';
+import { createEntryFromPack, packFromFile } from './zipService';
 import { saveSingleEntry } from './db';
 import { api } from './api';
 
@@ -227,7 +227,6 @@ class IndexingEngine {
 
     for (let i = 0; i < total; i++) {
       const item = fileHandles[i];
-      const isZip = /\.zip$/i.test(item.file.name);
       const pct = Math.round(10 + (85 * (i + 1)) / total);
 
       this.setStatus({
@@ -240,11 +239,9 @@ class IndexingEngine {
       });
 
       try {
-        const pack = isZip
-          ? await createPackFromBlob(item.file.name, item.file)
-          : createPackFromSingleFile(item.file);
+        const { pack, isArchive } = await packFromFile(item.file);
 
-        const entry = await createEntryFromPack(pack, isZip);
+        const entry = await createEntryFromPack(pack, isArchive);
         // Tag with folder relative path and folderId
         entry.author = `local · ${dirHandle.name}`;
         entry.filePath = item.path;
@@ -305,7 +302,6 @@ class IndexingEngine {
 
     for (let i = 0; i < total; i++) {
       const file = list[i];
-      const isZip = /\.zip$/i.test(file.name) || /zip/.test(file.type || '');
       const pct = Math.round(5 + (90 * (i + 1)) / total);
 
       this.setStatus({
@@ -318,11 +314,10 @@ class IndexingEngine {
       });
 
       try {
-        const pack = isZip
-          ? await createPackFromBlob(file.name, file)
-          : createPackFromSingleFile(file);
+        // zip, rar, 7z, tar.gz… open as archives; anything else is one file
+        const { pack, isArchive } = await packFromFile(file);
 
-        const entry = await createEntryFromPack(pack, isZip);
+        const entry = await createEntryFromPack(pack, isArchive);
 
         const relPath = (file as any).webkitRelativePath;
         const topDir = relPath ? relPath.split('/')[0] : folderContext?.folderName;

@@ -14,6 +14,7 @@ const HEAD_BYTES = 4096;
 export const NOT_A_PICTURE_NOTE = {
   empty: 'Empty file',
   zeros: 'Damaged — file is blank',
+  mangled: 'Damaged — saved as text, bytes replaced',
   frontpage: 'FrontPage metadata',
   bplist: 'Not an image (Mac property list)',
   html: 'Not an image (web page)',
@@ -21,9 +22,24 @@ export const NOT_A_PICTURE_NOTE = {
   unknown: 'Not an image'
 };
 
+/**
+ * A binary file that once went through a text conversion (FTP in ASCII mode, a CMS re-encoding it as
+ * UTF-8): every byte that was not valid text became EF BF BD, the "unknown character" mark. It has
+ * NUL bytes like any binary file, plus many of those marks; real text and real binaries do not.
+ */
+function isMangled(b) {
+  if (!b.includes(0)) return false;
+  let marks = 0;
+  for (let i = b.indexOf(0xef); i >= 0 && i < b.length - 2; i = b.indexOf(0xef, i + 1)) {
+    if (b[i + 1] === 0xbf && b[i + 2] === 0xbd && ++marks >= 8) return true;
+  }
+  return false;
+}
+
 /** Classifies the first bytes of a file. */
 export function sniffBytes(b) {
   if (!b || b.length === 0) return 'empty';
+  if (isMangled(b)) return 'mangled';
   const hex = b.toString('hex', 0, 12);
   const asc = b.toString('latin1', 0, 16);
   if (hex.startsWith('ffd8ff')) return 'jpeg';

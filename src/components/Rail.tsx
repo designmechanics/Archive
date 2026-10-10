@@ -845,7 +845,7 @@ export const Rail: React.FC<RailProps> = React.memo(({
                       const transY = isFanOpen ? -Math.abs(offset) * 5 : 0;
                       const transX = isFanOpen ? offset * 8 : 0;
                       const hasThumb = !!item.thumb;
-                      const isZip = isZipArchive(item) && !item.isZipInnerFile;
+                      const isZip = isZipArchive(item);
                       const isVideo =
                         !isZip && (
                           item.type === 'video' ||

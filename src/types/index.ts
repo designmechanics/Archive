@@ -41,6 +41,12 @@ export interface AssetEntry {
   zipParentId?: string;
   zipParentTitle?: string;
   zipInnerPath?: string;
+  /**
+   * This inner file is itself an archive that can be opened. 'disk': inside an archive on disk
+   * (`filePath` + `zipInnerPath`, which may be a chain `a.zip!/b.rar`); 'pack': inside an archive
+   * loaded in the browser.
+   */
+  nestedArchive?: 'disk' | 'pack';
   dateCreated?: string;
   dateModified?: string;
   sizeBytes?: number;
@@ -49,6 +55,8 @@ export interface AssetEntry {
 export interface ActiveZipArchive {
   parent: AssetEntry;
   innerEntries: AssetEntry[];
+  /** The archive this one was opened from (archives inside archives); Back returns to it */
+  previous?: ActiveZipArchive | null;
 }
 
 export type ViewMode =

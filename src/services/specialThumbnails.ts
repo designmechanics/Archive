@@ -290,14 +290,15 @@ async function thumbsDbThumbnail(e: AssetEntry): Promise<string | null> {
   return imageToJpeg(new Blob([items[0].jpeg.slice().buffer as ArrayBuffer], { type: 'image/jpeg' }));
 }
 
-/** Blender project: the preview picture stored in the file (plain and gzip files). */
+/** Blender project: the preview picture stored in the file (plain, gzip and zstd files). */
 async function blendThumbnail(e: AssetEntry): Promise<string | null> {
-  const { blendCompression, readBlendPreview } = await import('./blendPreview');
+  const { blendCompression, readBlendPreview, zstdHead } = await import('./blendPreview');
   let bytes = await fetchBytes(fileUrl(e), [0, 6 * 1024 * 1024 - 1]);
   if (!bytes) return null;
   const kind = blendCompression(bytes);
-  if (kind === 'zstd') return null;
-  if (kind === 'gzip') {
+  if (kind === 'zstd') {
+    bytes = await zstdHead(bytes);
+  } else if (kind === 'gzip') {
     const full = await fetchBytes(fileUrl(e), undefined, 200 * 1024 * 1024);
     if (!full) return null;
     const stream = new Blob([full.slice().buffer as ArrayBuffer]).stream().pipeThrough(new DecompressionStream('gzip'));

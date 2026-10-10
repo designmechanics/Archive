@@ -59,7 +59,7 @@ export const DropOverlay: React.FC<DropOverlayProps> = ({ isVisible }) => {
             color: '#94bce3'
           }}
         >
-          zip · psd · ai · svg · mp4 · otf · html/css/js
+          zip · rar · 7z · tar · psd · ai · svg · mp4 · otf · html/css/js
         </div>
       </div>
     </div>

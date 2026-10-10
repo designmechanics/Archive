@@ -27,9 +27,6 @@ import { api, DatabaseStats } from './services/api';
 
 import { indexingEngine, IndexingStatus } from './services/indexingEngine';
 import {
-  createEntryFromPack,
-  createPackFromBlob,
-  createPackFromSingleFile,
   extractZipEntries,
   generateInnerZipVideoThumbnail,
   isZipArchive
@@ -345,10 +342,12 @@ export const App: React.FC = () => {
 
       const inners = await extractZipEntries(entry);
       if (inners.length > 0) {
-        setActiveZipArchive({
+        // an archive opened from inside another one remembers it, so Back returns there
+        setActiveZipArchive((prev) => ({
           parent: entry,
-          innerEntries: inners
-        });
+          innerEntries: inners,
+          previous: entry.isZipInnerFile ? prev : null
+        }));
         setFocusIndex(0);
         setCurrentPage(1);
         setOpenId(null);
@@ -363,7 +362,7 @@ export const App: React.FC = () => {
   }, []);
 
   const handleCloseZipContents = () => {
-    setActiveZipArchive(null);
+    setActiveZipArchive((prev) => prev?.previous ?? null);
     setFocusIndex(0);
     setCurrentPage(1);
   };
@@ -1612,7 +1611,7 @@ export const App: React.FC = () => {
               {/* Big Matching UI Close Icon Button */}
               <button
                 onClick={handleCloseZipContents}
-                title="Close Archive View & Return to Library (Esc)"
+                title={activeZipArchive.previous ? 'Back to the archive this one is inside (Esc)' : 'Close Archive View & Return to Library (Esc)'}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1659,7 +1658,7 @@ export const App: React.FC = () => {
                   <line x1="18" y1="6" x2="6" y2="18"></line>
                   <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
-                <span>Close Archive View</span>
+                <span>{activeZipArchive.previous ? `Back to ${activeZipArchive.previous.parent.title}` : 'Close Archive View'}</span>
                 <span
                   style={{
                     fontSize: '10px',

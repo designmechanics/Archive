@@ -176,7 +176,7 @@ These viewers load only when you open a file of that kind, so they cost nothing 
 | `swf` | Flash player ([Ruffle](https://github.com/ruffle-rs/ruffle)) |
 | `docx` `xlsx` `xls` `csv`, `doc` `ppt` | Word, spreadsheets and old Office files (text, slides, properties) |
 | `glb` `gltf` `obj` `stl` `fbx` `dae` `ply` `3mf` `vrm` | 3D viewer; Draco, Meshopt and KTX2 compressed glTF supported |
-| `blend` | The preview picture stored in the Blender file |
+| `blend` | The preview picture stored in the Blender file (plain, gzip or zstd-compressed) |
 | `exe` `dll` `qxp` and other binaries | Icon, version info, imports, text strings, hex dump, embedded pictures |
 | `db` | Thumbs.db picture galleries, SQLite table browser |
 
@@ -184,7 +184,10 @@ These viewers load only when you open a file of that kind, so they cost nothing 
 
 `zip` files are read directly (central directory only, so even multi-gigabyte archives open instantly).
 `rar`, `7z`, `tar`, `tar.gz`, `iso`, `cab`, `dmg`, `epub` and many more open through [7-Zip](https://www.7-zip.org/) when it is installed
-(it is found automatically, or set `SEVENZIP_PATH`). Individual files inside any archive can be previewed with the viewers above.
+(it is found automatically, or set `SEVENZIP_PATH`). Individual files inside any archive can be previewed with the viewers above,
+and archives inside archives open the same way (Back returns to the outer one).
+Archives dropped into the browser (zip, rar, 7z, tar, tar.gz, iso, cab…) open without the server, through
+[libarchive.js](https://github.com/nika-begiashvili/libarchivejs) (MIT).
 
 Files are judged by their content, not their name: a Photoshop file saved as `.jpg` opens as a PSD, and
 files that are not pictures at all (empty, blank/zeroed copies, text saved under a picture name) say so on
@@ -194,11 +197,12 @@ their tile instead of showing a broken image.
 
 - **Thumbnails**: [libvips](https://www.libvips.org/) as WebAssembly ([wasm-vips](https://github.com/kleisauke/wasm-vips), MIT), run in separate worker processes so a bad file can never take the server down.
 - **PSD**: the merged image is read by [PhotoCraft](https://github.com/storytold/photocraft)'s PSD reader (MIT / Apache-2.0), compiled to WebAssembly (`server/vendor/psd.wasm`, source in `native/psd-wasm/`, rebuild with `node scripts/build-psd-wasm.mjs`, Rust ≥ 1.95 needed only for that). CMYK is colour-managed with the file's own ICC profile.
+- **EPS**: Ghostscript as WebAssembly (`@jspawn/ghostscript-wasm`, AGPL-3.0), server only, one process per render. Files that never output a page, or that stop on a broken instruction (old Illustrator gradients), get further tries on a page cut to their bounding box.
+- **Archives in the browser**: [libarchive.js](https://github.com/nika-begiashvili/libarchivejs) (MIT); **zstd .blend**: [fzstd](https://github.com/101arrowz/fzstd) (MIT).
 
-#### Optional helpers
+#### Optional helper
 
-- **7-Zip**: archives other than zip (see above).
-- **Ghostscript**: used only to draw `.eps` files that have no preview picture inside them. It runs as WebAssembly (`@jspawn/ghostscript-wasm`, AGPL-3.0), installed by `npm install`, so nothing extra has to be installed on the machine. It loads in the server on first use and is not part of the browser bundle.
+- **7-Zip**: archives other than zip on disk (see above).
 
 ---
 

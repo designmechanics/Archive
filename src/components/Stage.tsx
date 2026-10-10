@@ -1013,7 +1013,7 @@ export const Stage: React.FC<StageProps> = React.memo(({
       }
       onFocusChange(idx);
     }
-    if (isZipArchive(e) && !e.isZipInnerFile && onOpenZipContents) {
+    if (isZipArchive(e) && onOpenZipContents) {
       onOpenZipContents(e);
     } else {
       onSelectEntry(e.id);
@@ -1809,28 +1809,28 @@ export const Stage: React.FC<StageProps> = React.memo(({
                           borderRadius: '7px',
                           background: isBlack
                             ? 'rgba(255, 255, 255, 0.08)'
-                            : (isZipArchive(e) && !e.isZipInnerFile
+                            : (isZipArchive(e)
                             ? (isLight ? 'rgba(34, 197, 94, 0.16)' : 'rgba(56,239,125,.22)')
                             : (isLight ? 'rgba(241, 245, 249, 0.92)' : 'rgba(29,45,61,.85)')),
                           border: isBlack
                             ? '1px solid rgba(255, 255, 255, 0.18)'
-                            : (isZipArchive(e) && !e.isZipInnerFile
+                            : (isZipArchive(e)
                             ? (isLight ? '1px solid rgba(34, 197, 94, 0.45)' : '1px solid rgba(56,239,125,.45)')
                             : (isLight ? '1px solid rgba(15, 23, 42, 0.12)' : '1px solid rgba(255,255,255,.08)')),
                           color: isBlack
                             ? '#ffffff'
-                            : (isZipArchive(e) && !e.isZipInnerFile
+                            : (isZipArchive(e)
                             ? (isLight ? '#15803d' : '#38ef7d')
                             : (isLight ? '#0f172a' : '#e9edf2')),
                           fontFamily: 'ui-monospace, Menlo, monospace',
                           fontSize: '9px',
-                          fontWeight: isZipArchive(e) && !e.isZipInnerFile ? 700 : 400,
+                          fontWeight: isZipArchive(e) ? 700 : 400,
                           letterSpacing: '.1em',
                           textTransform: 'uppercase',
                           zIndex: 2
                         }}
                       >
-                        {isZipArchive(e) && !e.isZipInnerFile
+                        {isZipArchive(e)
                           ? `📦 ZIP · ${e.fileCount || 'Multiple'} files`
                           : (KINDS[e.type]?.[0] || e.type)}
                       </span>
@@ -1865,7 +1865,7 @@ export const Stage: React.FC<StageProps> = React.memo(({
                       )}
 
                       {/* Explore Archive prompt bar on zip archives */}
-                      {isZipArchive(e) && !e.isZipInnerFile && (
+                      {isZipArchive(e) && (
                         <div
                           style={{
                             position: 'absolute',

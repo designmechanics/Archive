@@ -34,4 +34,11 @@ const jsm = path.join(root, 'node_modules', 'three', 'examples', 'jsm', 'libs');
 copyDir(path.join(jsm, 'draco', 'gltf'), path.join(root, 'public', 'draco'), () => true);
 copyDir(path.join(jsm, 'basis'), path.join(root, 'public', 'basis'), () => true);
 
+// libarchive.js worker + WebAssembly: rar, 7z, tar, gz, iso... dropped into the browser
+copyDir(
+  path.join(root, 'node_modules', 'libarchive.js', 'dist'),
+  path.join(root, 'public', 'libarchive'),
+  (n) => n === 'worker-bundle.js' || n === 'libarchive.wasm'
+);
+
 console.log('[vendor] static assets ready');

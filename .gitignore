@@ -71,6 +71,7 @@ native/*/target/
 public/ruffle/
 public/draco/
 public/basis/
+public/libarchive/
 
 # Local working notes
 AGENTS.md

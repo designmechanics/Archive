@@ -385,7 +385,7 @@ export const ListView: React.FC<ListViewProps> = ({
         key={e.id}
         data-row={e.id}
         onClick={() => {
-          if (isZipArchive(e) && !e.isZipInnerFile && onOpenZipContents) {
+          if (isZipArchive(e) && onOpenZipContents) {
             onOpenZipContents(e);
           } else {
             onSelectEntry(e.id);
@@ -560,10 +560,10 @@ export const ListView: React.FC<ListViewProps> = ({
               ? '#ffffff'
               : isSortFormat
               ? (isLight ? '#1d4ed8' : isMid ? '#09131d' : '#38ef7d')
-              : isZipArchive(e) && !e.isZipInnerFile
+              : isZipArchive(e)
               ? (isLight ? '#15803d' : '#38ef7d')
               : (isLight ? 'var(--tint-ink, #1d4ed8)' : '#416180'),
-            fontWeight: isSortFormat || (isZipArchive(e) && !e.isZipInnerFile) ? 700 : 500,
+            fontWeight: isSortFormat || (isZipArchive(e)) ? 700 : 500,
             background: isBlack
               ? (isSortFormat ? 'rgba(255, 255, 255, 0.16)' : 'transparent')
               : isSortFormat
@@ -578,7 +578,7 @@ export const ListView: React.FC<ListViewProps> = ({
               : 'none'
           }}
         >
-          {isZipArchive(e) && !e.isZipInnerFile ? `📦 ZIP · ${e.fileCount || ''}` : (KINDS[e.type]?.[0] || e.type)}
+          {isZipArchive(e) ? `📦 ZIP · ${e.fileCount || ''}` : (KINDS[e.type]?.[0] || e.type)}
         </span>
 
         {/* Size */}

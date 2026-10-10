@@ -190,6 +190,19 @@ function initSchema(db) {
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('font_thumbs_label_v1', '1')").run();
     }
   } catch {}
+  // One-time: fonts that failed before colour (emoji) fonts, large .ttc collections and damaged
+  // files were handled get one more try.
+  try {
+    const done = db.prepare("SELECT value FROM settings WHERE key = 'font_thumbs_retry_v2'").get();
+    if (!done) {
+      db.prepare(
+        `UPDATE assets SET thumb_failed = 0, thumb_note = NULL WHERE (thumb IS NULL OR thumb = '')
+         AND (lower(file_path) LIKE '%.ttf' OR lower(file_path) LIKE '%.otf' OR lower(file_path) LIKE '%.ttc'
+              OR lower(file_path) LIKE '%.woff' OR lower(file_path) LIKE '%.woff2')`
+      ).run();
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('font_thumbs_retry_v2', '1')").run();
+    }
+  } catch {}
   // thumb_note: why there is no preview, shown on the grid tile ("Empty file", "Damaged — file is blank")
   try {
     db.exec(`ALTER TABLE assets ADD COLUMN thumb_note TEXT`);

@@ -2,7 +2,14 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
-import { serveArchiveEntry, listArchive, findSevenZip } from './archiveReader.js';
+import {
+  serveArchiveEntry,
+  listArchive,
+  findSevenZip,
+  splitNestedEntry,
+  resolveNestedArchive,
+  NEST_SEP
+} from './archiveReader.js';
 import { findGhostscript, renderEpsToPng, isEpsPath } from './ghostscript.js';
 import { canMakeThumbnail } from './thumbMaker.js';
 import { makeThumbnailInProcess, renderPsdPreviewInProcess } from './thumbProcess.js';
@@ -45,6 +52,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
 const THUMBNAILS_DIR = path.resolve(ROOT_DIR, '.thumbnails');
+const NESTED_CACHE_DIR = path.join(THUMBNAILS_DIR, 'nested-archives'); // inner archives, unpacked once
 if (!fs.existsSync(THUMBNAILS_DIR)) {
   fs.mkdirSync(THUMBNAILS_DIR, { recursive: true });
 }
@@ -125,9 +133,18 @@ function handleArchiveEntryStream(req, res, archivePath, innerPath) {
     res.statusCode = 400;
     return res.end('Bad entry path');
   }
-  return serveArchiveEntry(req, res, resolved, innerPath, (p) => {
-    return MIME_TYPES[path.extname(p).toLowerCase()] || 'application/octet-stream';
-  });
+  const contentTypeFor = (p) => MIME_TYPES[path.extname(p).toLowerCase()] || 'application/octet-stream';
+  // `a.zip!/b.png`: a file inside an archive that is itself inside this archive
+  const { chain, last } = splitNestedEntry(innerPath);
+  if (chain.length) {
+    return resolveNestedArchive(resolved, chain, NESTED_CACHE_DIR)
+      .then((inner) => serveArchiveEntry(req, res, inner, last, contentTypeFor))
+      .catch((err) => {
+        res.statusCode = 500;
+        res.end('Could not open the inner archive: ' + err.message);
+      });
+  }
+  return serveArchiveEntry(req, res, resolved, innerPath, contentTypeFor);
 }
 
 /**
@@ -454,7 +471,11 @@ export async function handleApiRequest(req, res, next) {
       const resolved = resolveDiskPath(target);
       if (!resolved) return sendJson(res, { success: false, error: 'Archive not found' }, 404);
       try {
-        const listing = await listArchive(resolved, { maxInner: 200000 });
+        // `entry=inner.zip` (or a chain `a.zip!/b.rar`) lists an archive inside this one
+        const archive = query.entry
+          ? await resolveNestedArchive(resolved, String(query.entry).split(NEST_SEP), NESTED_CACHE_DIR)
+          : resolved;
+        const listing = await listArchive(archive, { maxInner: 200000 });
         return sendJson(res, {
           success: true,
           fileCount: listing.fileCount,

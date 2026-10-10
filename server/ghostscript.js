@@ -88,16 +88,18 @@ function runChild(filePath, dpi, timeoutMs) {
  */
 export async function renderEpsToPng(
   filePath,
-  { dpi = 144, maxBytes = 200 * 1024 * 1024, timeoutMs = 30000 } = {}
+  { dpi = 144, maxBytes = 200 * 1024 * 1024, timeoutMs } = {}
 ) {
   if (!isEpsPath(filePath)) throw new Error('Ghostscript is only used for EPS files');
   if (!findGhostscript()) throw new Error('Ghostscript engine is not installed (run npm install)');
   const stat = await fs.promises.stat(filePath);
   if (stat.size > maxBytes) throw new Error('EPS file is too large to render');
+  // big vector files with embedded images genuinely take a while: 30 s plus 8 s per MB, at most 2 min
+  const limit = timeoutMs ?? Math.min(120000, 30000 + (stat.size / (1024 * 1024)) * 8000);
 
   await takeSlot();
   try {
-    return await runChild(filePath, dpi, timeoutMs);
+    return await runChild(filePath, dpi, limit);
   } finally {
     giveSlot();
   }

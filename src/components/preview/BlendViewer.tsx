@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { readBlendPreview, blendCompression } from '../../services/blendPreview';
+import { readBlendPreview, blendCompression, zstdHead } from '../../services/blendPreview';
 import { viewerRoot, viewerBar, viewerMono, viewerMessage } from './viewerStyles';
 
 interface BlendViewerProps {
@@ -32,11 +32,8 @@ export const BlendViewer: React.FC<BlendViewerProps> = ({ src, name }) => {
         let bytes: Uint8Array = new Uint8Array(await head.arrayBuffer());
         const kind = blendCompression(bytes);
         if (kind === 'zstd') {
-          setMessage('This Blender file uses zstd compression, which cannot be read here. Re-save it with compression off to see its preview.');
-          setState('error');
-          return;
-        }
-        if (kind === 'gzip') {
+          bytes = await zstdHead(bytes); // the first frames hold the preview
+        } else if (kind === 'gzip') {
           const full = await fetch(src);
           bytes = await gunzip(new Uint8Array(await full.arrayBuffer()));
         }
@@ -55,7 +52,7 @@ export const BlendViewer: React.FC<BlendViewerProps> = ({ src, name }) => {
         if (!blob || cancelled) return;
         objectUrl = URL.createObjectURL(blob);
         setImageUrl(objectUrl);
-        setFacts(`Blender ${preview.version.split('').join('.')} · preview ${preview.width} × ${preview.height}${kind === 'gzip' ? ' · gzip' : ''}`);
+        setFacts(`Blender ${preview.version.split('').join('.')} · preview ${preview.width} × ${preview.height}${kind !== 'none' ? ` · ${kind}` : ''}`);
         setState('ready');
       } catch (err: any) {
         if (!cancelled) {

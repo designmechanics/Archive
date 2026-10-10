@@ -403,7 +403,7 @@ export const IngestModal: React.FC<IngestModalProps> = ({
               color: c.textMuted
             }}
           >
-            Each zip becomes one entry · indexed into archive.db with inner file contents
+            Each archive (zip, rar, 7z, tar…) becomes one entry · indexed into archive.db with inner file contents
           </div>
         </label>
 

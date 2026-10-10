@@ -1,7 +1,7 @@
 /**
  * Blender files carry a small preview image (a "TEST" block near the start). This reads it
- * without needing Blender. Handles plain and gzip files; zstd-compressed files (Blender 3.0+ with
- * compression on) are reported as such. Raw bytes only, so it is testable in Node.
+ * without needing Blender. Handles plain, gzip and zstd files (Blender 3.0+ with compression on).
+ * Raw bytes only, so it is testable in Node.
  */
 
 export interface BlendPreview {
@@ -22,6 +22,29 @@ export function blendCompression(b: Uint8Array): 'none' | 'gzip' | 'zstd' {
   if (b[0] === 0x1f && b[1] === 0x8b) return 'gzip';
   if (b[0] === 0x28 && b[1] === 0xb5 && b[2] === 0x2f && b[3] === 0xfd) return 'zstd';
   return 'none';
+}
+
+/**
+ * Decompresses the start of a zstd .blend. Blender writes zstd files as many small independent
+ * frames, so the first megabytes of the file decode on their own and hold the preview; a frame cut
+ * off at the end of `b` is simply left out.
+ */
+export async function zstdHead(b: Uint8Array): Promise<Uint8Array> {
+  const { Decompress } = await import('fzstd');
+  const parts: Uint8Array[] = [];
+  const d = new Decompress((chunk: Uint8Array) => parts.push(chunk));
+  try {
+    d.push(b);
+  } catch {
+    // the head ends inside a frame: keep what was decoded so far
+  }
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let o = 0;
+  for (const p of parts) {
+    out.set(p, o);
+    o += p.length;
+  }
+  return out;
 }
 
 const ascii = (b: Uint8Array, s: number, e: number) => String.fromCharCode(...b.subarray(s, e));

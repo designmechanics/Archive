@@ -107,7 +107,8 @@ function drawLabel(text, px) {
 
 async function fontThumbnail(inputPath, outputPath) {
   const stat = await fs.promises.stat(inputPath);
-  if (stat.size > 20 * 1024 * 1024) throw new Error('font too large');
+  // font collections (.ttc) of CJK fonts run to tens of megabytes
+  if (stat.size > 128 * 1024 * 1024) throw new Error('font too large');
   const buf = await fs.promises.readFile(inputPath);
   let font;
   try {
@@ -117,7 +118,48 @@ async function fontThumbnail(inputPath, outputPath) {
     throw noted('Font cannot be read');
   }
   if (!font) throw noted('Font cannot be read');
+  // No 'head' table: fontkit cannot draw it, but browsers often can. No note, so the browser's
+  // own font thumbnail maker gets a try.
+  if (!font.head) throw new Error('font has no head table');
   const upm = font.unitsPerEm || 1000;
+
+  // Colour fonts (COLR, e.g. Segoe UI Emoji) draw a glyph as coloured layers. fontkit turns every
+  // glyph of such a font into a colour glyph, layers included (and caches them), so a layer's own
+  // outline comes out empty. Outlines are therefore read from a second copy of the font with its
+  // colour tables removed.
+  let outlineFont = font;
+  if (font.directory?.tables?.COLR) {
+    try {
+      const copy = fontkit.create(buf);
+      outlineFont = copy.fonts ? copy.fonts[0] : copy;
+      delete outlineFont.directory.tables.COLR;
+      delete outlineFont.directory.tables.CPAL;
+    } catch {
+      outlineFont = font;
+    }
+  }
+  const outline = (glyph) => {
+    try {
+      return outlineFont.getGlyph(glyph.id).path;
+    } catch {
+      return null;
+    }
+  };
+  const layersOf = (glyph) => {
+    try {
+      return glyph.layers?.length ? glyph.layers : null;
+    } catch {
+      return null;
+    }
+  };
+  const drawable = (glyph) => glyph.id !== 0 && (Boolean(outline(glyph)?.commands.length) || Boolean(layersOf(glyph)));
+  const glyphSvg = (glyph) => {
+    const layers = layersOf(glyph);
+    if (!layers) return `<path d="${outline(glyph)?.toSVG() || ''}"/>`;
+    // A layer in "text colour" comes through as plain black: let it take the tile's text colour
+    const fill = (c) => (c.red === 0 && c.green === 0 && c.blue === 0 ? '' : ` fill="rgba(${c.red},${c.green},${c.blue},${(c.alpha / 255).toFixed(3)})"`);
+    return layers.map(({ glyph: g, color: c }) => `<path${fill(c)} d="${outline(g)?.toSVG() || ''}"/>`).join('');
+  };
 
   // Glyphs for `text`, or, for icon and symbol fonts that have no letters, the first glyphs the
   // font actually draws. Returns [{ glyph, advance }].
@@ -125,13 +167,13 @@ async function fontThumbnail(inputPath, outputPath) {
     try {
       const run = font.layout(text);
       const out = run.glyphs.map((glyph, i) => ({ glyph, advance: run.positions[i].xAdvance }));
-      if (out.some((g) => g.glyph.id !== 0 && g.glyph.path.commands.length)) return out;
+      if (out.some((g) => drawable(g.glyph))) return out;
     } catch {}
     const out = [];
     for (let id = 1; id < (font.numGlyphs || 0) && out.length < count; id++) {
       try {
         const glyph = font.getGlyph(id);
-        if (glyph.path.commands.length) out.push({ glyph, advance: glyph.advanceWidth || upm });
+        if (drawable(glyph)) out.push({ glyph, advance: glyph.advanceWidth || upm });
       } catch {}
     }
     return out;
@@ -140,14 +182,17 @@ async function fontThumbnail(inputPath, outputPath) {
     const scale = px / upm;
     let x = 0;
     const paths = glyphs.map(({ glyph, advance }) => {
-      const p = `<path transform="translate(${x * scale} 0) scale(${scale} ${-scale})" d="${glyph.path.toSVG()}"/>`;
+      const p = `<g transform="translate(${x * scale} 0) scale(${scale} ${-scale})">${glyphSvg(glyph)}</g>`;
       x += advance;
       return p;
     });
     return { svg: paths.join(''), width: x * scale };
   };
 
-  const big = drawRow(glyphsFor('Aa', 2), 170); // the big "Aa"
+  // the big "Aa" (emoji for a colour emoji font, where letters are not the point)
+  const bigGlyphs = glyphsFor(outlineFont !== font ? '😀🎨' : 'Aa', 2);
+  let big = drawRow(bigGlyphs, 170);
+  if (big.width > W - 40) big = drawRow(bigGlyphs, (170 * (W - 40)) / big.width); // wide glyphs: shrink to fit
   const small = drawRow(glyphsFor('Hamburgefonstiv', 10), 26); // a short pangram below
   if (!big.svg && !small.svg) throw noted('Font has no drawable glyphs');
   const paths = [big.svg];
