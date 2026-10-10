@@ -64,6 +64,9 @@ scratch/
 Thumbs.db
 Desktop.ini
 
+# Rust build output (native/psd-wasm → server/vendor/psd.wasm, which IS committed)
+native/*/target/
+
 # Vendor runtime assets copied from node_modules by scripts/copy-vendor.mjs
 public/ruffle/
 public/draco/

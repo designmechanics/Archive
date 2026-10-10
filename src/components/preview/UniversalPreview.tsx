@@ -29,6 +29,27 @@ const RasterViewer = React.lazy(() => import('./RasterViewer'));
 const SwfViewer = React.lazy(() => import('./SwfViewer'));
 const OfficeViewer = React.lazy(() => import('./OfficeViewer'));
 
+/**
+ * Keeps a failing viewer inside the preview pane. Without it, one lazy viewer that cannot load
+ * (e.g. the dev server went away) unmounts the whole app. Remounts per file via its key.
+ */
+class ViewerBoundary extends React.Component<{ children: React.ReactNode }, { error: string | null }> {
+  state = { error: null as string | null };
+  static getDerivedStateFromError(err: unknown) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
+  render() {
+    if (!this.state.error) return this.props.children;
+    const loadFailed = /dynamically imported module|Failed to fetch/i.test(this.state.error);
+    return (
+      <div style={{ padding: 24, fontSize: 13, opacity: 0.8, textAlign: 'center' }}>
+        {loadFailed ? 'This viewer could not be loaded. Is the server running? Reload the page once it is.' : 'This file could not be shown.'}
+        <div style={{ marginTop: 8, fontSize: 11, opacity: 0.7 }}>{this.state.error}</div>
+      </div>
+    );
+  }
+}
+
 interface UniversalPreviewProps {
   theme?: ThemeMode;
   entry: AssetEntry;
@@ -130,6 +151,40 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
   useEffect(() => {
     setActiveFormat(detectedFormat);
   }, [detectedFormat]);
+
+  // Judge a picture by its content, not its name: a Photoshop file saved as .jpg opens in the PSD
+  // viewer, FrontPage/text files named .gif show as text, and a blank or empty file says so
+  // instead of showing a broken image. `thumbNote` is the server's finding from the thumbnail pass.
+  const [contentNotice, setContentNotice] = useState<string | null>(null);
+  useEffect(() => {
+    setContentNotice(null);
+    if (!fileUrl || packSel || !['image', 'raster'].includes(detectedFormat)) return;
+    if (entry.thumbNote) {
+      if (/FrontPage|text|web page/i.test(entry.thumbNote)) {
+        setContentNotice(`${entry.thumbNote}: this file is named like a picture but holds text.`);
+        setActiveFormat('code');
+      } else {
+        setContentNotice(entry.thumbNote);
+      }
+      return;
+    }
+    let cancelled = false;
+    fetch(fileUrl, { headers: { Range: 'bytes=0-15' } })
+      .then((res) => (res.ok ? res.arrayBuffer() : null))
+      .then((buf) => {
+        if (cancelled || !buf) return;
+        const b = new Uint8Array(buf);
+        if (b[0] === 0x38 && b[1] === 0x42 && b[2] === 0x50 && b[3] === 0x53) {
+          // "8BPS"
+          setContentNotice(`This .${(entry.title.split('.').pop() || '').toLowerCase()} is really a Photoshop file.`);
+          setActiveFormat('psd');
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [fileUrl, packSel, detectedFormat, entry.thumbNote, entry.title]);
 
   // Animate format transition
   useEffect(() => {
@@ -482,8 +537,40 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
           >
             Loading preview…
           </div>
+        ) : contentNotice && ['image', 'raster'].includes(activeFormat) ? (
+          // Blank, empty or unreadable "picture": say what it is instead of a broken image
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+              padding: '0 24px',
+              textAlign: 'center',
+              fontFamily: 'ui-monospace, monospace',
+              fontSize: '12px',
+              color: isBlack ? '#ffffff' : isLight ? '#334155' : '#c9d4df'
+            }}
+          >
+            {contentNotice}. There is no picture in this file to show.
+          </div>
         ) : (
-          renderViewer()
+          <>
+            {contentNotice && (
+              <div
+                style={{
+                  padding: '6px 12px',
+                  fontFamily: 'ui-monospace, monospace',
+                  fontSize: '11px',
+                  color: isBlack ? '#ffffff' : isLight ? '#334155' : '#c9d4df',
+                  borderBottom: isLight ? '1px solid rgba(15,23,42,.1)' : '1px solid rgba(255,255,255,.1)'
+                }}
+              >
+                {contentNotice}
+              </div>
+            )}
+            <ViewerBoundary key={`${entry.id}|${packSel || ''}`}>{renderViewer()}</ViewerBoundary>
+          </>
         )}
       </div>
     </div>
@@ -561,7 +648,7 @@ export const UniversalPreview: React.FC<UniversalPreviewProps> = ({
       case 'psd':
         return (
           <Suspense fallback={lazyFallback}>
-            <PsdViewer src={mediaBlobUrl || fileUrl} name={activeTitle} />
+            <PsdViewer src={mediaBlobUrl || fileUrl} name={activeTitle} serverParams={serverParams} />
           </Suspense>
         );
 

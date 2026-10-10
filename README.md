@@ -170,7 +170,7 @@ These viewers load only when you open a file of that kind, so they cost nothing 
 |---|---|
 | `ttf` `otf` `woff` `woff2` `ttc` `dfont` | Font specimen, glyph grid, OpenType features, variable-font axes, metadata |
 | `pfb` `pfm` `afm` (Type 1) | Outline specimen drawn from the font program, plus metrics and kerning tables |
-| `psd` `psb` | Flattened image, layer list with visibility toggles, PNG export |
+| `psd` `psb` | Full-size image in any colour mode (RGB, CMYK, grey, Lab, 8/16/32-bit), layer list with visibility toggles for RGB/grey files, PNG export |
 | `eps` `ai` `indd` | Embedded preview, PDF-based Illustrator files, header details, PostScript source |
 | `tif` `tiff`, `cr2` `nef` `dng` `arw` | TIFF decoder; camera RAW shows its embedded JPEG plus EXIF |
 | `swf` | Flash player ([Ruffle](https://github.com/ruffle-rs/ruffle)) |
@@ -185,6 +185,15 @@ These viewers load only when you open a file of that kind, so they cost nothing 
 `zip` files are read directly (central directory only, so even multi-gigabyte archives open instantly).
 `rar`, `7z`, `tar`, `tar.gz`, `iso`, `cab`, `dmg`, `epub` and many more open through [7-Zip](https://www.7-zip.org/) when it is installed
 (it is found automatically, or set `SEVENZIP_PATH`). Individual files inside any archive can be previewed with the viewers above.
+
+Files are judged by their content, not their name: a Photoshop file saved as `.jpg` opens as a PSD, and
+files that are not pictures at all (empty, blank/zeroed copies, text saved under a picture name) say so on
+their tile instead of showing a broken image.
+
+#### Built-in engines (nothing to install)
+
+- **Thumbnails**: [libvips](https://www.libvips.org/) as WebAssembly ([wasm-vips](https://github.com/kleisauke/wasm-vips), MIT), run in separate worker processes so a bad file can never take the server down.
+- **PSD**: the merged image is read by [PhotoCraft](https://github.com/storytold/photocraft)'s PSD reader (MIT / Apache-2.0), compiled to WebAssembly (`server/vendor/psd.wasm`, source in `native/psd-wasm/`, rebuild with `node scripts/build-psd-wasm.mjs`, Rust ≥ 1.95 needed only for that). CMYK is colour-managed with the file's own ICC profile.
 
 #### Optional helpers
 

@@ -25,7 +25,7 @@ export interface PreviewQueueStatus {
 }
 
 type StatusListener = (s: PreviewQueueStatus) => void;
-type Applier = (thumbs: Map<string, string>) => void;
+type Applier = (thumbs: Map<string, string>, notes: Map<string, string>) => void; // id → url, id → reason
 
 const SERVER_TASKS = 3; // server batches in flight
 const BATCH = 32; // images per server request
@@ -94,6 +94,7 @@ class PreviewQueue {
   private listeners = new Set<StatusListener>();
   private applier: Applier | null = null;
   private pendingThumbs = new Map<string, string>();
+  private pendingNotes = new Map<string, string>();
   private pendingFailed: string[] = [];
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private notifyTimer: ReturnType<typeof setTimeout> | null = null;
@@ -104,7 +105,7 @@ class PreviewQueue {
     return () => this.listeners.delete(listener);
   }
 
-  /** Receives batches of finished thumbnails (id -> url). */
+  /** Receives batches of finished thumbnails (id -> url) and of reasons a file has none (id -> note). */
   setApplier(fn: Applier) {
     this.applier = fn;
   }
@@ -175,8 +176,9 @@ class PreviewQueue {
   private async runServerBatch(batch: AssetEntry[]) {
     this.status.current = batch[0].title;
     let made: Record<string, string | null> = {};
+    let notes: Record<string, string> = {};
     try {
-      made = await api.makeThumbnails(batch.map((e) => e.id));
+      ({ results: made, notes } = await api.makeThumbnails(batch.map((e) => e.id)));
     } catch {
       made = {};
     }
@@ -184,6 +186,7 @@ class PreviewQueue {
     for (const e of batch) {
       const url = made[e.id];
       if (url) this.record(e.id, url);
+      else if (notes[e.id]) this.recordNote(e.id, notes[e.id]); // not a picture: nothing to retry
       else leftovers.push(e);
     }
     // The server could not read these (corrupt, odd formats): the browser gets one try, politely
@@ -227,6 +230,12 @@ class PreviewQueue {
     }
   }
 
+  /** The server found the file is not a picture and has already remembered why. */
+  private recordNote(id: string, note: string) {
+    this.pendingNotes.set(id, note);
+    this.status = { ...this.status, done: this.status.done + 1, failed: this.status.failed + 1 };
+  }
+
   private afterWork() {
     this.scheduleFlush();
     this.notifySoon();
@@ -258,10 +267,12 @@ class PreviewQueue {
   }
 
   private flush() {
-    if (this.pendingThumbs.size > 0 && this.applier) {
+    if ((this.pendingThumbs.size > 0 || this.pendingNotes.size > 0) && this.applier) {
       const batch = this.pendingThumbs;
+      const notes = this.pendingNotes;
       this.pendingThumbs = new Map();
-      this.applier(batch);
+      this.pendingNotes = new Map();
+      this.applier(batch, notes);
     }
     this.flushFailed();
   }

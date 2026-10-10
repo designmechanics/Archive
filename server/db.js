@@ -165,6 +165,35 @@ function initSchema(db) {
   try {
     db.exec(`ALTER TABLE assets ADD COLUMN thumb_failed INTEGER DEFAULT 0`);
   } catch {}
+  // One-time: PSD thumbnails used to be Photoshop's 160 px stored preview. Clear them so the
+  // preview queue remakes them from the full merged image (server/psdMerged.js).
+  try {
+    const done = db.prepare("SELECT value FROM settings WHERE key = 'psd_thumbs_merged_v1'").get();
+    if (!done) {
+      db.prepare(
+        "UPDATE assets SET thumb = NULL, thumb_failed = 0 WHERE lower(file_path) LIKE '%.psd' OR lower(file_path) LIKE '%.psb'"
+      ).run();
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('psd_thumbs_merged_v1', '1')").run();
+    }
+  } catch {}
+  // One-time: font thumbnails made on 2026-10-10 before the label fix have no font name under the
+  // glyphs (the WebAssembly SVG renderer has no fonts). They cannot be told apart, so remake all
+  // server-made font thumbnails; fonts are quick.
+  try {
+    const done = db.prepare("SELECT value FROM settings WHERE key = 'font_thumbs_label_v1'").get();
+    if (!done) {
+      db.prepare(
+        `UPDATE assets SET thumb = NULL, thumb_failed = 0
+         WHERE lower(file_path) LIKE '%.ttf' OR lower(file_path) LIKE '%.otf' OR lower(file_path) LIKE '%.ttc'
+            OR lower(file_path) LIKE '%.woff' OR lower(file_path) LIKE '%.woff2'`
+      ).run();
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('font_thumbs_label_v1', '1')").run();
+    }
+  } catch {}
+  // thumb_note: why there is no preview, shown on the grid tile ("Empty file", "Damaged — file is blank")
+  try {
+    db.exec(`ALTER TABLE assets ADD COLUMN thumb_note TEXT`);
+  } catch {}
   // (date, id) gives the paged listing a stable order; it also covers date-only lookups.
   try {
     db.exec(`CREATE INDEX IF NOT EXISTS idx_assets_date_id ON assets(date, id)`);
@@ -238,7 +267,8 @@ function formatAssetRow(row) {
     search: row.search || '',
     demo: row.demo || '',
     isUserUploaded: Boolean(row.is_user_uploaded),
-    thumbFailed: Boolean(row.thumb_failed)
+    thumbFailed: Boolean(row.thumb_failed),
+    thumbNote: row.thumb_note || undefined
   };
 }
 
@@ -584,6 +614,11 @@ export function markThumbsFailed(ids) {
   });
   tx(ids);
   return ids.length;
+}
+
+/** No preview can ever be made for this file; `note` says why, for the grid tile. */
+export function markThumbFailedWithNote(id, note) {
+  getDatabase().prepare('UPDATE assets SET thumb_failed = 1, thumb_note = ? WHERE id = ?').run(note, id);
 }
 
 export function updateAssetCategory(id, newCat) {

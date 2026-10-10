@@ -178,7 +178,12 @@ export const api = {
    * Batch version of makeThumbnail: one request for many images. Returns id -> URL (null when the
    * server could not make that one).
    */
-  async makeThumbnails(ids: string[]): Promise<Record<string, string | null>> {
+  /**
+   * Server thumbnails for a batch. `results` maps id → thumbnail URL (null if not made); `notes`
+   * maps id → why it can never be made ("Empty file", "Damaged — file is blank"), already
+   * remembered on the server.
+   */
+  async makeThumbnails(ids: string[]): Promise<{ results: Record<string, string | null>; notes: Record<string, string> }> {
     const res = await fetch(`${API_BASE}/thumb/make-batch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -186,7 +191,7 @@ export const api = {
     });
     if (!res.ok) throw new Error(`Thumbnail batch failed: ${res.status}`);
     const data = await res.json();
-    return data.results || {};
+    return { results: data.results || {}, notes: data.notes || {} };
   },
 
   /**

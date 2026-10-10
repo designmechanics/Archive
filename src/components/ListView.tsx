@@ -531,6 +531,20 @@ export const ListView: React.FC<ListViewProps> = ({
             </span>
           )}
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.title}</span>
+          {!e.thumb && e.thumbNote && (
+            // Why there is no preview ("Empty file", "Damaged — file is blank")
+            <span
+              style={{
+                flex: 'none',
+                fontFamily: 'ui-monospace, Menlo, monospace',
+                fontWeight: 400,
+                fontSize: '10px',
+                opacity: 0.6
+              }}
+            >
+              · {e.thumbNote}
+            </span>
+          )}
         </span>
 
         {/* Format */}

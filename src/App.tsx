@@ -251,7 +251,8 @@ export const App: React.FC = () => {
   // Thumbnails finished by the preview queue. Kept outside `entries` so a finished batch does not
   // re-filter and re-sort the whole library; they are merged into the visible page only.
   const thumbOverridesRef = useRef<Map<string, string>>(new Map());
-  const thumbCloneCacheRef = useRef<Map<string, { src: AssetEntry; url: string; clone: AssetEntry }>>(new Map());
+  const thumbNoteOverridesRef = useRef<Map<string, string>>(new Map()); // why a file has no preview
+  const thumbCloneCacheRef = useRef<Map<string, { src: AssetEntry; url: string | null; note?: string; clone: AssetEntry }>>(new Map());
   const [thumbTick, setThumbTick] = useState(0);
   const [isFileTypeSubmenuOpen, setIsFileTypeSubmenuOpen] = useState(false);
 
@@ -584,8 +585,9 @@ export const App: React.FC = () => {
   // Stage two: finished thumbnails (merged into the visible page only). The Previews meter in the
   // sidebar subscribes to the queue itself, so progress ticks do not re-render the whole app.
   useEffect(() => {
-    previewQueue.setApplier((thumbs) => {
+    previewQueue.setApplier((thumbs, notes) => {
       thumbs.forEach((url, id) => thumbOverridesRef.current.set(id, url));
+      notes.forEach((note, id) => thumbNoteOverridesRef.current.set(id, note));
       setThumbTick((t) => t + 1);
     });
   }, []);
@@ -788,16 +790,18 @@ export const App: React.FC = () => {
     // Merge thumbnails the preview queue has finished since the library was loaded.
     // Clones are cached so a card only re-renders when its own thumbnail actually changes.
     const overrides = thumbOverridesRef.current;
-    if (overrides.size === 0) return page;
+    const notes = thumbNoteOverridesRef.current;
+    if (overrides.size === 0 && notes.size === 0) return page;
     const cache = thumbCloneCacheRef.current;
     if (cache.size > 3000) cache.clear();
     return page.map((e) => {
-      const url = overrides.get(e.id);
-      if (!url || e.thumb === url) return e;
+      const url = overrides.get(e.id) || e.thumb;
+      const note = notes.get(e.id) ?? e.thumbNote;
+      if (url === e.thumb && note === e.thumbNote) return e;
       const hit = cache.get(e.id);
-      if (hit && hit.src === e && hit.url === url) return hit.clone;
-      const clone = { ...e, thumb: url };
-      cache.set(e.id, { src: e, url, clone });
+      if (hit && hit.src === e && hit.url === url && hit.note === note) return hit.clone;
+      const clone = { ...e, thumb: url, thumbNote: note };
+      cache.set(e.id, { src: e, url, note, clone });
       return clone;
     });
     // thumbTick changes whenever the preview queue delivers a batch

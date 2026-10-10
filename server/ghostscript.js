@@ -1,32 +1,41 @@
 import fs from 'fs';
 import { createRequire } from 'module';
+import { fork } from 'child_process';
+import { fileURLToPath } from 'url';
 
 /**
- * Ghostscript module. It is used for exactly one job: drawing EPS files that carry no preview
- * picture of their own. Nothing else in the app calls it.
+ * Ghostscript module. It is used for exactly one job: drawing EPS files. Nothing else in the app
+ * calls it.
  *
  * Ghostscript runs as WebAssembly (npm package @jspawn/ghostscript-wasm, AGPL-3.0). Nothing has to
- * be installed on the machine. The ~16 MB engine is loaded on the first EPS that needs it, inside
- * this server process only: it never reaches the browser bundle. Each render gets a fresh engine
- * instance so a broken file cannot poison the next one.
+ * be installed on the machine, and it never reaches the browser bundle.
+ *
+ * Every render runs in its own child process (`ghostscriptWorker.js`). In the server's own process
+ * the engine added process-wide error handlers, leaked one engine per render, froze every request
+ * while it ran and called process.exit() on bad files; in a worker thread it crashed the whole
+ * dev server natively. A child that dies takes nothing with it. Max 2 at once, killed after
+ * `timeoutMs`.
  */
 
 const require = createRequire(import.meta.url);
-let wasmCache;
+const CHILD = fileURLToPath(new URL('./ghostscriptWorker.js', import.meta.url));
+const MAX_RUNNING = 2;
 
-// The package's own loader fetches gs.wasm over the network; in Node we hand it the bytes instead.
-function createEngine() {
-  const factory = require('@jspawn/ghostscript-wasm');
-  if (!wasmCache) wasmCache = fs.readFileSync(require.resolve('@jspawn/ghostscript-wasm/gs.wasm'));
-  return factory({
-    noInitialRun: true,
-    print: () => {},
-    printErr: () => {},
-    instantiateWasm(imports, done) {
-      WebAssembly.instantiate(wasmCache, imports).then((r) => done(r.instance));
-      return {};
-    }
-  });
+let running = 0;
+const waiting = [];
+
+async function takeSlot() {
+  if (running < MAX_RUNNING) {
+    running++;
+    return;
+  }
+  await new Promise((resolve) => waiting.push(resolve));
+}
+
+function giveSlot() {
+  const next = waiting.shift();
+  if (next) next(); // the slot passes straight to the next caller
+  else running--;
 }
 
 /** True when the bundled engine is present (it is an ordinary npm dependency). */
@@ -43,43 +52,53 @@ export function isEpsPath(filePath) {
   return /\.eps$/i.test(filePath || '');
 }
 
+function runChild(filePath, dpi, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const child = fork(CHILD, [], {
+      serialization: 'advanced', // the PNG comes back as a Buffer, not JSON
+      stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+      execArgv: [],
+      windowsHide: true
+    });
+    const timer = setTimeout(() => {
+      reject(new Error('Ghostscript took too long'));
+      child.kill();
+    }, timeoutMs);
+    child.once('message', (msg) => {
+      clearTimeout(timer);
+      if (msg && msg.png) resolve(Buffer.from(msg.png));
+      else reject(new Error((msg && msg.error) || 'Ghostscript produced no image'));
+    });
+    child.once('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+    child.once('exit', (code) => {
+      clearTimeout(timer);
+      reject(new Error(`Ghostscript stopped (code ${code})`)); // no effect once settled
+    });
+    child.send({ filePath, dpi });
+  });
+}
+
 /**
  * Renders page 1 of an EPS file to PNG, cropped to its bounding box.
- * Resolves to a Buffer. Rejects when the file is not an .eps, the engine is missing, or it fails.
+ * Resolves to a Buffer. Rejects when the file is not an .eps, the engine is missing, it fails or
+ * it runs longer than `timeoutMs`.
  */
-export async function renderEpsToPng(filePath, { dpi = 144, maxBytes = 200 * 1024 * 1024 } = {}) {
+export async function renderEpsToPng(
+  filePath,
+  { dpi = 144, maxBytes = 200 * 1024 * 1024, timeoutMs = 30000 } = {}
+) {
   if (!isEpsPath(filePath)) throw new Error('Ghostscript is only used for EPS files');
   if (!findGhostscript()) throw new Error('Ghostscript engine is not installed (run npm install)');
-  const stat = fs.statSync(filePath);
+  const stat = await fs.promises.stat(filePath);
   if (stat.size > maxBytes) throw new Error('EPS file is too large to render');
 
-  const gs = await createEngine();
-  gs.FS.writeFile('/in.eps', fs.readFileSync(filePath));
+  await takeSlot();
   try {
-    gs.callMain([
-      '-dSAFER', // no file writes or shell access from inside the PostScript
-      '-dBATCH',
-      '-dNOPAUSE',
-      '-dQUIET',
-      '-dEPSCrop',
-      '-dTextAlphaBits=4',
-      '-dGraphicsAlphaBits=4',
-      '-sDEVICE=png16m',
-      `-r${dpi}`,
-      '-dFirstPage=1',
-      '-dLastPage=1',
-      '-sOutputFile=/out.png',
-      '/in.eps'
-    ]);
-  } catch {
-    // Emscripten throws on exit; the output file tells us whether it worked
+    return await runChild(filePath, dpi, timeoutMs);
+  } finally {
+    giveSlot();
   }
-  let out;
-  try {
-    out = gs.FS.readFile('/out.png');
-  } catch {
-    out = null;
-  }
-  if (!out || out.length < 8) throw new Error('Ghostscript produced no image');
-  return Buffer.from(out);
 }

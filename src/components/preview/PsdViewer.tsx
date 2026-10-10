@@ -5,6 +5,25 @@ import { viewerRoot, viewerBar, viewerBtn, viewerColors, viewerMono, viewerMessa
 interface PsdViewerProps {
   src: string;
   name: string;
+  /** `path=…` or `id=…` for files on disk: the server draws the full merged image (any colour mode) */
+  serverParams?: string;
+}
+
+const PREVIEW_MAX_SIDE = 2048;
+const MODE_NAMES: Record<number, string> = { 0: 'Bitmap', 1: 'Grey', 2: 'Indexed', 3: 'RGB', 4: 'CMYK', 7: 'Multichannel', 8: 'Duotone', 9: 'Lab' };
+
+/** Header of a PSD from its first 26 bytes, plus the file size, without downloading the file. */
+async function peekPsd(src: string): Promise<{ w: number; h: number; mode: number; bits: number; size: number } | null> {
+  try {
+    const res = await fetch(src, { headers: { Range: 'bytes=0-25' } });
+    const b = new DataView(await res.arrayBuffer());
+    if (b.byteLength < 26 || b.getUint32(0) !== 0x38425053) return null; // "8BPS"
+    const range = res.headers.get('Content-Range'); // "bytes 0-25/123456"
+    const size = range ? Number(range.split('/')[1]) : Number(res.headers.get('Content-Length')) || 0;
+    return { h: b.getUint32(14), w: b.getUint32(18), bits: b.getUint16(22), mode: b.getUint16(24), size };
+  } catch {
+    return null;
+  }
 }
 
 interface LayerNode {
@@ -70,7 +89,11 @@ function countLayers(nodes: LayerNode[]): number {
   return nodes.reduce((n, l) => n + (l.isGroup ? countLayers(l.children) : 1), 0);
 }
 
-export const PsdViewer: React.FC<PsdViewerProps> = ({ src, name }) => {
+export const PsdViewer: React.FC<PsdViewerProps> = ({ src, name, serverParams }) => {
+  // Files on disk: the full merged image drawn by the server (PhotoCraft's reader), shown at once;
+  // layers follow from ag-psd when the file is RGB/grey and small enough to download.
+  const [merged, setMerged] = useState<{ url: string; source: string } | null>(null);
+  const [layersNote, setLayersNote] = useState('');
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [error, setError] = useState('');
   const [dims, setDims] = useState({ w: 0, h: 0, mode: '', bits: 0 });
@@ -93,9 +116,52 @@ export const PsdViewer: React.FC<PsdViewerProps> = ({ src, name }) => {
     compositeRef.current = null;
 
     setPreviewOnly(null);
+    setMerged(null);
+    setLayersNote('');
     let objectUrl: string | null = null;
 
+    // On disk: merged image from the server first, then layers only where ag-psd can draw them
+    const loadFromServer = async (): Promise<boolean> => {
+      if (!serverParams) return false;
+      const head = await peekPsd(src);
+      const res = await fetch(`/api/render/psd?${serverParams}&max=${PREVIEW_MAX_SIDE}`).catch(() => null);
+      if (cancelled || !res || !res.ok) return false;
+      const blob = await res.blob();
+      if (cancelled) return true;
+      objectUrl = URL.createObjectURL(blob);
+      const source = res.headers.get('X-Psd-Source') || 'merged';
+      setMerged({ url: objectUrl, source });
+      if (head) {
+        setBytes(head.size);
+        setDims({ w: head.w, h: head.h, mode: MODE_NAMES[head.mode] || String(head.mode), bits: head.bits });
+        psdSizeRef.current = { w: head.w, h: head.h };
+      }
+      setState('ready');
+
+      const layerable = head && (head.mode === 1 || head.mode === 3) && head.size <= LAYER_DATA_LIMIT;
+      if (!layerable) {
+        setLayersNote(head && head.size > LAYER_DATA_LIMIT ? 'Large file: layers not loaded.' : head ? `${MODE_NAMES[head.mode] || 'This'} file: layer list not available.` : '');
+        return true;
+      }
+      try {
+        setLayersNote('Loading layers…');
+        const buf = await (await fetch(src)).arrayBuffer();
+        const { readPsd } = await import('ag-psd');
+        const psd: any = readPsd(buf, { skipThumbnail: true, skipCompositeImageData: true });
+        if (cancelled) return true;
+        const tree = mapLayers(psd.children);
+        setLayers(tree);
+        setVisible(flattenKeys(tree));
+        setLayersNote('');
+      } catch {
+        if (!cancelled) setLayersNote('Layers could not be read.');
+      }
+      return true;
+    };
+
     (async () => {
+      if (await loadFromServer()) return;
+      if (cancelled) return;
       let buf: ArrayBuffer | null = null;
       try {
         const res = await fetch(src);
@@ -145,13 +211,24 @@ export const PsdViewer: React.FC<PsdViewerProps> = ({ src, name }) => {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [src]);
+  }, [src, serverParams]);
 
   // Paint the stage: the file's own flattened image until a layer is toggled, then a recomposite
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage || state !== 'ready') return;
     stage.innerHTML = '';
+
+    if (!edited && merged) {
+      const img = document.createElement('img');
+      img.src = merged.url;
+      img.alt = name;
+      img.style.maxWidth = '100%';
+      img.style.maxHeight = '100%';
+      img.style.objectFit = 'contain';
+      stage.appendChild(img);
+      return;
+    }
 
     let canvas: HTMLCanvasElement | null = null;
     if (!edited && compositeRef.current) {
@@ -192,10 +269,17 @@ export const PsdViewer: React.FC<PsdViewerProps> = ({ src, name }) => {
         'repeating-conic-gradient(#1b2530 0% 25%, #121a22 0% 50%) 50% / 16px 16px';
       stage.appendChild(canvas);
     }
-  }, [state, edited, visible, layers]);
+  }, [state, edited, visible, layers, merged, name]);
 
   const exportPng = () => {
-    const c = stageRef.current?.querySelector('canvas');
+    let c = stageRef.current?.querySelector('canvas') || null;
+    const img = stageRef.current?.querySelector('img');
+    if (!c && img) {
+      c = document.createElement('canvas');
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      c.getContext('2d')?.drawImage(img, 0, 0);
+    }
     if (!c) return;
     c.toBlob((b) => {
       if (!b) return;
@@ -289,7 +373,11 @@ export const PsdViewer: React.FC<PsdViewerProps> = ({ src, name }) => {
     <div style={viewerRoot}>
       <div style={viewerBar}>
         <span style={viewerMono}>
-          {dims.w} × {dims.h}px · {dims.bits}-bit · {layerCount} layers · {(bytes / 1048576).toFixed(1)} MB
+          {dims.w} × {dims.h}px · {dims.mode ? `${dims.mode} · ` : ''}
+          {dims.bits}-bit · {layerCount ? `${layerCount} layers · ` : ''}
+          {(bytes / 1048576).toFixed(1)} MB
+          {merged?.source === 'stored' ? ' · no full image saved in this file: showing the small preview Photoshop stores' : ''}
+          {layersNote ? ` · ${layersNote}` : ''}
         </span>
         {edited && (
           <button

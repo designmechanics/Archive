@@ -1,15 +1,18 @@
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { serveArchiveEntry, listArchive, findSevenZip } from './archiveReader.js';
 import { findGhostscript, renderEpsToPng, isEpsPath } from './ghostscript.js';
-import { canMakeThumbnail, makeImageThumbnail } from './thumbMaker.js';
+import { canMakeThumbnail } from './thumbMaker.js';
+import { makeThumbnailInProcess, renderPsdPreviewInProcess } from './thumbProcess.js';
 import { isSqliteFile, inspectSqlite } from './sqliteInspect.js';
 
 import {
   queryAssets,
   countAssets,
   markThumbsFailed,
+  markThumbFailedWithNote,
   getAssetById,
   upsertAsset,
   upsertAssetsBulk,
@@ -142,11 +145,15 @@ async function makeServerThumbnail(id) {
   const safeId = id.replace(/[^a-zA-Z0-9_-]/g, '_');
   const filename = `${safeId}.jpg`;
   try {
-    await makeImageThumbnail(source, path.join(THUMBNAILS_DIR, filename));
+    await makeThumbnailInProcess(source, path.join(THUMBNAILS_DIR, filename));
   } catch (err) {
-    return { status: 422, error: err.message };
+    // Not a picture at all (empty, blank, text…): remember why, so the tile can say so and
+    // nothing retries it
+    if (err.note) markThumbFailedWithNote(id, err.note);
+    return { status: 422, error: err.message, note: err.note };
   }
-  const thumbUrl = `/api/thumbnail/${filename}`;
+  // ?v= so a remade thumbnail (same file name) is not served from the browser cache
+  const thumbUrl = `/api/thumbnail/${filename}?v=${Date.now().toString(36)}`;
   db.prepare('UPDATE assets SET thumb = ? WHERE id = ?').run(thumbUrl, id);
   return { thumbUrl };
 }
@@ -511,6 +518,48 @@ export async function handleApiRequest(req, res, next) {
       }
     }
 
+    // Large PSD preview for the viewer: the merged image (PhotoCraft's reader), colour managed,
+    // longest side `max` (default 2048). Cached in .thumbnails/psd-preview/ by path, date and size.
+    // Header X-Psd-Source: 'merged', or 'stored' when only Photoshop's small preview exists.
+    if (pathname === '/api/render/psd' && req.method === 'GET') {
+      let target = query.path ? String(query.path) : null;
+      if (!target && query.id) {
+        const asset = getAssetById(String(query.id));
+        if (asset && asset.filePath) target = asset.filePath;
+      }
+      const resolved = resolveDiskPath(target);
+      if (!resolved) {
+        res.statusCode = 404;
+        return res.end('File not found');
+      }
+      const maxSide = Math.min(8192, Math.max(64, Number(query.max) || 2048));
+      try {
+        const { mtimeMs, size } = await fs.promises.stat(resolved);
+        const key = crypto.createHash('sha1').update(`${resolved}|${mtimeMs}|${size}|${maxSide}`).digest('hex');
+        const dir = path.join(THUMBNAILS_DIR, 'psd-preview');
+        const file = path.join(dir, `${key}.jpg`);
+        const sourceFile = `${file}.src`;
+        let source = fs.existsSync(file) && fs.existsSync(sourceFile) ? fs.readFileSync(sourceFile, 'utf8') : null;
+        if (!source) {
+          await fs.promises.mkdir(dir, { recursive: true });
+          source = await renderPsdPreviewInProcess(resolved, file, maxSide);
+          await fs.promises.writeFile(sourceFile, source);
+        }
+        const jpg = await fs.promises.readFile(file);
+        res.writeHead(200, {
+          'Content-Type': 'image/jpeg',
+          'Content-Length': jpg.length,
+          'Cache-Control': 'max-age=3600',
+          'X-Psd-Source': source,
+          'Access-Control-Expose-Headers': 'X-Psd-Source'
+        });
+        return res.end(jpg);
+      } catch (err) {
+        res.statusCode = 422;
+        return res.end('PSD preview failed: ' + err.message);
+      }
+    }
+
     // Stage two: read the contents of any zips still waiting (idempotent, returns live state)
     if (pathname === '/api/zips/process' && req.method === 'POST') {
       return sendJson(res, { success: true, zips: startZipStage() });
@@ -588,16 +637,18 @@ export async function handleApiRequest(req, res, next) {
       const body = await parseBody(req);
       const ids = Array.isArray(body.ids) ? body.ids.slice(0, 64).map(String) : [];
       const results = {};
+      const notes = {};
       let next = 0;
       const worker = async () => {
         while (next < ids.length) {
           const id = ids[next++];
           const r = await makeServerThumbnail(id);
           results[id] = r.thumbUrl || null;
+          if (r.note) notes[id] = r.note;
         }
       };
       await Promise.all(Array.from({ length: Math.min(8, ids.length) }, worker));
-      return sendJson(res, { success: true, results });
+      return sendJson(res, { success: true, results, notes });
     }
 
     // Remember previews that could not be generated, so they are not retried every launch

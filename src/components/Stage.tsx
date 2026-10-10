@@ -1778,6 +1778,25 @@ export const Stage: React.FC<StageProps> = React.memo(({
                             opacity: 1
                           }}
                         />
+                      ) : e.thumbNote ? (
+                        // Why there is no preview ("Empty file", "Damaged — file is blank")
+                        <span
+                          style={{
+                            position: 'absolute',
+                            inset: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '0 14px',
+                            textAlign: 'center',
+                            fontFamily: 'ui-monospace, Menlo, monospace',
+                            fontSize: '10px',
+                            letterSpacing: '.04em',
+                            color: isBlack ? 'rgba(255,255,255,.62)' : (isLight ? 'rgba(15,23,42,.6)' : 'rgba(233,237,242,.6)')
+                          }}
+                        >
+                          {e.thumbNote}
+                        </span>
                       ) : null}
 
                       {/* Format Kind Badge */}

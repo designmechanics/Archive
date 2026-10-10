@@ -29,6 +29,8 @@ export interface AssetEntry {
   thumb: string | null;
   /** A preview was attempted and could not be made; do not retry automatically */
   thumbFailed?: boolean;
+  /** Why there is no preview, shown on the tile ("Empty file", "Damaged — file is blank") */
+  thumbNote?: string;
   packId: string | null;
   search: string;
   demo: string;

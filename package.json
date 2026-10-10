@@ -1,6 +1,6 @@
 {
   "name": "archive-asset-library",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "All of your media, all in one place.",
   "private": true,
   "license": "MIT",
@@ -41,9 +41,9 @@
     "pdfjs-dist": "^6.3.289",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "sharp": "^0.35.5",
     "three": "^0.186.1",
     "utif2": "^4.1.0",
+    "wasm-vips": "0.0.19",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {

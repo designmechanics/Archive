@@ -1,0 +1,25 @@
+[package]
+name = "archive-psd-wasm"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Reads the merged image of a PSD/PSB for Archive previews, via PhotoCraft's PSD reader"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+# PhotoCraft's standalone PSD reader (MIT OR Apache-2.0), pinned to a known commit
+photocraft-psd = { git = "https://github.com/storytold/photocraft", rev = "05e0b1f8a5a9e1e17798df140bf03f040b95f1e3" }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+# keep this crate out of any parent workspace
+[workspace]
